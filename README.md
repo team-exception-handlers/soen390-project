@@ -17,7 +17,7 @@ npm install
 To run the development version locally:
 
 ```sh
-# to do: fill this out
+npx expo start
 ```
 
 ## Learn More
