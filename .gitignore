@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# Coverage reports
+coverage/
+
 # Expo
 .expo/
 dist/
