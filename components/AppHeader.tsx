@@ -15,9 +15,16 @@ export type Campus = "SGW" | "Loyola";
 type AppHeaderProps = {
   campus: Campus;
   onCampusChange: (campus: Campus) => void;
+  searchText: string;
+  onSearchTextChange: (text: string) => void;
 };
 
-export default function AppHeader({ campus, onCampusChange }: AppHeaderProps) {
+export default function AppHeader({
+  campus,
+  onCampusChange,
+  searchText,
+  onSearchTextChange,
+}: AppHeaderProps) {
   return (
     <LinearGradient
       colors={["#8F1D2C", "#A32638", "#B12A3A"]}
@@ -42,6 +49,8 @@ export default function AppHeader({ campus, onCampusChange }: AppHeaderProps) {
 
       <View style={styles.searchContainer}>
         <TextInput
+          value={searchText}
+          onChangeText={onSearchTextChange}
           placeholder="Search buildings, rooms, services"
           placeholderTextColor="#8E8E93"
           style={styles.input}

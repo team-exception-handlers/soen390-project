@@ -1,18 +1,22 @@
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import AppHeader from "../../components/AppHeader";
+import AppHeader, { Campus } from "../../components/AppHeader";
 
-type Campus = "SGW" | "Loyola";
-
-{
-  /* this allows the selected campus to be visible from the map page*/
-}
 export default function MapScreen() {
+  {
+    /* these make it so we can view selected campus and building from the map level */
+  }
   const [campus, setCampus] = useState<Campus>("SGW");
+  const [searchText, setSearchText] = useState("");
 
   return (
     <View style={styles.container}>
-      <AppHeader campus={campus} onCampusChange={setCampus} />
+      <AppHeader
+        campus={campus}
+        onCampusChange={setCampus}
+        searchText={searchText}
+        onSearchTextChange={setSearchText}
+      />
       {/* map */}
     </View>
   );
