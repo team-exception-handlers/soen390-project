@@ -12,7 +12,7 @@ export default function TabsLayout() {
 
         tabBarStyle: {
           position: "absolute",
-          backgroundColor: "transparent", // IMPORTANT
+          backgroundColor: "transparent",
           borderTopWidth: 0,
         },
 
