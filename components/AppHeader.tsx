@@ -10,11 +10,14 @@ import {
   View,
 } from "react-native";
 
-type Campus = "SGW" | "Loyola";
+export type Campus = "SGW" | "Loyola";
 
-export default function AppHeader() {
-  const [campus, setCampus] = React.useState<Campus>("SGW");
+type AppHeaderProps = {
+  campus: Campus;
+  onCampusChange: (campus: Campus) => void;
+};
 
+export default function AppHeader({ campus, onCampusChange }: AppHeaderProps) {
   return (
     <LinearGradient
       colors={["#8F1D2C", "#A32638", "#B12A3A"]}
@@ -26,12 +29,12 @@ export default function AppHeader() {
         <CampusButton
           label="SGW"
           active={campus === "SGW"}
-          onPress={() => setCampus("SGW")}
+          onPress={() => onCampusChange("SGW")}
         />
         <CampusButton
           label="Loyola"
           active={campus === "Loyola"}
-          onPress={() => setCampus("Loyola")}
+          onPress={() => onCampusChange("Loyola")}
         />
       </BlurView>
 
@@ -47,15 +50,14 @@ export default function AppHeader() {
     </LinearGradient>
   );
 }
-function CampusButton({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
+
+type CampusButtonProps = {
+  label: Campus;
   active: boolean;
   onPress: () => void;
-}) {
+};
+
+function CampusButton({ label, active, onPress }: CampusButtonProps) {
   return (
     <Pressable
       onPress={onPress}
