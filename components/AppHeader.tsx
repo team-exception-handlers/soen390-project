@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 
-export type Campus = "SGW" | "Loyola";
+export type Campus = "SGW" | "LOY";
 
 type AppHeaderProps = {
   campus: Campus;
@@ -40,8 +40,8 @@ export default function AppHeader({
         />
         <CampusButton
           label="Loyola"
-          active={campus === "Loyola"}
-          onPress={() => onCampusChange("Loyola")}
+          active={campus === "LOY"}
+          onPress={() => onCampusChange("LOY")}
         />
       </BlurView>
 
@@ -61,7 +61,7 @@ export default function AppHeader({
 }
 
 type CampusButtonProps = {
-  label: Campus;
+  label: string;
   active: boolean;
   onPress: () => void;
 };
