@@ -647,8 +647,8 @@ export const BUILDINGS: BuildingRecord[] = [
     shortName: "VE Building",
     longName: "Vanier Extension",
     address: "7141 Sherbrooke W",
-    latitude: 45.459026,
-    longitude: -73.638606,
+    latitude: 45.458822,
+    longitude: -73.638573,
   },
   {
     campus: "LOY",
