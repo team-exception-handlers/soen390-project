@@ -85,6 +85,15 @@ export const BUILDINGS: BuildingRecord[] = [
   },
   {
     campus: "LOY",
+    code: "CJ",
+    shortName: "CJ Building",
+    longName: "Communication Studies and Journalism Building",
+    address: "7141, Sherbrooke West",
+    latitude: 45.457478,
+    longitude: -73.640354,
+  },
+  {
+    campus: "LOY",
     code: "CJS",
     shortName: "CJ Building - wing S",
     longName: "Communication Studies and Journalism Building",
@@ -352,6 +361,15 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1424 Bishop Street",
     latitude: 45.496697,
     longitude: -73.577312,
+  },
+  {
+    campus: "SGW",
+    code: "LS",
+    shortName: "LS Building",
+    longName: "Learning Square",
+    address: "1535 De Maisonneuve Blvd. W",
+    latitude: 45.496357,
+    longitude: -73.579425,
   },
   {
     campus: "SGW",

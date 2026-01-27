@@ -25,7 +25,6 @@ export default function MapScreen() {
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const webViewRef = useRef<any>(null);
-  const markerRefs = useRef<{ [key: string]: any }>({});
 
   const isExpoGo = Constants.appOwnership === "expo";
 
@@ -144,11 +143,13 @@ export default function MapScreen() {
         const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
         map.fitBounds(bounds, { padding: [20, 20] });
 
+        // Store polygons by building code
+        const polygonMap = {};
+
         // Render building polygons
         polygonData.features.forEach((feature) => {
             const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
             const buildingCode = feature.properties.code;
-            const buildingInfo = buildings.find(b => b.code === buildingCode);
 
             const polygon = L.polygon(coordinates, {
                 color: '#A32638',
@@ -158,9 +159,14 @@ export default function MapScreen() {
                 className: 'building-polygon'
             }).addTo(map);
 
+            // Store polygon reference
+            polygonMap[buildingCode] = polygon;
+
             polygon.on('click', function(e) {
                 if (selectedPolygon) {
                     selectedPolygon.setStyle({
+                        color: '#A32638',
+                        fillColor: '#A32638',
                         fillOpacity: 0.2,
                         weight: 2
                     });
@@ -168,6 +174,8 @@ export default function MapScreen() {
 
                 // Highlight selected polygon
                 this.setStyle({
+                    color: '#238c51',
+                    fillColor: '#238c51',
                     fillOpacity: 0.5,
                     weight: 3
                 });
@@ -192,21 +200,14 @@ export default function MapScreen() {
                     });
                 }
             });
-
-            // Bind popup with building name
-            if (buildingInfo) {
-                polygon.bindPopup(
-                    '<div class="building-popup">' +
-                    buildingInfo.shortName +
-                    '</div>'
-                );
-            }
         });
 
         // Reset selection on map click
         map.on('click', function() {
             if (selectedPolygon) {
                 selectedPolygon.setStyle({
+                    color: '#A32638',
+                    fillColor: '#A32638',
                     fillOpacity: 0.2,
                     weight: 2
                 });
@@ -226,11 +227,39 @@ export default function MapScreen() {
             const marker = L.marker([building.latitude, building.longitude], {
                 icon: createBuildingIcon(building.code)
             }).addTo(map);
-            marker.bindPopup(
-                '<div class="building-popup">' +
-                building.shortName +
-                '</div>'
-            );
+
+            // Make marker clicks select the polygon
+            marker.on('click', function(e) {
+                let polygon = polygonMap[building.code];
+                if (!polygon && building.code.length > 2) {
+                    const baseCode = building.code.slice(0, -1);
+                    polygon = polygonMap[baseCode];
+                }
+
+                if (polygon) {
+                    if (selectedPolygon) {
+                        selectedPolygon.setStyle({
+                            color: '#A32638',
+                            fillColor: '#A32638',
+                            fillOpacity: 0.2,
+                            weight: 2
+                        });
+                    }
+
+                    if (selectedPolygon === polygon) {
+                        selectedPolygon = null;
+                    } else {
+                        polygon.setStyle({
+                            color: '#238c51',
+                            fillColor: '#238c51',
+                            fillOpacity: 0.5,
+                            weight: 3
+                        });
+                        selectedPolygon = polygon;
+                    }
+                }
+                L.DomEvent.stopPropagation(e);
+            });
         });
     </script>
 </body>
@@ -285,6 +314,9 @@ export default function MapScreen() {
           key={campus}
           style={styles.map}
           initialRegion={region}
+          onPress={() => {
+            setSelectedBuilding(null);
+          }}
         >
           {campusPolygons.features.map((feature: any) => {
             const coordinates = feature.geometry.coordinates[0].map(
@@ -300,8 +332,8 @@ export default function MapScreen() {
               <MapPolygonComponent
                 key={buildingCode}
                 coordinates={coordinates}
-                strokeColor="#A32638"
-                fillColor="#A32638"
+                strokeColor={isSelected ? "#238c51" : "#A32638"}
+                fillColor={isSelected ? "#238c51" : "#A32638"}
                 strokeWidth={isSelected ? 3 : 2}
                 fillOpacity={isSelected ? 0.5 : 0.2}
                 tappable={true}
@@ -309,41 +341,46 @@ export default function MapScreen() {
                   setSelectedBuilding(
                     selectedBuilding === buildingCode ? null : buildingCode,
                   );
-                  // Show marker callout for this building
-                  if (markerRefs.current[buildingCode]) {
-                    markerRefs.current[buildingCode].showCallout();
-                  }
                 }}
               />
             );
           })}
 
-          {campusBuildings.map((building) => (
-            <MapMarkerComponent
-              key={building.code}
-              ref={(ref: any) => {
-                if (ref) {
-                  markerRefs.current[building.code] = ref;
-                }
-              }}
-              coordinate={{
-                latitude: building.latitude,
-                longitude: building.longitude,
-              }}
-            >
-              <View style={styles.markerContainer}>
-                <View style={styles.markerBadge}>
-                  <Text style={styles.markerText}>{building.code}</Text>
+          {campusBuildings.map((building) => {
+            // Find matching polygon code (try exact match, then base code)
+            const hasExactPolygon = campusPolygons.features.some(
+              (f: any) => f.properties.code === building.code,
+            );
+            const polygonCode = hasExactPolygon
+              ? building.code
+              : campusPolygons.features.find(
+                  (f: any) =>
+                    building.code.startsWith(f.properties.code) &&
+                    f.properties.code.length >= 2,
+                )?.properties.code || building.code;
+
+            return (
+              <MapMarkerComponent
+                key={building.code}
+                coordinate={{
+                  latitude: building.latitude,
+                  longitude: building.longitude,
+                }}
+                onPress={() => {
+                  setSelectedBuilding(
+                    selectedBuilding === polygonCode ? null : polygonCode,
+                  );
+                }}
+              >
+                <View style={styles.markerContainer}>
+                  <View style={styles.markerBadge}>
+                    <Text style={styles.markerText}>{building.code}</Text>
+                  </View>
+                  <View style={styles.markerStem} />
                 </View>
-                <View style={styles.markerStem} />
-              </View>
-              <MapCalloutComponent>
-                <View style={styles.callout}>
-                  <Text style={styles.calloutTitle}>{building.shortName}</Text>
-                </View>
-              </MapCalloutComponent>
-            </MapMarkerComponent>
-          ))}
+              </MapMarkerComponent>
+            );
+          })}
         </MapViewComponent>
       ) : (
         <View style={styles.webFallback}>
