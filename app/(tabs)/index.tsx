@@ -7,9 +7,10 @@ import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
 import {
+  findUserBuilding,
   hasLocationPermission,
   requestLocationPermission,
-  startWatchingLocation,
+  startWatchingLocation
 } from "../../utils/locationUtils";
 import { getCampusRegion } from "../../utils/mapRegions";
 
@@ -29,6 +30,7 @@ export default function MapScreen() {
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const webViewRef = useRef<any>(null);
   const [userLocation, setUserLocation] = useState<any>(null);
+  const [currentBuilding, setCurrentBuilding] = useState<string | null | undefined>(undefined);
   const locationSubscription = useRef<any>(null);
   const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
 
@@ -71,7 +73,16 @@ export default function MapScreen() {
       const subscription = await startWatchingLocation((location: Location.LocationObject) => {
         setUserLocation(location);
         setLocationPermissionDenied(false);
-        console.log("User location:", location.coords.latitude, location.coords.longitude);
+        const { latitude, longitude } = location.coords;
+        const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
+        const building = findUserBuilding(latitude, longitude, polygons as any);
+
+        if (building !== currentBuilding) {
+          setCurrentBuilding(building);
+          console.log("Current building:", building || "Outside");
+        }
+
+        console.log("User location:", latitude, longitude);
       });
 
       locationSubscription.current = subscription;
@@ -84,7 +95,7 @@ export default function MapScreen() {
         locationSubscription.current.remove();
       }
     };
-  }, []);
+  }, [campus]);
 
   // Get polygon data based on campus
   const campusPolygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
