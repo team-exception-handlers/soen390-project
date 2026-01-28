@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import * as Location from "expo-location";
 import { useEffect, useRef, useState } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
@@ -317,11 +317,30 @@ export default function MapScreen() {
       />
 
       {locationPermissionDenied && (
-        <View style={styles.permissionBanner}>
+        <TouchableOpacity
+          style={styles.permissionBanner}
+          onPress={async () => {
+            setLocationPermissionDenied(false);
+            const granted = await requestLocationPermission();
+            if (granted) {
+              setLocationPermissionDenied(false);
+              // Restart location tracking
+              const subscription = await startWatchingLocation((location: Location.LocationObject) => {
+                setUserLocation(location);
+                console.log("User location:", location.coords.latitude, location.coords.longitude);
+              });
+              locationSubscription.current = subscription;
+            }
+            else {
+              setLocationPermissionDenied(true);
+            }
+          }}
+          activeOpacity={0.7}
+        >
           <Text style={styles.permissionText}>
-            Enable location permissions to see where you are on campus
+            Enable location permissions to see where you are on campus. Tap here.
           </Text>
-        </View>
+        </TouchableOpacity>
       )}
 
       {Platform.OS === "web" || !MapViewComponent ? (
