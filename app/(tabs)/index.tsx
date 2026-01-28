@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import * as Location from "expo-location";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Platform, StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
@@ -30,6 +30,7 @@ export default function MapScreen() {
   const webViewRef = useRef<any>(null);
   const [userLocation, setUserLocation] = useState<any>(null);
   const locationSubscription = useRef<any>(null);
+  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
 
   const isExpoGo = Constants.appOwnership === "expo";
 
@@ -62,13 +63,14 @@ export default function MapScreen() {
       if (!permission) {
         const granted = await requestLocationPermission();
         if (!granted) {
-          Alert.alert("Location Needed", "Enable location to see where you are on campus");
+          setLocationPermissionDenied(true);
           return;
         }
       }
 
       const subscription = await startWatchingLocation((location: Location.LocationObject) => {
         setUserLocation(location);
+        setLocationPermissionDenied(false);
         console.log("User location:", location.coords.latitude, location.coords.longitude);
       });
 
@@ -313,6 +315,15 @@ export default function MapScreen() {
         searchText={searchText}
         onSearchTextChange={setSearchText}
       />
+
+      {locationPermissionDenied && (
+        <View style={styles.permissionBanner}>
+          <Text style={styles.permissionText}>
+            Enable location permissions to see where you are on campus
+          </Text>
+        </View>
+      )}
+
       {Platform.OS === "web" || !MapViewComponent ? (
         Platform.OS === "web" ? (
           <iframe
@@ -472,4 +483,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
   },
+
+  permissionBanner: {
+    position: "absolute",
+    bottom: 40,
+    alignSelf: "center",
+    backgroundColor: "#ff3700",
+    opacity: 0.9,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+    zIndex: 1000,
+    maxWidth: "90%",
+  },
+
+  permissionText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "white",
+    textAlign: "center",
+  },
+
 });
