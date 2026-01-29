@@ -71,9 +71,24 @@ export default function MapScreen() {
       }
 
       const subscription = await startWatchingLocation((location: Location.LocationObject) => {
-        setUserLocation(location);
+        //setUserLocation(location);
+        //setLocationPermissionDenied(false);
+        //const { latitude, longitude } = location.coords;
+             const latitude = 45.495304;
+        const longitude = -73.579044;
+
+  
+        const fakeLocation = {
+          ...location,
+          coords: {
+            ...location.coords,
+            latitude,
+            longitude,
+          }
+        };
+
+        setUserLocation(fakeLocation);
         setLocationPermissionDenied(false);
-        const { latitude, longitude } = location.coords;
         const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
         const building = findUserBuilding(latitude, longitude, polygons as any);
 
@@ -170,6 +185,7 @@ export default function MapScreen() {
         const map = L.map('map').setView([${latitude}, ${longitude}], 15);
         const buildings = ${JSON.stringify(buildingData)};
         const polygonData = ${JSON.stringify(campusPolygons)};
+        const currentBuilding = ${JSON.stringify(currentBuilding)}; 
         let selectedPolygon = null;
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -229,6 +245,19 @@ export default function MapScreen() {
                 }
             });
         });
+
+                
+                //Highlight current building
+        if (currentBuilding && polygonMap[currentBuilding]) {
+            polygonMap[currentBuilding].setStyle({
+                color: '#FFA500',
+                fillColor: '#FFA500',
+                fillOpacity: 0.5,
+                weight: 3
+            });
+            selectedPolygon = polygonMap[currentBuilding];
+        }
+
 
         map.on('click', function() {
             if (selectedPolygon) {
@@ -320,6 +349,27 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
+{/*
+    {currentBuilding && (
+  <View style={styles.buildingInfo}>
+    <Text style={styles.buildingInfoText}>
+      {BUILDINGS.find(b => b.code === currentBuilding)?.shortName || "Unknown"} ({currentBuilding})
+    </Text>
+  </View>
+)}
+*/}
+{currentBuilding && (() => {
+  const building = BUILDINGS.find(b => b.code === currentBuilding);
+  return building ? (
+    <View style={styles.buildingInfo}>
+      <Text style={styles.buildingInfoText}>
+        {building.longName} ({building.shortName}) - [{building.code}]
+      </Text>
+    </View>
+  ) : null;
+})()}
+
+
       <AppHeader
         campus={campus}
         onCampusChange={setCampus}
@@ -394,8 +444,8 @@ export default function MapScreen() {
               }),
             );
             const buildingCode = feature.properties.code;
-            const isSelected = selectedBuilding === buildingCode;
-
+            const isSelected = selectedBuilding === buildingCode || currentBuilding === buildingCode;
+                                                                  
             return (
               <MapPolygonComponent
                 key={buildingCode}
@@ -538,5 +588,23 @@ const styles = StyleSheet.create({
     color: "white",
     textAlign: "center",
   },
+
+  buildingInfo: {
+  position: "absolute",
+  top: 80, 
+  alignSelf: "center",
+  backgroundColor: "rgba(0,0,0,0.7)",
+  paddingVertical: 8,
+  paddingHorizontal: 16,
+  borderRadius: 10,
+  zIndex: 1000,
+},
+
+buildingInfoText: {
+  color: "white",
+  fontSize: 14,
+  fontWeight: "600",
+},
+
 
 });
