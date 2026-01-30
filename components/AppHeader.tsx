@@ -24,7 +24,7 @@ export default function AppHeader({
   onCampusChange,
   searchText,
   onSearchTextChange,
-}: AppHeaderProps) {
+}: Readonly <AppHeaderProps>) {
   return (
     <LinearGradient
       colors={["#8F1D2C", "#A32638", "#B12A3A"]}
@@ -66,7 +66,7 @@ type CampusButtonProps = {
   onPress: () => void;
 };
 
-function CampusButton({ label, active, onPress }: CampusButtonProps) {
+function CampusButton({ label, active, onPress }: Readonly <CampusButtonProps>) {
   return (
     <Pressable
       onPress={onPress}

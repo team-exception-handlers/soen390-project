@@ -9,7 +9,7 @@ type Props = {
   type: TabType;
 };
 
-export default function BottomTabIcon({ focused, label, type }: Props) {
+export default function BottomTabIcon({ focused, label, type }: Readonly<Props>) {
   const iconName =
     type === "map"
       ? focused
