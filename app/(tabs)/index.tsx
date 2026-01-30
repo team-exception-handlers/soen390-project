@@ -1,9 +1,9 @@
 import Constants from "expo-constants";
 import * as Location from "expo-location";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import AppHeader, { Campus } from "../../components/AppHeader";
-import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
+import { BUILDINGS } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
 import {
@@ -12,6 +12,7 @@ import {
   requestLocationPermission,
   startWatchingLocation
 } from "../../utils/locationUtils";
+
 import { getCampusRegion } from "../../utils/mapRegions";
 
 let WebView: React.ComponentType<any> | null = null;
@@ -71,10 +72,23 @@ export default function MapScreen() {
       }
 
       const subscription = await startWatchingLocation((location: Location.LocationObject) => {
-        setUserLocation(location);
-        setLocationPermissionDenied(false);
+        //setUserLocation(location);
+        //setLocationPermissionDenied(false);
+        //const { latitude, longitude } = location.coords;
+        const latitude = 45.455303;
+        const longitude = -73.579044;
 
-        const { latitude, longitude } = location.coords;
+        const fakeLocation = {
+          ...location,
+          coords: {
+            ...location.coords,
+            latitude,
+            longitude,
+          }
+        };
+
+        setUserLocation(fakeLocation);
+        setLocationPermissionDenied(false);
         const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
         const building = findUserBuilding(latitude, longitude, polygons as any);
 
@@ -94,8 +108,13 @@ export default function MapScreen() {
     setupLocation();
 
     return () => {
-      if (locationSubscription.current?.remove) {
-        locationSubscription.current.remove();
+      if (locationSubscription.current) {
+        try {
+          if (typeof locationSubscription.current.remove === 'function') {
+            locationSubscription.current.remove();
+          }
+        } catch (error) {
+        }
         locationSubscription.current = null;
       }
     };
@@ -104,13 +123,50 @@ export default function MapScreen() {
   // Get polygon data based on campus
   const campusPolygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
 
+  const campusBuildings = BUILDINGS.filter(
+    (building) => building.campus === campus,
+  );
+  const region = getCampusRegion(campus);
+
+  useEffect(() => {
+    if (webViewRef.current && Platform.OS !== "web" && userLocation) {
+      const { latitude, longitude } = userLocation.coords;
+
+      const script = `
+      (function() {
+        try {
+          if (typeof L !== 'undefined' && window.map) {
+            if (window.userMarker) {
+              // Just update position
+              window.userMarker.setLatLng([${latitude}, ${longitude}]);
+              window.map.panTo([${latitude}, ${longitude}], { animate: true, duration: 0.5 });
+              console.log('User marker updated to:', ${latitude}, ${longitude});
+            } else {
+              // Create marker if it doesn't exist
+              const userIcon = L.divIcon({
+                className: 'user-marker',
+                html: '<div style="width: 14px; height: 14px; background: #007AFF; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+              });
+              window.userMarker = L.marker([${latitude}, ${longitude}], { icon: userIcon }).addTo(window.map);
+              console.log('User marker created at:', ${latitude}, ${longitude});
+            }
+          }
+        } catch (e) {
+          console.log('User marker error:', e);
+        }
+      })();
+      true;
+    `;
+      webViewRef.current?.injectJavaScript(script);
+    }
+  }, [userLocation]);
+
   // Generate HTML for web map
-  const getMapHTML = (
-    region: ReturnType<typeof getCampusRegion>,
-    buildings: BuildingRecord[],
-  ) => {
+  const mapHTML = useMemo(() => {
     const { latitude, longitude, latitudeDelta, longitudeDelta } = region;
-    const buildingData = buildings.map(
+    const buildingData = campusBuildings.map(
       ({ latitude: lat, longitude: lng, code, shortName }) => ({
         latitude: lat,
         longitude: lng,
@@ -165,6 +221,10 @@ export default function MapScreen() {
             border-top: 8px solid #A32638;
             filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
         }
+        .user-marker {
+            background: transparent;
+            border: none;
+        }
     </style>
 </head>
 <body>
@@ -172,10 +232,14 @@ export default function MapScreen() {
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const map = L.map('map').setView([${latitude}, ${longitude}], 15);
+        window.map = map; 
         const buildings = ${JSON.stringify(buildingData)};
         const polygonData = ${JSON.stringify(campusPolygons)};
-        const currentBuilding = ${JSON.stringify(currentBuilding)}; 
+        const currentBuilding = ${JSON.stringify(currentBuilding)};
         let selectedPolygon = null;
+        window.polygonMap = {};
+        window.currentBuildingPolygon = null;
+        window.userMarker = null;  
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors',
@@ -184,8 +248,6 @@ export default function MapScreen() {
 
         const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
         map.fitBounds(bounds, { padding: [20, 20] });
-
-        const polygonMap = {};
 
         // Render building polygons
         polygonData.features.forEach((feature) => {
@@ -199,7 +261,7 @@ export default function MapScreen() {
                 weight: 2
             }).addTo(map);
 
-            polygonMap[buildingCode] = polygon;
+            window.polygonMap[buildingCode] = polygon;
 
             polygon.on('click', function(e) {
                 if (selectedPolygon) {
@@ -235,18 +297,16 @@ export default function MapScreen() {
             });
         });
 
-                
-                //Highlight current building
-        if (currentBuilding && polygonMap[currentBuilding]) {
-            polygonMap[currentBuilding].setStyle({
+        // Highlight current building if available
+        if (currentBuilding && window.polygonMap[currentBuilding]) {
+            window.currentBuildingPolygon = window.polygonMap[currentBuilding];
+            window.currentBuildingPolygon.setStyle({
                 color: '#FFA500',
                 fillColor: '#FFA500',
                 fillOpacity: 0.5,
                 weight: 3
             });
-            selectedPolygon = polygonMap[currentBuilding];
         }
-
 
         map.on('click', function() {
             if (selectedPolygon) {
@@ -274,10 +334,10 @@ export default function MapScreen() {
             }).addTo(map);
 
             marker.on('click', function(e) {
-                let polygon = polygonMap[building.code];
+                let polygon = window.polygonMap[building.code];
                 if (!polygon && building.code.length > 2) {
                     const baseCode = building.code.slice(0, -1);
-                    polygon = polygonMap[baseCode];
+                    polygon = window.polygonMap[baseCode];
                 }
 
                 if (polygon) {
@@ -306,8 +366,9 @@ export default function MapScreen() {
             });
         });
 
-        // Add user location if available
+        // ADD USER MARKER HERE (right before closing script tag):
         ${userLat && userLng ? `
+        console.log('Adding user marker at:', ${userLat}, ${userLng});
         const userIcon = L.divIcon({
             className: 'user-marker',
             html: '<div style="width: 14px; height: 14px; background: #007AFF; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
@@ -315,26 +376,13 @@ export default function MapScreen() {
             iconAnchor: [10, 10]
         });
         window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
-        ` : ''}
-
+        ` : 'console.log("No user location available");'}
     </script>
 </body>
 </html>
-    `;
-  };
+  `;
+  }, [campus, currentBuilding]);
 
-  const getMapDataURL = (
-    region: ReturnType<typeof getCampusRegion>,
-    buildings: BuildingRecord[],
-  ) => {
-    const html = getMapHTML(region, buildings);
-    return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
-  };
-
-  const campusBuildings = BUILDINGS.filter(
-    (building) => building.campus === campus,
-  );
-  const region = getCampusRegion(campus);
 
   return (
     <View style={styles.container}>
@@ -388,7 +436,7 @@ export default function MapScreen() {
         Platform.OS === "web" ? (
           <iframe
             key={campus}
-            src={getMapDataURL(region, campusBuildings)}
+            src={`data:text/html;charset=utf-8,${encodeURIComponent(mapHTML)}`}
             style={styles.map}
             frameBorder="0"
             allowFullScreen
@@ -397,7 +445,7 @@ export default function MapScreen() {
           <WebView
             key={campus}
             ref={webViewRef}
-            source={{ html: getMapHTML(region, campusBuildings) }}
+            source={{ html: mapHTML }}
             style={styles.map}
             javaScriptEnabled={true}
             domStorageEnabled={true}
