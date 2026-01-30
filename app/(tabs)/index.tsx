@@ -72,10 +72,25 @@ export default function MapScreen() {
       }
 
       const subscription = await startWatchingLocation((location: Location.LocationObject) => {
-        setUserLocation(location);
+        {/*setUserLocation(location);
         setLocationPermissionDenied(false);
         const { latitude, longitude } = location.coords;
+        */}
+         const latitude = 45.497092;
+        const longitude = -73.5788;
 
+  
+        const fakeLocation = {
+          ...location,
+          coords: {
+            ...location.coords,
+            latitude,
+            longitude,
+          }
+        };
+
+        setUserLocation(fakeLocation);
+        setLocationPermissionDenied(false);
         const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
         const building = findUserBuilding(latitude, longitude, polygons as any);
 
@@ -372,7 +387,9 @@ export default function MapScreen() {
 
 
   return (
-    <View style={styles.container}>
+  
+      <View style={styles.container}>
+         {/*
       {currentBuilding && (() => {
         const building = BUILDINGS.find(b => b.code === currentBuilding);
         return building ? (
@@ -383,7 +400,20 @@ export default function MapScreen() {
           </View>
         ) : null;
       })()}
-
+      */}    
+  {currentBuilding && (() => {
+    const building = BUILDINGS.find(b => b.code === currentBuilding);
+    return building ? (
+      <View style={styles.buildingInfo}>
+        <Text style={styles.buildingInfoTitle}>
+          Current Building:
+        </Text>
+        <Text style={styles.buildingInfoText}>
+          {building.longName} ({building.shortName}) - [{building.code}]
+        </Text>
+      </View>
+    ) : null;
+  })()}
 
       <AppHeader
         campus={campus}
@@ -606,7 +636,7 @@ const styles = StyleSheet.create({
 
   buildingInfo: {
     position: "absolute",
-    top: 80,
+    top: 78.5,
     alignSelf: "center",
     backgroundColor: "rgba(0,0,0,0.7)",
     paddingVertical: 8,
@@ -618,8 +648,16 @@ const styles = StyleSheet.create({
   buildingInfoText: {
     color: "white",
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 
+  buildingInfoTitle: {
+  color: "white",
+  fontSize: 14,
+  fontWeight: "600",
+  marginBottom: 4,
+  textAlign: "center",
+  opacity: 0.9,
+},
 
 });
