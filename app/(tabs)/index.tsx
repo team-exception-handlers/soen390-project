@@ -72,23 +72,10 @@ export default function MapScreen() {
       }
 
       const subscription = await startWatchingLocation((location: Location.LocationObject) => {
-        //setUserLocation(location);
-        //setLocationPermissionDenied(false);
-        //const { latitude, longitude } = location.coords;
-        const latitude = 45.455303;
-        const longitude = -73.579044;
-
-        const fakeLocation = {
-          ...location,
-          coords: {
-            ...location.coords,
-            latitude,
-            longitude,
-          }
-        };
-
-        setUserLocation(fakeLocation);
+        setUserLocation(location);
         setLocationPermissionDenied(false);
+        const { latitude, longitude } = location.coords;
+
         const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
         const building = findUserBuilding(latitude, longitude, polygons as any);
 
