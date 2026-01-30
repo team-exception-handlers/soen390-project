@@ -17,10 +17,8 @@ if (Platform.OS !== "web") {
   }
 }
 
+/* these make it so we can view selected campus and building from the map level */
 export default function MapScreen() {
-  {
-    /* these make it so we can view selected campus and building from the map level */
-  }
   const [campus, setCampus] = useState<Campus>("SGW");
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
@@ -296,6 +294,7 @@ export default function MapScreen() {
             style={styles.map}
             frameBorder="0"
             allowFullScreen
+            title="Concordia map"
           />
         ) : WebView ? (
           <WebView
