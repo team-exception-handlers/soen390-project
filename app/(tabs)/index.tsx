@@ -72,9 +72,25 @@ export default function MapScreen() {
       }
 
       const subscription = await startWatchingLocation((location: Location.LocationObject) => {
-        setUserLocation(location);
+        {/* setUserLocation(location);
         setLocationPermissionDenied(false);
         const { latitude, longitude } = location.coords;
+        */}
+             const latitude = 45.497092;
+        const longitude = -73.5788;
+
+  
+        const fakeLocation = {
+          ...location,
+          coords: {
+            ...location.coords,
+            latitude,
+            longitude,
+          }
+        };
+
+        setUserLocation(fakeLocation);
+        setLocationPermissionDenied(false);
         const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
         const building = findUserBuilding(latitude, longitude, polygons as any);
 
@@ -367,9 +383,16 @@ export default function MapScreen() {
   `;
   }, [campus, currentBuilding]);
 
-
   return (
+    
     <View style={styles.container}>
+          <AppHeader
+        campus={campus}
+        onCampusChange={setCampus}
+        searchText={searchText}
+        onSearchTextChange={setSearchText}
+      />
+
       {currentBuilding && (() => {
         const building = BUILDINGS.find(b => b.code === currentBuilding);
         return building ? (
@@ -383,13 +406,6 @@ export default function MapScreen() {
           </View>
         ) : null;
       })()}
-
-      <AppHeader
-        campus={campus}
-        onCampusChange={setCampus}
-        searchText={searchText}
-        onSearchTextChange={setSearchText}
-      />
 
       {locationPermissionDenied && (
         <TouchableOpacity
@@ -603,30 +619,32 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  buildingInfo: {
-    position: "absolute",
-    top: 78.5,
-    alignSelf: "center",
-    backgroundColor: "rgba(0,0,0,0.7)",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    zIndex: 1000,
-  },
+ buildingInfo: {
+  position: "absolute",
+  top: Platform.OS !== "web" ? 80 : 53,
+  alignSelf: "center",
+  backgroundColor: "rgba(0,0,0,0.7)",
+  paddingVertical: Platform.OS !== "web" ? 4 : 8,  
+  paddingHorizontal: Platform.OS !== "web" ? 8 : 16,
+  borderRadius: Platform.OS !== "web" ? 8 : 10,   
+  zIndex: 1000,
+  maxWidth: Platform.OS !== "web" ? "90%" : undefined, 
+},
 
-  buildingInfoText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "700",
-  },
+buildingInfoText: {
+  color: "white",
+  fontSize: Platform.OS !== "web" ? 12 : 14, 
+  fontWeight: "700",
+  textAlign: "center",
+},
 
-  buildingInfoTitle: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 4,
-    textAlign: "center",
-    opacity: 0.9,
-  },
+buildingInfoTitle: {
+   color: "#FFA500",
+  fontSize: Platform.OS !== "web" ? 12 : 14, 
+  fontWeight: "600",
+  marginBottom: 2,
+  textAlign: "center",
+  opacity: 0.9,
+},
 
 });

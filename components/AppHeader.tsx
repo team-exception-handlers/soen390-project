@@ -81,7 +81,7 @@ function CampusButton({ label, active, onPress }: CampusButtonProps) {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: Platform.OS === "ios" ? 60 : 40,
+    paddingTop: Platform.OS === "ios" ? 60 : 35,
     paddingBottom: 16,
     paddingHorizontal: 16,
   },
@@ -93,6 +93,8 @@ const styles = StyleSheet.create({
     padding: 4,
     overflow: "hidden",
     backgroundColor: "rgba(255,255,255,0.15)",
+    transform: Platform.OS !== "web" ? [{ translateY: -25 }] : [],
+    marginTop: Platform.OS === "web" ? -20 : 0,
   },
 
   toggleButton: {
@@ -117,7 +119,7 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    marginTop: 14,
+    marginTop: Platform.OS !== "web" ? 30: 14, 
     marginBottom: 10,
     fontSize: 28,
     fontWeight: "700",
