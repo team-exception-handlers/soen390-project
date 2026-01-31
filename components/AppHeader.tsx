@@ -8,7 +8,9 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export type Campus = "SGW" | "LOY";
 
@@ -25,12 +27,27 @@ export default function AppHeader({
   searchText,
   onSearchTextChange,
 }: AppHeaderProps) {
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const isWide = width >= 900;
+
   return (
     <LinearGradient
       colors={["#8F1D2C", "#A32638", "#B12A3A"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={styles.container}
+      style={[
+        styles.container,
+        Platform.OS !== "web" ? { paddingTop: insets.top + 12 } : null,
+        isWide
+          ? {
+            paddingHorizontal: 28,
+            alignSelf: "center",
+            width: "100%",
+            maxWidth: 720,
+          }
+          : null,
+      ]}
     >
       <BlurView intensity={35} tint="light" style={styles.glassToggle}>
         <CampusButton
@@ -81,7 +98,7 @@ function CampusButton({ label, active, onPress }: CampusButtonProps) {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: Platform.OS === "ios" ? 60 : 35,
+    paddingTop: Platform.OS === "web" ? 35 : 0,
     paddingBottom: 16,
     paddingHorizontal: 16,
   },
@@ -119,7 +136,7 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    marginTop: Platform.OS !== "web" ? 30: 14, 
+    marginTop: Platform.OS !== "web" ? 30 : 14,
     marginBottom: 10,
     fontSize: 28,
     fontWeight: "700",
