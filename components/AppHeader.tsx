@@ -39,14 +39,7 @@ export default function AppHeader({
       style={[
         styles.container,
         Platform.OS !== "web" ? { paddingTop: insets.top + 12 } : null,
-        isWide
-          ? {
-            paddingHorizontal: 28,
-            alignSelf: "center",
-            width: "100%",
-            maxWidth: 720,
-          }
-          : null,
+        Platform.OS === "web" && isWide ? { paddingHorizontal: 28 } : null,
       ]}
     >
       <BlurView intensity={35} tint="light" style={styles.glassToggle}>

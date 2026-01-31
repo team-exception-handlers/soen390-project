@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import * as Location from "expo-location";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import { BUILDINGS } from "../../constants/buildings";
@@ -425,21 +425,14 @@ export default function MapScreen() {
             { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 },
           ]}
           onPress={async () => {
-            setLocationPermissionDenied(false);
-            const granted = await requestLocationPermission();
-            if (granted) {
-              setLocationPermissionDenied(false);
-              // Restart location tracking
-              const subscription = await startWatchingLocation((location: Location.LocationObject) => {
-                setUserLocation(location);
-                console.log("User location:", location.coords.latitude, location.coords.longitude);
-              });
-              locationSubscription.current = subscription;
-            }
-            else {
-              setLocationPermissionDenied(true);
+            const { status, canAskAgain } = await Location.getForegroundPermissionsAsync();
+            if (!canAskAgain) {
+              await Linking.openSettings();
+            } else {
+              await requestLocationPermission();
             }
           }}
+
           activeOpacity={0.7}
         >
           <Text style={styles.permissionText}>
