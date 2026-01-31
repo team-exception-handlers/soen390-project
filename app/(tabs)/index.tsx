@@ -76,10 +76,10 @@ export default function MapScreen() {
         setLocationPermissionDenied(false);
         const { latitude, longitude } = location.coords;
         */}
-             const latitude = 45.497092;
+        const latitude = 45.497092;
         const longitude = -73.5788;
 
-  
+
         const fakeLocation = {
           ...location,
           coords: {
@@ -232,7 +232,9 @@ export default function MapScreen() {
     <div id="map"></div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const map = L.map('map').setView([${latitude}, ${longitude}], 15);
+        const map = L.map('map', {
+  maxZoom: 22  // Allow super close zoom
+}).setView([${latitude}, ${longitude}], 20);
         window.map = map; 
         const buildings = ${JSON.stringify(buildingData)};
         const polygonData = ${JSON.stringify(campusPolygons)};
@@ -244,7 +246,8 @@ export default function MapScreen() {
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors',
-            maxZoom: 19
+            maxZoom: 22,
+            maxNativeZoom: 19  
         }).addTo(map);
 
         const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
@@ -384,9 +387,9 @@ export default function MapScreen() {
   }, [campus, currentBuilding]);
 
   return (
-    
+
     <View style={styles.container}>
-          <AppHeader
+      <AppHeader
         campus={campus}
         onCampusChange={setCampus}
         searchText={searchText}
@@ -619,32 +622,32 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
- buildingInfo: {
-  position: "absolute",
-  top: Platform.OS !== "web" ? 80 : 53,
-  alignSelf: "center",
-  backgroundColor: "rgba(0,0,0,0.7)",
-  paddingVertical: Platform.OS !== "web" ? 4 : 8,  
-  paddingHorizontal: Platform.OS !== "web" ? 8 : 16,
-  borderRadius: Platform.OS !== "web" ? 8 : 10,   
-  zIndex: 1000,
-  maxWidth: Platform.OS !== "web" ? "90%" : undefined, 
-},
+  buildingInfo: {
+    position: "absolute",
+    top: Platform.OS !== "web" ? 80 : 53,
+    alignSelf: "center",
+    backgroundColor: "rgba(0,0,0,0.7)",
+    paddingVertical: Platform.OS !== "web" ? 4 : 8,
+    paddingHorizontal: Platform.OS !== "web" ? 8 : 16,
+    borderRadius: Platform.OS !== "web" ? 8 : 10,
+    zIndex: 1000,
+    maxWidth: Platform.OS !== "web" ? "90%" : undefined,
+  },
 
-buildingInfoText: {
-  color: "white",
-  fontSize: Platform.OS !== "web" ? 12 : 14, 
-  fontWeight: "700",
-  textAlign: "center",
-},
+  buildingInfoText: {
+    color: "white",
+    fontSize: Platform.OS !== "web" ? 12 : 14,
+    fontWeight: "700",
+    textAlign: "center",
+  },
 
-buildingInfoTitle: {
-   color: "#FFA500",
-  fontSize: Platform.OS !== "web" ? 12 : 14, 
-  fontWeight: "600",
-  marginBottom: 2,
-  textAlign: "center",
-  opacity: 0.9,
-},
+  buildingInfoTitle: {
+    color: "#FFA500",
+    fontSize: Platform.OS !== "web" ? 12 : 14,
+    fontWeight: "600",
+    marginBottom: 2,
+    textAlign: "center",
+    opacity: 0.9,
+  },
 
 });
