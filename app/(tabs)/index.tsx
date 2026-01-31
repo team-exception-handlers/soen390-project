@@ -2,6 +2,7 @@ import Constants from "expo-constants";
 import * as Location from "expo-location";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import { BUILDINGS } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
@@ -36,6 +37,10 @@ export default function MapScreen() {
   const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
 
   const isExpoGo = Constants.appOwnership === "expo";
+
+  const insets = useSafeAreaInsets();
+  const TAB_BAR_HEIGHT = 56;
+
 
   let MapViewComponent: React.ComponentType<any> | null = null;
   let MapMarkerComponent: React.ComponentType<any> | null = null;
@@ -72,25 +77,28 @@ export default function MapScreen() {
       }
 
       const subscription = await startWatchingLocation((location: Location.LocationObject) => {
-        {/* setUserLocation(location);
+        setUserLocation(location);
         setLocationPermissionDenied(false);
         const { latitude, longitude } = location.coords;
+
+        {/*
+          const latitude = 45.497092;
+          const longitude = -73.5788;
+
+
+          const fakeLocation = {
+            ...location,
+            coords: {
+              ...location.coords,
+              latitude,
+              longitude,
+            }
+          };
+
+          setUserLocation(fakeLocation);
+          setLocationPermissionDenied(false);
         */}
-        const latitude = 45.497092;
-        const longitude = -73.5788;
 
-
-        const fakeLocation = {
-          ...location,
-          coords: {
-            ...location.coords,
-            latitude,
-            longitude,
-          }
-        };
-
-        setUserLocation(fakeLocation);
-        setLocationPermissionDenied(false);
         const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
         const building = findUserBuilding(latitude, longitude, polygons as any);
 
@@ -412,7 +420,10 @@ export default function MapScreen() {
 
       {locationPermissionDenied && (
         <TouchableOpacity
-          style={styles.permissionBanner}
+          style={[
+            styles.permissionBanner,
+            { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 },
+          ]}
           onPress={async () => {
             setLocationPermissionDenied(false);
             const granted = await requestLocationPermission();
@@ -599,7 +610,6 @@ const styles = StyleSheet.create({
 
   permissionBanner: {
     position: "absolute",
-    bottom: 40,
     alignSelf: "center",
     backgroundColor: "#ff3700",
     opacity: 0.9,
