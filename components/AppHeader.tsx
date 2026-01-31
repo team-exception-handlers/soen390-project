@@ -76,7 +76,7 @@ type CampusButtonProps = {
   onPress: () => void;
 };
 
-function CampusButton({ label, active, onPress }: CampusButtonProps) {
+function CampusButton({ label, active, onPress }: Readonly <CampusButtonProps>) {
   return (
     <Pressable
       onPress={onPress}
