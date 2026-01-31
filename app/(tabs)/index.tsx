@@ -194,208 +194,207 @@ export default function MapScreen() {
     const userLng = userLocation?.coords.longitude || null;
 
     return `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body { margin: 0; padding: 0; }
-        #map { width: 100%; height: 100vh; }
-        .building-marker {
-            background: transparent;
-            border: none;
-        }
-        .marker-badge {
-            min-width: 30px;
-            height: 28px;
-            padding: 0 8px;
-            border-radius: 14px;
-            background: #A32638;
-            color: #ffffff;
-            font-size: 12px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 2px solid #ffffff;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-        }
-        .marker-stem {
-            width: 0;
-            height: 0;
-            margin: -2px auto 0;
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-top: 8px solid #A32638;
-            filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
-        }
-        .user-marker {
-            background: transparent;
-            border: none;
-        }
-    </style>
-</head>
-<body>
-    <div id="map"></div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        const map = L.map('map', {
-  maxZoom: 22  // Allow super close zoom
-}).setView([${latitude}, ${longitude}], 20);
-        window.map = map; 
-        const buildings = ${JSON.stringify(buildingData)};
-        const polygonData = ${JSON.stringify(campusPolygons)};
-        const currentBuilding = ${JSON.stringify(currentBuilding)};
-        let selectedPolygon = null;
-        window.polygonMap = {};
-        window.currentBuildingPolygon = null;
-        window.userMarker = null;  
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+          <style>
+              body { margin: 0; padding: 0; }
+              #map { width: 100%; height: 100vh; }
+              .building-marker {
+                  background: transparent;
+                  border: none;
+              }
+              .marker-badge {
+                  min-width: 30px;
+                  height: 28px;
+                  padding: 0 8px;
+                  border-radius: 14px;
+                  background: #A32638;
+                  color: #ffffff;
+                  font-size: 12px;
+                  font-weight: 700;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  border: 2px solid #ffffff;
+                  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+              }
+              .marker-stem {
+                  width: 0;
+                  height: 0;
+                  margin: -2px auto 0;
+                  border-left: 6px solid transparent;
+                  border-right: 6px solid transparent;
+                  border-top: 8px solid #A32638;
+                  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
+              }
+              .user-marker {
+                  background: transparent;
+                  border: none;
+              }
+          </style>
+      </head>
+      <body>
+          <div id="map"></div>
+          <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+          <script>
+              const map = L.map('map', {
+                maxZoom: 22  // Allow super close zoom
+              }).setView([${latitude}, ${longitude}], 20);
+              window.map = map; 
+              const buildings = ${JSON.stringify(buildingData)};
+              const polygonData = ${JSON.stringify(campusPolygons)};
+              const currentBuilding = ${JSON.stringify(currentBuilding)};
+              let selectedPolygon = null;
+              window.polygonMap = {};
+              window.currentBuildingPolygon = null;
+              window.userMarker = null;  
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
-            maxZoom: 22,
-            maxNativeZoom: 19  
-        }).addTo(map);
+              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                  attribution: '© OpenStreetMap contributors',
+                  maxZoom: 22,
+                  maxNativeZoom: 19  
+              }).addTo(map);
 
-        const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
-        map.fitBounds(bounds, { padding: [20, 20] });
+              const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
+              map.fitBounds(bounds, { padding: [20, 20] });
 
-        // Render building polygons
-        polygonData.features.forEach((feature) => {
-            const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
-            const buildingCode = feature.properties.code;
+              // Render building polygons
+              polygonData.features.forEach((feature) => {
+                  const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
+                  const buildingCode = feature.properties.code;
 
-            const polygon = L.polygon(coordinates, {
-                color: '#A32638',
-                fillColor: '#A32638',
-                fillOpacity: 0.2,
-                weight: 2
-            }).addTo(map);
+                  const polygon = L.polygon(coordinates, {
+                      color: '#A32638',
+                      fillColor: '#A32638',
+                      fillOpacity: 0.2,
+                      weight: 2
+                  }).addTo(map);
 
-            window.polygonMap[buildingCode] = polygon;
+                  window.polygonMap[buildingCode] = polygon;
 
-            polygon.on('click', function(e) {
-                if (selectedPolygon) {
-                    selectedPolygon.setStyle({
-                        color: '#A32638',
-                        fillColor: '#A32638',
-                        fillOpacity: 0.2,
-                        weight: 2
-                    });
-                }
+                  polygon.on('click', function(e) {
+                      if (selectedPolygon) {
+                          selectedPolygon.setStyle({
+                              color: '#A32638',
+                              fillColor: '#A32638',
+                              fillOpacity: 0.2,
+                              weight: 2
+                          });
+                      }
 
-                this.setStyle({
-                    color: '#238c51',
-                    fillColor: '#238c51',
-                    fillOpacity: 0.5,
-                    weight: 3
-                });
-                selectedPolygon = this;
+                      this.setStyle({
+                          color: '#238c51',
+                          fillColor: '#238c51',
+                          fillOpacity: 0.5,
+                          weight: 3
+                      });
+                      selectedPolygon = this;
 
-                L.DomEvent.stopPropagation(e);
-            });
+                      L.DomEvent.stopPropagation(e);
+                  });
 
-            polygon.on('mouseover', function() {
-                if (this !== selectedPolygon) {
-                    this.setStyle({ fillOpacity: 0.3 });
-                }
-            });
+                  polygon.on('mouseover', function() {
+                      if (this !== selectedPolygon) {
+                          this.setStyle({ fillOpacity: 0.3 });
+                      }
+                  });
 
-            polygon.on('mouseout', function() {
-                if (this !== selectedPolygon) {
-                    this.setStyle({ fillOpacity: 0.2 });
-                }
-            });
-        });
+                  polygon.on('mouseout', function() {
+                      if (this !== selectedPolygon) {
+                          this.setStyle({ fillOpacity: 0.2 });
+                      }
+                  });
+              });
 
-        // Highlight current building if available
-        if (currentBuilding && window.polygonMap[currentBuilding]) {
-            window.currentBuildingPolygon = window.polygonMap[currentBuilding];
-            window.currentBuildingPolygon.setStyle({
-                color: '#FFA500',
-                fillColor: '#FFA500',
-                fillOpacity: 0.5,
-                weight: 3
-            });
-        }
+              // Highlight current building if available
+              if (currentBuilding && window.polygonMap[currentBuilding]) {
+                  window.currentBuildingPolygon = window.polygonMap[currentBuilding];
+                  window.currentBuildingPolygon.setStyle({
+                      color: '#FFA500',
+                      fillColor: '#FFA500',
+                      fillOpacity: 0.5,
+                      weight: 3
+                  });
+              }
 
-        map.on('click', function() {
-            if (selectedPolygon) {
-                selectedPolygon.setStyle({
-                    color: '#A32638',
-                    fillColor: '#A32638',
-                    fillOpacity: 0.2,
-                    weight: 2
-                });
-                selectedPolygon = null;
-            }
-        });
+              map.on('click', function() {
+                  if (selectedPolygon) {
+                      selectedPolygon.setStyle({
+                          color: '#A32638',
+                          fillColor: '#A32638',
+                          fillOpacity: 0.2,
+                          weight: 2
+                      });
+                      selectedPolygon = null;
+                  }
+              });
 
-        const createBuildingIcon = (code) => L.divIcon({
-            className: 'building-marker',
-            html: '<div class="marker-badge">' + code + '</div><div class="marker-stem"></div>',
-            iconSize: [40, 44],
-            iconAnchor: [20, 44],
-            popupAnchor: [0, -40]
-        });
+              const createBuildingIcon = (code) => L.divIcon({
+                  className: 'building-marker',
+                  html: '<div class="marker-badge">' + code + '</div><div class="marker-stem"></div>',
+                  iconSize: [40, 44],
+                  iconAnchor: [20, 44],
+                  popupAnchor: [0, -40]
+              });
 
-        buildings.forEach((building) => {
-            const marker = L.marker([building.latitude, building.longitude], {
-                icon: createBuildingIcon(building.code)
-            }).addTo(map);
+              buildings.forEach((building) => {
+                  const marker = L.marker([building.latitude, building.longitude], {
+                      icon: createBuildingIcon(building.code)
+                  }).addTo(map);
 
-            marker.on('click', function(e) {
-                let polygon = window.polygonMap[building.code];
-                if (!polygon && building.code.length > 2) {
-                    const baseCode = building.code.slice(0, -1);
-                    polygon = window.polygonMap[baseCode];
-                }
+                  marker.on('click', function(e) {
+                      let polygon = window.polygonMap[building.code];
+                      if (!polygon && building.code.length > 2) {
+                          const baseCode = building.code.slice(0, -1);
+                          polygon = window.polygonMap[baseCode];
+                      }
 
-                if (polygon) {
-                    if (selectedPolygon) {
-                        selectedPolygon.setStyle({
-                            color: '#A32638',
-                            fillColor: '#A32638',
-                            fillOpacity: 0.2,
-                            weight: 2
-                        });
-                    }
+                      if (polygon) {
+                          if (selectedPolygon) {
+                              selectedPolygon.setStyle({
+                                  color: '#A32638',
+                                  fillColor: '#A32638',
+                                  fillOpacity: 0.2,
+                                  weight: 2
+                              });
+                          }
 
-                    if (selectedPolygon === polygon) {
-                        selectedPolygon = null;
-                    } else {
-                        polygon.setStyle({
-                            color: '#238c51',
-                            fillColor: '#238c51',
-                            fillOpacity: 0.5,
-                            weight: 3
-                        });
-                        selectedPolygon = polygon;
-                    }
-                }
-                L.DomEvent.stopPropagation(e);
-            });
-        });
+                          if (selectedPolygon === polygon) {
+                              selectedPolygon = null;
+                          } else {
+                              polygon.setStyle({
+                                  color: '#238c51',
+                                  fillColor: '#238c51',
+                                  fillOpacity: 0.5,
+                                  weight: 3
+                              });
+                              selectedPolygon = polygon;
+                          }
+                      }
+                      L.DomEvent.stopPropagation(e);
+                  });
+              });
 
-        ${userLat && userLng ? `
-        console.log('Adding user marker at:', ${userLat}, ${userLng});
-        const userIcon = L.divIcon({
-            className: 'user-marker',
-            html: '<div style="width: 14px; height: 14px; background: #007AFF; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
-        });
-        window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
-        ` : 'console.log("No user location available");'}
-    </script>
-</body>
-</html>
-  `;
+              ${userLat && userLng ? `
+              console.log('Adding user marker at:', ${userLat}, ${userLng});
+              const userIcon = L.divIcon({
+                  className: 'user-marker',
+                  html: '<div style="width: 14px; height: 14px; background: #007AFF; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                  iconSize: [20, 20],
+                  iconAnchor: [10, 10]
+              });
+              window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
+              ` : 'console.log("No user location available");'}
+          </script>
+      </body>
+      </html>
+    `;
   }, [campus, currentBuilding]);
 
   return (
-
     <View style={styles.container}>
       <AppHeader
         campus={campus}
