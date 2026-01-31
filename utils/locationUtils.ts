@@ -24,8 +24,8 @@ export async function startWatchingLocation(
         const subscription = await Location.watchPositionAsync(
             {
                 accuracy: Location.Accuracy.High,
-                timeInterval: 2000,
-                distanceInterval: 10,
+                timeInterval: 1000,
+                distanceInterval: 0,
             },
             callback
         );

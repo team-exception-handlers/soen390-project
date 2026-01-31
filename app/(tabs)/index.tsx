@@ -15,7 +15,7 @@ import {
 
 import { getCampusRegion } from "../../utils/mapRegions";
 
-let WebView: React.ComponentType<any> | null = null;
+let WebView: React.ComponentType<any> | null = null
 if (Platform.OS !== "web") {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -72,25 +72,9 @@ export default function MapScreen() {
       }
 
       const subscription = await startWatchingLocation((location: Location.LocationObject) => {
-        {/*setUserLocation(location);
+        setUserLocation(location);
         setLocationPermissionDenied(false);
         const { latitude, longitude } = location.coords;
-        */}
-         const latitude = 45.497092;
-        const longitude = -73.5788;
-
-  
-        const fakeLocation = {
-          ...location,
-          coords: {
-            ...location.coords,
-            latitude,
-            longitude,
-          }
-        };
-
-        setUserLocation(fakeLocation);
-        setLocationPermissionDenied(false);
         const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
         const building = findUserBuilding(latitude, longitude, polygons as any);
 
@@ -182,7 +166,6 @@ export default function MapScreen() {
     const minLng = longitude - longitudeDelta / 2;
     const maxLng = longitude + longitudeDelta / 2;
 
-    // ADD THESE LINES:
     const userLat = userLocation?.coords.latitude || null;
     const userLng = userLocation?.coords.longitude || null;
 
@@ -368,7 +351,6 @@ export default function MapScreen() {
             });
         });
 
-        // ADD USER MARKER HERE (right before closing script tag):
         ${userLat && userLng ? `
         console.log('Adding user marker at:', ${userLat}, ${userLng});
         const userIcon = L.divIcon({
@@ -387,33 +369,20 @@ export default function MapScreen() {
 
 
   return (
-  
-      <View style={styles.container}>
-         {/*
+    <View style={styles.container}>
       {currentBuilding && (() => {
         const building = BUILDINGS.find(b => b.code === currentBuilding);
         return building ? (
           <View style={styles.buildingInfo}>
+            <Text style={styles.buildingInfoTitle}>
+              Current Building:
+            </Text>
             <Text style={styles.buildingInfoText}>
               {building.longName} ({building.shortName}) - [{building.code}]
             </Text>
           </View>
         ) : null;
       })()}
-      */}    
-  {currentBuilding && (() => {
-    const building = BUILDINGS.find(b => b.code === currentBuilding);
-    return building ? (
-      <View style={styles.buildingInfo}>
-        <Text style={styles.buildingInfoTitle}>
-          Current Building:
-        </Text>
-        <Text style={styles.buildingInfoText}>
-          {building.longName} ({building.shortName}) - [{building.code}]
-        </Text>
-      </View>
-    ) : null;
-  })()}
 
       <AppHeader
         campus={campus}
@@ -652,12 +621,12 @@ const styles = StyleSheet.create({
   },
 
   buildingInfoTitle: {
-  color: "white",
-  fontSize: 14,
-  fontWeight: "600",
-  marginBottom: 4,
-  textAlign: "center",
-  opacity: 0.9,
-},
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 4,
+    textAlign: "center",
+    opacity: 0.9,
+  },
 
 });
