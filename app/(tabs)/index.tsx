@@ -1,7 +1,13 @@
 import Constants from "expo-constants";
-import { useRef, useState } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  View
+} from "react-native";
 import AppHeader, { Campus } from "../../components/AppHeader";
+import BuildingInformation from "../../components/BuildingInformation";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
@@ -32,6 +38,30 @@ export default function MapScreen() {
   let MapMarkerComponent: React.ComponentType<any> | null = null;
   let MapCalloutComponent: React.ComponentType<any> | null = null;
   let MapPolygonComponent: React.ComponentType<any> | null = null;
+
+    useEffect(() => {
+      if (Platform.OS !== "web") return;
+
+      const handler = (event: MessageEvent) => {
+        try {
+          const data =
+            typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+
+          if (data?.type === "buildingSelected") {
+            setSelectedBuilding(data.buildingCode);
+          }
+          if (data?.type === "buildingDeselected") {
+            setSelectedBuilding(null);
+          }
+        } catch {
+          // ignore non-JSON messages
+        }
+      };
+
+      window.addEventListener("message", handler);
+      return () => window.removeEventListener("message", handler);
+    }, []);
+
   if (Platform.OS !== "web" && !isExpoGo) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -180,7 +210,7 @@ export default function MapScreen() {
                     weight: 3
                 });
                 selectedPolygon = this;
-
+                window.parent.postMessage(JSON.stringify({ type: 'buildingSelected', buildingCode: buildingCode }), '*');
                 L.DomEvent.stopPropagation(e);
             });
 
@@ -212,6 +242,7 @@ export default function MapScreen() {
                     weight: 2
                 });
                 selectedPolygon = null;
+                window.parent.postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
             }
         });
 
@@ -258,6 +289,11 @@ export default function MapScreen() {
                         selectedPolygon = polygon;
                     }
                 }
+                    if(selectedPolygon){
+                      window.parent.postMessage(JSON.stringify({type: 'buildingSelected', buildingCode: building.code}), '*');
+                    } else {
+                      window.parent.postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');  
+                    }
                 L.DomEvent.stopPropagation(e);
             });
         });
@@ -288,6 +324,7 @@ export default function MapScreen() {
         searchText={searchText}
         onSearchTextChange={setSearchText}
       />
+
       {Platform.OS === "web" || !MapViewComponent ? (
         Platform.OS === "web" ? (
           <iframe
@@ -314,7 +351,9 @@ export default function MapScreen() {
           key={campus}
           style={styles.map}
           initialRegion={region}
-          onPress={() => {
+          onPress={(e: any) => {
+            const action = e?.nativeEvent?.action;
+            if (action === "marker-press" || action === "polygon-press") return;
             setSelectedBuilding(null);
           }}
         >
@@ -389,6 +428,14 @@ export default function MapScreen() {
           </Text>
         </View>
       )}
+      <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+        <View style={styles.sheetLayer} pointerEvents="box-none">
+          <BuildingInformation
+            buildingCode={selectedBuilding}
+            onClose={() => setSelectedBuilding(null)}
+          />
+        </View>
+      </View>
     </View>
   );
 }
@@ -396,6 +443,7 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    position: "relative",
   },
   map: {
     flex: 1,
@@ -455,5 +503,10 @@ const styles = StyleSheet.create({
     color: "#2C2C2C",
     fontSize: 16,
     textAlign: "center",
+  },
+  sheetLayer:{
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    elevation: 9999,
   },
 });
