@@ -1,13 +1,22 @@
 import Constants from "expo-constants";
-import { useRef, useState } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import * as Location from "expo-location";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader, { Campus } from "../../components/AppHeader";
-import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
+import { BUILDINGS } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
+import {
+  findUserBuilding,
+  hasLocationPermission,
+  requestLocationPermission,
+  startWatchingLocation
+} from "../../utils/locationUtils";
+
 import { getCampusRegion } from "../../utils/mapRegions";
 
-let WebView: React.ComponentType<any> | null = null;
+let WebView: React.ComponentType<any> | null = null
 if (Platform.OS !== "web") {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -23,13 +32,22 @@ export default function MapScreen() {
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const webViewRef = useRef<any>(null);
+  const [userLocation, setUserLocation] = useState<any>(null);
+  const [currentBuilding, setCurrentBuilding] = useState<string | null | undefined>(undefined);
+  const locationSubscription = useRef<any>(null);
+  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
 
   const isExpoGo = Constants.appOwnership === "expo";
+
+  const insets = useSafeAreaInsets();
+  const TAB_BAR_HEIGHT = 56;
+
 
   let MapViewComponent: React.ComponentType<any> | null = null;
   let MapMarkerComponent: React.ComponentType<any> | null = null;
   let MapCalloutComponent: React.ComponentType<any> | null = null;
   let MapPolygonComponent: React.ComponentType<any> | null = null;
+
   if (Platform.OS !== "web" && !isExpoGo) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -46,16 +64,120 @@ export default function MapScreen() {
     }
   }
 
+  // Start tracking user location
+  useEffect(() => {
+    async function setupLocation() {
+      const permission = await hasLocationPermission();
+
+      if (!permission) {
+        const granted = await requestLocationPermission();
+        if (!granted) {
+          setLocationPermissionDenied(true);
+          return;
+        }
+      }
+
+      const subscription = await startWatchingLocation((location: Location.LocationObject) => {
+        setUserLocation(location);
+        setLocationPermissionDenied(false);
+        const { latitude, longitude } = location.coords;
+
+        {/*
+          const latitude = 45.497092;
+          const longitude = -73.5788;
+
+
+          const fakeLocation = {
+            ...location,
+            coords: {
+              ...location.coords,
+              latitude,
+              longitude,
+            }
+          };
+
+          setUserLocation(fakeLocation);
+          setLocationPermissionDenied(false);
+        */}
+
+        const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
+        const building = findUserBuilding(latitude, longitude, polygons as any);
+
+        if (building !== currentBuilding) {
+          setCurrentBuilding(building);
+          console.log("Current building:", building || "Outside");
+        }
+
+        console.log("User location:", latitude, longitude);
+      });
+
+      if (subscription) {
+        locationSubscription.current = subscription;
+      }
+    }
+
+    setupLocation();
+
+    return () => {
+      if (locationSubscription.current) {
+        try {
+          if (typeof locationSubscription.current.remove === 'function') {
+            locationSubscription.current.remove();
+          }
+        } catch (error) {
+        }
+        locationSubscription.current = null;
+      }
+    };
+  }, [campus]);
+
   // Get polygon data based on campus
   const campusPolygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
 
-  // Generate HTML for web map also here
-  const getMapHTML = (
-    region: ReturnType<typeof getCampusRegion>,
-    buildings: BuildingRecord[],
-  ) => {
+  const campusBuildings = BUILDINGS.filter(
+    (building) => building.campus === campus,
+  );
+  const region = getCampusRegion(campus);
+
+  useEffect(() => {
+    if (webViewRef.current && Platform.OS !== "web" && userLocation) {
+      const { latitude, longitude } = userLocation.coords;
+
+      const script = `
+      (function() {
+        try {
+          if (typeof L !== 'undefined' && window.map) {
+            if (window.userMarker) {
+              // Just update position
+              window.userMarker.setLatLng([${latitude}, ${longitude}]);
+              window.map.panTo([${latitude}, ${longitude}], { animate: true, duration: 0.5 });
+              console.log('User marker updated to:', ${latitude}, ${longitude});
+            } else {
+              // Create marker if it doesn't exist
+              const userIcon = L.divIcon({
+                className: 'user-marker',
+                html: '<div style="width: 14px; height: 14px; background: #007AFF; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+              });
+              window.userMarker = L.marker([${latitude}, ${longitude}], { icon: userIcon }).addTo(window.map);
+              console.log('User marker created at:', ${latitude}, ${longitude});
+            }
+          }
+        } catch (e) {
+          console.log('User marker error:', e);
+        }
+      })();
+      true;
+    `;
+      webViewRef.current?.injectJavaScript(script);
+    }
+  }, [userLocation]);
+
+  // Generate HTML for web map
+  const mapHTML = useMemo(() => {
     const { latitude, longitude, latitudeDelta, longitudeDelta } = region;
-    const buildingData = buildings.map(
+    const buildingData = campusBuildings.map(
       ({ latitude: lat, longitude: lng, code, shortName }) => ({
         latitude: lat,
         longitude: lng,
@@ -64,219 +186,214 @@ export default function MapScreen() {
       }),
     );
 
-    // Calculate bounds for better viw of the map
     const minLat = latitude - latitudeDelta / 2;
     const maxLat = latitude + latitudeDelta / 2;
     const minLng = longitude - longitudeDelta / 2;
     const maxLng = longitude + longitudeDelta / 2;
 
+    const userLat = userLocation?.coords.latitude || null;
+    const userLng = userLocation?.coords.longitude || null;
+
     return `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body { margin: 0; padding: 0; }
-        #map { width: 100%; height: 100vh; }
-        .building-label {
-            background: white;
-            border: 1px solid rgba(0, 0, 0, 0.25);
-            border-radius: 12px;
-            padding: 2px 6px;
-            color: #1C1C1E;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .building-popup {
-            font-size: 13px;
-            color: #1C1C1E;
-            font-weight: 600;
-        }
-        .building-marker {
-            background: transparent;
-            border: none;
-        }
-        .marker-badge {
-            min-width: 30px;
-            height: 28px;
-            padding: 0 8px;
-            border-radius: 14px;
-            background: #A32638;
-            color: #ffffff;
-            font-size: 12px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 2px solid #ffffff;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-        }
-        .marker-stem {
-            width: 0;
-            height: 0;
-            margin: -2px auto 0;
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-top: 8px solid #A32638;
-            filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
-        }
-    </style>
-</head>
-<body>
-    <div id="map"></div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        const map = L.map('map').setView([${latitude}, ${longitude}], 15);
-        const buildings = ${JSON.stringify(buildingData)};
-        const polygonData = ${JSON.stringify(campusPolygons)};
-        let selectedPolygon = null;
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+          <style>
+              body { margin: 0; padding: 0; }
+              #map { width: 100%; height: 100vh; }
+              .building-marker {
+                  background: transparent;
+                  border: none;
+              }
+              .marker-badge {
+                  min-width: 30px;
+                  height: 28px;
+                  padding: 0 8px;
+                  border-radius: 14px;
+                  background: #A32638;
+                  color: #ffffff;
+                  font-size: 12px;
+                  font-weight: 700;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  border: 2px solid #ffffff;
+                  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+              }
+              .marker-stem {
+                  width: 0;
+                  height: 0;
+                  margin: -2px auto 0;
+                  border-left: 6px solid transparent;
+                  border-right: 6px solid transparent;
+                  border-top: 8px solid #A32638;
+                  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
+              }
+              .user-marker {
+                  background: transparent;
+                  border: none;
+              }
+          </style>
+      </head>
+      <body>
+          <div id="map"></div>
+          <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+          <script>
+              const map = L.map('map', {
+                maxZoom: 22  // Allow super close zoom
+              }).setView([${latitude}, ${longitude}], 20);
+              window.map = map; 
+              const buildings = ${JSON.stringify(buildingData)};
+              const polygonData = ${JSON.stringify(campusPolygons)};
+              const currentBuilding = ${JSON.stringify(currentBuilding)};
+              let selectedPolygon = null;
+              window.polygonMap = {};
+              window.currentBuildingPolygon = null;
+              window.userMarker = null;  
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
-            maxZoom: 19
-        }).addTo(map);
+              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                  attribution: '© OpenStreetMap contributors',
+                  maxZoom: 22,
+                  maxNativeZoom: 19  
+              }).addTo(map);
 
-        // Set view to show the campus region
-        const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
-        map.fitBounds(bounds, { padding: [20, 20] });
+              const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
+              map.fitBounds(bounds, { padding: [20, 20] });
 
-        // Store polygons by building code
-        const polygonMap = {};
+              // Render building polygons
+              polygonData.features.forEach((feature) => {
+                  const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
+                  const buildingCode = feature.properties.code;
 
-        // Render building polygons
-        polygonData.features.forEach((feature) => {
-            const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
-            const buildingCode = feature.properties.code;
+                  const polygon = L.polygon(coordinates, {
+                      color: '#A32638',
+                      fillColor: '#A32638',
+                      fillOpacity: 0.2,
+                      weight: 2
+                  }).addTo(map);
 
-            const polygon = L.polygon(coordinates, {
-                color: '#A32638',
-                fillColor: '#A32638',
-                fillOpacity: 0.2,
-                weight: 2,
-                className: 'building-polygon'
-            }).addTo(map);
+                  window.polygonMap[buildingCode] = polygon;
 
-            // Store polygon reference
-            polygonMap[buildingCode] = polygon;
+                  polygon.on('click', function(e) {
+                      if (selectedPolygon) {
+                          selectedPolygon.setStyle({
+                              color: '#A32638',
+                              fillColor: '#A32638',
+                              fillOpacity: 0.2,
+                              weight: 2
+                          });
+                      }
 
-            polygon.on('click', function(e) {
-                if (selectedPolygon) {
-                    selectedPolygon.setStyle({
-                        color: '#A32638',
-                        fillColor: '#A32638',
-                        fillOpacity: 0.2,
-                        weight: 2
-                    });
-                }
+                      this.setStyle({
+                          color: '#238c51',
+                          fillColor: '#238c51',
+                          fillOpacity: 0.5,
+                          weight: 3
+                      });
+                      selectedPolygon = this;
 
-                // Highlight selected polygon
-                this.setStyle({
-                    color: '#238c51',
-                    fillColor: '#238c51',
-                    fillOpacity: 0.5,
-                    weight: 3
-                });
-                selectedPolygon = this;
+                      L.DomEvent.stopPropagation(e);
+                  });
 
-                L.DomEvent.stopPropagation(e);
-            });
+                  polygon.on('mouseover', function() {
+                      if (this !== selectedPolygon) {
+                          this.setStyle({ fillOpacity: 0.3 });
+                      }
+                  });
 
-            // Add hover effect
-            polygon.on('mouseover', function() {
-                if (this !== selectedPolygon) {
-                    this.setStyle({
-                        fillOpacity: 0.3
-                    });
-                }
-            });
+                  polygon.on('mouseout', function() {
+                      if (this !== selectedPolygon) {
+                          this.setStyle({ fillOpacity: 0.2 });
+                      }
+                  });
+              });
 
-            polygon.on('mouseout', function() {
-                if (this !== selectedPolygon) {
-                    this.setStyle({
-                        fillOpacity: 0.2
-                    });
-                }
-            });
-        });
+              // Highlight current building if available
+              if (currentBuilding && window.polygonMap[currentBuilding]) {
+                  window.currentBuildingPolygon = window.polygonMap[currentBuilding];
+                  window.currentBuildingPolygon.setStyle({
+                      color: '#FFA500',
+                      fillColor: '#FFA500',
+                      fillOpacity: 0.5,
+                      weight: 3
+                  });
+              }
 
-        // Reset selection on map click
-        map.on('click', function() {
-            if (selectedPolygon) {
-                selectedPolygon.setStyle({
-                    color: '#A32638',
-                    fillColor: '#A32638',
-                    fillOpacity: 0.2,
-                    weight: 2
-                });
-                selectedPolygon = null;
-            }
-        });
+              map.on('click', function() {
+                  if (selectedPolygon) {
+                      selectedPolygon.setStyle({
+                          color: '#A32638',
+                          fillColor: '#A32638',
+                          fillOpacity: 0.2,
+                          weight: 2
+                      });
+                      selectedPolygon = null;
+                  }
+              });
 
-        const createBuildingIcon = (code) => L.divIcon({
-            className: 'building-marker',
-            html: '<div class="marker-badge">' + code + '</div><div class="marker-stem"></div>',
-            iconSize: [40, 44],
-            iconAnchor: [20, 44],
-            popupAnchor: [0, -40]
-        });
+              const createBuildingIcon = (code) => L.divIcon({
+                  className: 'building-marker',
+                  html: '<div class="marker-badge">' + code + '</div><div class="marker-stem"></div>',
+                  iconSize: [40, 44],
+                  iconAnchor: [20, 44],
+                  popupAnchor: [0, -40]
+              });
 
-        buildings.forEach((building) => {
-            const marker = L.marker([building.latitude, building.longitude], {
-                icon: createBuildingIcon(building.code)
-            }).addTo(map);
+              buildings.forEach((building) => {
+                  const marker = L.marker([building.latitude, building.longitude], {
+                      icon: createBuildingIcon(building.code)
+                  }).addTo(map);
 
-            // Make marker clicks select the polygon
-            marker.on('click', function(e) {
-                let polygon = polygonMap[building.code];
-                if (!polygon && building.code.length > 2) {
-                    const baseCode = building.code.slice(0, -1);
-                    polygon = polygonMap[baseCode];
-                }
+                  marker.on('click', function(e) {
+                      let polygon = window.polygonMap[building.code];
+                      if (!polygon && building.code.length > 2) {
+                          const baseCode = building.code.slice(0, -1);
+                          polygon = window.polygonMap[baseCode];
+                      }
 
-                if (polygon) {
-                    if (selectedPolygon) {
-                        selectedPolygon.setStyle({
-                            color: '#A32638',
-                            fillColor: '#A32638',
-                            fillOpacity: 0.2,
-                            weight: 2
-                        });
-                    }
+                      if (polygon) {
+                          if (selectedPolygon) {
+                              selectedPolygon.setStyle({
+                                  color: '#A32638',
+                                  fillColor: '#A32638',
+                                  fillOpacity: 0.2,
+                                  weight: 2
+                              });
+                          }
 
-                    if (selectedPolygon === polygon) {
-                        selectedPolygon = null;
-                    } else {
-                        polygon.setStyle({
-                            color: '#238c51',
-                            fillColor: '#238c51',
-                            fillOpacity: 0.5,
-                            weight: 3
-                        });
-                        selectedPolygon = polygon;
-                    }
-                }
-                L.DomEvent.stopPropagation(e);
-            });
-        });
-    </script>
-</body>
-</html>
+                          if (selectedPolygon === polygon) {
+                              selectedPolygon = null;
+                          } else {
+                              polygon.setStyle({
+                                  color: '#238c51',
+                                  fillColor: '#238c51',
+                                  fillOpacity: 0.5,
+                                  weight: 3
+                              });
+                              selectedPolygon = polygon;
+                          }
+                      }
+                      L.DomEvent.stopPropagation(e);
+                  });
+              });
+
+              ${userLat && userLng ? `
+              console.log('Adding user marker at:', ${userLat}, ${userLng});
+              const userIcon = L.divIcon({
+                  className: 'user-marker',
+                  html: '<div style="width: 14px; height: 14px; background: #007AFF; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                  iconSize: [20, 20],
+                  iconAnchor: [10, 10]
+              });
+              window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
+              ` : 'console.log("No user location available");'}
+          </script>
+      </body>
+      </html>
     `;
-  };
-
-  const getMapDataURL = (
-    region: ReturnType<typeof getCampusRegion>,
-    buildings: BuildingRecord[],
-  ) => {
-    const html = getMapHTML(region, buildings);
-    return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
-  };
-
-  const campusBuildings = BUILDINGS.filter(
-    (building) => building.campus === campus,
-  );
-  const region = getCampusRegion(campus);
+  }, [campus, currentBuilding]);
 
   return (
     <View style={styles.container}>
@@ -286,11 +403,49 @@ export default function MapScreen() {
         searchText={searchText}
         onSearchTextChange={setSearchText}
       />
+
+      {currentBuilding && (() => {
+        const building = BUILDINGS.find(b => b.code === currentBuilding);
+        return building ? (
+          <View style={styles.buildingInfo}>
+            <Text style={styles.buildingInfoTitle}>
+              Current Building:
+            </Text>
+            <Text style={styles.buildingInfoText}>
+              {building.longName} ({building.shortName}) - [{building.code}]
+            </Text>
+          </View>
+        ) : null;
+      })()}
+
+      {locationPermissionDenied && (
+        <TouchableOpacity
+          style={[
+            styles.permissionBanner,
+            { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 },
+          ]}
+          onPress={async () => {
+            const { status, canAskAgain } = await Location.getForegroundPermissionsAsync();
+            if (!canAskAgain) {
+              await Linking.openSettings();
+            } else {
+              await requestLocationPermission();
+            }
+          }}
+
+          activeOpacity={0.7}
+        >
+          <Text style={styles.permissionText}>
+            Enable location permissions to see where you are on campus. Tap here.
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {Platform.OS === "web" || !MapViewComponent ? (
         Platform.OS === "web" ? (
           <iframe
             key={campus}
-            src={getMapDataURL(region, campusBuildings)}
+            src={`data:text/html;charset=utf-8,${encodeURIComponent(mapHTML)}`}
             style={styles.map}
             frameBorder="0"
             allowFullScreen
@@ -300,7 +455,7 @@ export default function MapScreen() {
           <WebView
             key={campus}
             ref={webViewRef}
-            source={{ html: getMapHTML(region, campusBuildings) }}
+            source={{ html: mapHTML }}
             style={styles.map}
             javaScriptEnabled={true}
             domStorageEnabled={true}
@@ -313,6 +468,8 @@ export default function MapScreen() {
           key={campus}
           style={styles.map}
           initialRegion={region}
+          showsUserLocation={true}
+          showsMyLocationButton={true}
           onPress={() => {
             setSelectedBuilding(null);
           }}
@@ -325,7 +482,7 @@ export default function MapScreen() {
               }),
             );
             const buildingCode = feature.properties.code;
-            const isSelected = selectedBuilding === buildingCode;
+            const isSelected = selectedBuilding === buildingCode || currentBuilding === buildingCode;
 
             return (
               <MapPolygonComponent
@@ -346,17 +503,16 @@ export default function MapScreen() {
           })}
 
           {campusBuildings.map((building) => {
-            // Find matching polygon code (try exact match, then base code)
             const hasExactPolygon = campusPolygons.features.some(
               (f: any) => f.properties.code === building.code,
             );
             const polygonCode = hasExactPolygon
               ? building.code
               : campusPolygons.features.find(
-                  (f: any) =>
-                    building.code.startsWith(f.properties.code) &&
-                    f.properties.code.length >= 2,
-                )?.properties.code || building.code;
+                (f: any) =>
+                  building.code.startsWith(f.properties.code) &&
+                  f.properties.code.length >= 2,
+              )?.properties.code || building.code;
 
             return (
               <MapMarkerComponent
@@ -434,16 +590,6 @@ const styles = StyleSheet.create({
     borderRightColor: "transparent",
     borderTopColor: "#A32638",
   },
-  callout: {
-    minWidth: 140,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-  },
-  calloutTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1C1C1E",
-  },
   webFallback: {
     flex: 1,
     alignItems: "center",
@@ -455,4 +601,57 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
   },
+
+  permissionBanner: {
+    position: "absolute",
+    alignSelf: "center",
+    backgroundColor: "#ff3700",
+    opacity: 0.9,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+    zIndex: 1000,
+    maxWidth: "90%",
+  },
+
+  permissionText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "white",
+    textAlign: "center",
+  },
+
+  buildingInfo: {
+    position: "absolute",
+    top: Platform.OS !== "web" ? 80 : 53,
+    alignSelf: "center",
+    backgroundColor: "rgba(0,0,0,0.7)",
+    paddingVertical: Platform.OS !== "web" ? 4 : 8,
+    paddingHorizontal: Platform.OS !== "web" ? 8 : 16,
+    borderRadius: Platform.OS !== "web" ? 8 : 10,
+    zIndex: 1000,
+    maxWidth: Platform.OS !== "web" ? "90%" : undefined,
+  },
+
+  buildingInfoText: {
+    color: "white",
+    fontSize: Platform.OS !== "web" ? 12 : 14,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  buildingInfoTitle: {
+    color: "#FFA500",
+    fontSize: Platform.OS !== "web" ? 12 : 14,
+    fontWeight: "600",
+    marginBottom: 2,
+    textAlign: "center",
+    opacity: 0.9,
+  },
+
 });

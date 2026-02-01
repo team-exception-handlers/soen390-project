@@ -8,7 +8,9 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export type Campus = "SGW" | "LOY";
 
@@ -24,13 +26,21 @@ export default function AppHeader({
   onCampusChange,
   searchText,
   onSearchTextChange,
-}: Readonly <AppHeaderProps>) {
+}: AppHeaderProps) {
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const isWide = width >= 900;
+
   return (
     <LinearGradient
       colors={["#8F1D2C", "#A32638", "#B12A3A"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={styles.container}
+      style={[
+        styles.container,
+        Platform.OS !== "web" ? { paddingTop: insets.top + 12 } : null,
+        Platform.OS === "web" && isWide ? { paddingHorizontal: 28 } : null,
+      ]}
     >
       <BlurView intensity={35} tint="light" style={styles.glassToggle}>
         <CampusButton
@@ -81,7 +91,7 @@ function CampusButton({ label, active, onPress }: Readonly <CampusButtonProps>) 
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: Platform.OS === "ios" ? 60 : 40,
+    paddingTop: Platform.OS === "web" ? 35 : 0,
     paddingBottom: 16,
     paddingHorizontal: 16,
   },
@@ -93,6 +103,8 @@ const styles = StyleSheet.create({
     padding: 4,
     overflow: "hidden",
     backgroundColor: "rgba(255,255,255,0.15)",
+    transform: Platform.OS !== "web" ? [{ translateY: -25 }] : [],
+    marginTop: Platform.OS === "web" ? -20 : 0,
   },
 
   toggleButton: {
@@ -117,7 +129,7 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    marginTop: 14,
+    marginTop: Platform.OS !== "web" ? 30 : 14,
     marginBottom: 10,
     fontSize: 28,
     fontWeight: "700",
