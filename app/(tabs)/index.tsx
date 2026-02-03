@@ -409,7 +409,7 @@ export default function MapScreen() {
             { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 },
           ]}
           onPress={async () => {
-            const { status, canAskAgain } = await Location.getForegroundPermissionsAsync();
+            const { canAskAgain } = await Location.getForegroundPermissionsAsync();
             if (!canAskAgain) {
               await Linking.openSettings();
             } else {
