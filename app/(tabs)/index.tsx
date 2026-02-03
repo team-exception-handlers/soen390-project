@@ -82,24 +82,6 @@ export default function MapScreen() {
         setLocationPermissionDenied(false);
         const { latitude, longitude } = location.coords;
 
-        {/*
-          const latitude = 45.497092;
-          const longitude = -73.5788;
-
-
-          const fakeLocation = {
-            ...location,
-            coords: {
-              ...location.coords,
-              latitude,
-              longitude,
-            }
-          };
-
-          setUserLocation(fakeLocation);
-          setLocationPermissionDenied(false);
-        */}
-
         const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
         const building = findUserBuilding(latitude, longitude, polygons as any);
 
