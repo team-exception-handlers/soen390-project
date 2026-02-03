@@ -9,15 +9,15 @@ type Props = {
   type: TabType;
 };
 
+function getIconName(type: TabType, focused: boolean): "map" | "map-outline" | "person" | "person-outline" {
+  if (type === "map") {
+    return focused ? "map" : "map-outline";
+  }
+  return focused ? "person" : "person-outline";
+}
+
 export default function BottomTabIcon({ focused, label, type }: Readonly<Props>) {
-  const iconName =
-    type === "map"
-      ? focused
-        ? "map"
-        : "map-outline"
-      : focused
-        ? "person"
-        : "person-outline";
+  const iconName = getIconName(type, focused);
 
   return (
     <View style={styles.container}>
