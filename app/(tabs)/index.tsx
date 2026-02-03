@@ -107,8 +107,10 @@ export default function MapScreen() {
             locationSubscription.current.remove();
           }
         } catch (error) {
+          console.error("Failed to remove location subscription", error);
+        } finally {
+          locationSubscription.current = null;
         }
-        locationSubscription.current = null;
       }
     };
   }, [campus]);
