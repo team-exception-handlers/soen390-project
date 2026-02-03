@@ -379,6 +379,119 @@ export default function MapScreen() {
     `;
   }, [campus, currentBuilding]);
 
+  const shouldUseWebFallback = Platform.OS === "web" || !MapViewComponent;
+
+  const webMapContent =
+    Platform.OS === "web" ? (
+      <iframe
+        key={campus}
+        src={`data:text/html;charset=utf-8,${encodeURIComponent(mapHTML)}`}
+        style={styles.map as any}
+        frameBorder="0"
+        allowFullScreen
+        title="Concordia map"
+      />
+    ) : WebView ? (
+      <WebView
+        key={campus}
+        ref={webViewRef}
+        source={{ html: mapHTML }}
+        style={styles.map}
+        javaScriptEnabled
+        domStorageEnabled
+        startInLoadingState
+        scalesPageToFit
+      />
+    ) : null;
+
+  const nativeMapContent =
+    MapViewComponent &&
+      MapMarkerComponent &&
+      MapCalloutComponent &&
+      MapPolygonComponent ? (
+      <MapViewComponent
+        key={campus}
+        style={styles.map}
+        initialRegion={region}
+        showsUserLocation
+        showsMyLocationButton
+        onPress={() => setSelectedBuilding(null)}
+      >
+        {campusPolygons.features.map((feature: any) => {
+          const coordinates = feature.geometry.coordinates[0].map(
+            (coord: number[]) => ({
+              latitude: coord[1],
+              longitude: coord[0],
+            })
+          );
+
+          const buildingCode = feature.properties.code;
+          const isSelected =
+            selectedBuilding === buildingCode || currentBuilding === buildingCode;
+
+          return (
+            <MapPolygonComponent
+              key={buildingCode}
+              coordinates={coordinates}
+              strokeColor={isSelected ? "#238c51" : "#A32638"}
+              fillColor={isSelected ? "#238c51" : "#A32638"}
+              strokeWidth={isSelected ? 3 : 2}
+              fillOpacity={isSelected ? 0.5 : 0.2}
+              tappable
+              onPress={() =>
+                setSelectedBuilding(
+                  selectedBuilding === buildingCode ? null : buildingCode
+                )
+              }
+            />
+          );
+        })}
+
+        {campusBuildings.map((building) => {
+          const hasExactPolygon = campusPolygons.features.some(
+            (f: any) => f.properties.code === building.code
+          );
+
+          const polygonCode =
+            hasExactPolygon
+              ? building.code
+              : campusPolygons.features.find(
+                (f: any) =>
+                  building.code.startsWith(f.properties.code) &&
+                  f.properties.code.length >= 2
+              )?.properties.code || building.code;
+
+          return (
+            <MapMarkerComponent
+              key={building.code}
+              coordinate={{
+                latitude: building.latitude,
+                longitude: building.longitude,
+              }}
+              onPress={() =>
+                setSelectedBuilding(
+                  selectedBuilding === polygonCode ? null : polygonCode
+                )
+              }
+            >
+              <View style={styles.markerContainer}>
+                <View style={styles.markerBadge}>
+                  <Text style={styles.markerText}>{building.code}</Text>
+                </View>
+                <View style={styles.markerStem} />
+              </View>
+            </MapMarkerComponent>
+          );
+        })}
+      </MapViewComponent>
+    ) : (
+      <View style={styles.webFallback}>
+        <Text style={styles.webFallbackText}>
+          Map view is unavailable in this environment.
+        </Text>
+      </View>
+    );
+
   return (
     <View style={styles.container}>
       <AppHeader
@@ -424,112 +537,8 @@ export default function MapScreen() {
           </Text>
         </TouchableOpacity>
       )}
-
-      {Platform.OS === "web" || !MapViewComponent ? (
-        Platform.OS === "web" ? (
-          <iframe
-            key={campus}
-            src={`data:text/html;charset=utf-8,${encodeURIComponent(mapHTML)}`}
-            style={styles.map}
-            frameBorder="0"
-            allowFullScreen
-            title="Concordia map"
-          />
-        ) : WebView ? (
-          <WebView
-            key={campus}
-            ref={webViewRef}
-            source={{ html: mapHTML }}
-            style={styles.map}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            startInLoadingState={true}
-            scalesPageToFit={true}
-          />
-        ) : null
-      ) : MapMarkerComponent && MapCalloutComponent && MapPolygonComponent ? (
-        <MapViewComponent
-          key={campus}
-          style={styles.map}
-          initialRegion={region}
-          showsUserLocation={true}
-          showsMyLocationButton={true}
-          onPress={() => {
-            setSelectedBuilding(null);
-          }}
-        >
-          {campusPolygons.features.map((feature: any) => {
-            const coordinates = feature.geometry.coordinates[0].map(
-              (coord: number[]) => ({
-                latitude: coord[1],
-                longitude: coord[0],
-              }),
-            );
-            const buildingCode = feature.properties.code;
-            const isSelected = selectedBuilding === buildingCode || currentBuilding === buildingCode;
-
-            return (
-              <MapPolygonComponent
-                key={buildingCode}
-                coordinates={coordinates}
-                strokeColor={isSelected ? "#238c51" : "#A32638"}
-                fillColor={isSelected ? "#238c51" : "#A32638"}
-                strokeWidth={isSelected ? 3 : 2}
-                fillOpacity={isSelected ? 0.5 : 0.2}
-                tappable={true}
-                onPress={() => {
-                  setSelectedBuilding(
-                    selectedBuilding === buildingCode ? null : buildingCode,
-                  );
-                }}
-              />
-            );
-          })}
-
-          {campusBuildings.map((building) => {
-            const hasExactPolygon = campusPolygons.features.some(
-              (f: any) => f.properties.code === building.code,
-            );
-            const polygonCode = hasExactPolygon
-              ? building.code
-              : campusPolygons.features.find(
-                (f: any) =>
-                  building.code.startsWith(f.properties.code) &&
-                  f.properties.code.length >= 2,
-              )?.properties.code || building.code;
-
-            return (
-              <MapMarkerComponent
-                key={building.code}
-                coordinate={{
-                  latitude: building.latitude,
-                  longitude: building.longitude,
-                }}
-                onPress={() => {
-                  setSelectedBuilding(
-                    selectedBuilding === polygonCode ? null : polygonCode,
-                  );
-                }}
-              >
-                <View style={styles.markerContainer}>
-                  <View style={styles.markerBadge}>
-                    <Text style={styles.markerText}>{building.code}</Text>
-                  </View>
-                  <View style={styles.markerStem} />
-                </View>
-              </MapMarkerComponent>
-            );
-          })}
-        </MapViewComponent>
-      ) : (
-        <View style={styles.webFallback}>
-          <Text style={styles.webFallbackText}>
-            Map view is unavailable in this environment.
-          </Text>
-        </View>
-      )}
-    </View>
-  );
+      {shouldUseWebFallback ? webMapContent : nativeMapContent}
+    </View>);
 }
 
 const styles = StyleSheet.create({
