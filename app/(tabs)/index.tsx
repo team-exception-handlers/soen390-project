@@ -523,10 +523,10 @@ export default function MapScreen() {
           ]}
           onPress={async () => {
             const { canAskAgain } = await Location.getForegroundPermissionsAsync();
-            if (!canAskAgain) {
-              await Linking.openSettings();
-            } else {
+            if (canAskAgain) {
               await requestLocationPermission();
+            } else {
+              await Linking.openSettings();
             }
           }}
 
