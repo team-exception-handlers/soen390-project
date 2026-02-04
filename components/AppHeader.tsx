@@ -26,7 +26,7 @@ export default function AppHeader({
   onCampusChange,
   searchText,
   onSearchTextChange,
-}: AppHeaderProps) {
+}: Readonly<AppHeaderProps>) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isWide = width >= 900;
@@ -76,7 +76,7 @@ type CampusButtonProps = {
   onPress: () => void;
 };
 
-function CampusButton({ label, active, onPress }: Readonly <CampusButtonProps>) {
+function CampusButton({ label, active, onPress }: Readonly<CampusButtonProps>) {
   return (
     <Pressable
       onPress={onPress}
