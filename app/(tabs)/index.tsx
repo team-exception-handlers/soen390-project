@@ -142,6 +142,20 @@ export default function MapScreen() {
   const campusBuildings = BUILDINGS.filter(
     (building) => building.campus === campus,
   );
+
+  // Only show pins for buildings that have a polygon (exact or parent e.g. CJ for CJA)
+  const buildingHasPolygon = (building: { code: string }) => {
+    const hasExact = campusPolygons.features.some(
+      (f: { properties: { code: string } }) => f.properties.code === building.code,
+    );
+    const hasParent = campusPolygons.features.some(
+      (f: { properties: { code: string } }) =>
+        building.code.startsWith(f.properties.code) && f.properties.code.length >= 2,
+    );
+    return hasExact || hasParent;
+  };
+  const buildingsWithPolygons = campusBuildings.filter(buildingHasPolygon);
+
   const region = getCampusRegion(campus);
 
   const b = BUILDINGS.find(building => building.code === selectedBuilding);
@@ -187,7 +201,7 @@ export default function MapScreen() {
   // Generate HTML for web map
   const mapHTML = useMemo(() => {
     const { latitude, longitude, latitudeDelta, longitudeDelta } = region;
-    const buildingData = campusBuildings.map(
+    const buildingData = buildingsWithPolygons.map(
       ({ latitude: lat, longitude: lng, code, shortName }) => ({
         latitude: lat,
         longitude: lng,
@@ -472,8 +486,7 @@ export default function MapScreen() {
           );
 
           const buildingCode = feature.properties.code;
-          const isSelected = buildingCode && selectedBuilding && 
-            selectedBuilding === buildingCode || currentBuilding === buildingCode;
+          const isSelected = selectedBuilding === buildingCode || currentBuilding === buildingCode;
 
           return (
             <MapPolygonComponent
@@ -493,7 +506,7 @@ export default function MapScreen() {
           );
         })}
 
-        {campusBuildings.map((building) => {
+        {buildingsWithPolygons.map((building) => {
           const hasExactPolygon = campusPolygons.features.some(
             (f: any) => f.properties.code === building.code
           );
@@ -586,13 +599,14 @@ export default function MapScreen() {
       {shouldUseWebFallback ? webMapContent : nativeMapContent}
 
       <BuildingInformation
-      buildingCode = {selectedBuilding}
-      onClose={() => setSelectedBuilding(null)}
-      buildingName = {buildingName}
-      buildingInfo = {buildingInfo}
-      buildingPhotoLink = {buildingPhotoLink}
+        buildingCode={selectedBuilding}
+        onClose={() => setSelectedBuilding(null)}
+        buildingName={buildingName}
+        buildingInfo={buildingInfo}
+        buildingPhotoLink={buildingPhotoLink}
       />
-    </View>);
+    </View>
+  );
 }
 
 const isWeb = Platform.OS === "web";
