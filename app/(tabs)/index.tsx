@@ -316,6 +316,10 @@ export default function MapScreen() {
   );
   const region = getCampusRegion(campus);
 
+  const b = BUILDINGS.find(building => building.code === selectedBuilding);
+  let buildingInfo = b?.description;
+  let buildingName = b?.longName;
+  let buildingPhotoLink = b?.photoLink;
   return (
     <View style={styles.container}>
       <AppHeader
@@ -433,6 +437,9 @@ export default function MapScreen() {
           <BuildingInformation
             buildingCode={selectedBuilding}
             onClose={() => setSelectedBuilding(null)}
+            buildingName = {buildingName}
+            buildingInfo = {buildingInfo}
+            buildingPhotoLink = {buildingPhotoLink}
           />
         </View>
       </View>

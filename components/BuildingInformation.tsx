@@ -1,27 +1,31 @@
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-
+import { ChevronDown } from "lucide-react-native";
+import React, { useEffect, useMemo, useRef } from "react";
+import { Animated, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 type BuildingInformationProps = {
     buildingCode: string | null;
     onClose: () => void;
+    buildingName: string | undefined;
+    buildingInfo: string | undefined;
+    buildingPhotoLink: string | undefined;
 };
 
 export default function BuildingInformation({
     buildingCode,
     onClose,
+    buildingName,
+    buildingInfo,
+    buildingPhotoLink,
 }: BuildingInformationProps) {
+
     // for web rendering
     if (Platform.OS === "web") {
 
         const panelRef = useRef<View>(null);
-        const EXPANDED_HEIGHT = 520;
-        const COLLAPSED_HEIGHT = 120;
-        const CLOSE_THRESHOLD = 80;
+        const EXPANDED_HEIGHT = 600;
+        const COLLAPSED_HEIGHT = 0;
 
         const heightAnimation = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
-
-        const [isExpanded, setIsExpanded] = useState(false);
 
         const animateTo = (toValue: number) => {
             Animated.timing(heightAnimation, {
@@ -33,67 +37,15 @@ export default function BuildingInformation({
 
         useEffect(() => {
             if (!buildingCode) {
-                setIsExpanded(false);
                 animateTo(COLLAPSED_HEIGHT);
                 return;
             }
 
-            setIsExpanded(true);
             animateTo(EXPANDED_HEIGHT);
 
             const node = panelRef.current as any;
             node?.scrollIntoView?.({ behavior: "smooth", block: "end" });
         }, [buildingCode]);
-
-        const startHeightRef = useRef(COLLAPSED_HEIGHT);
-        const panResponder = useMemo(
-            () =>
-                PanResponder.create({
-                    onMoveShouldSetPanResponder: (_evt, gesture) => {
-                        // start dragging if vertical gesture is meaningful
-                        return Math.abs(gesture.dy) > 6;
-                    },
-                    onPanResponderGrant: () => {
-                        // capture current animated height as starting point
-                        heightAnimation.stopAnimation((value) => {
-                            startHeightRef.current = value;
-                        });
-                    },
-                    onPanResponderMove: (_evt, gesture) => {
-                        // dragging down decreases height; dragging up increases height
-                        const next = startHeightRef.current - gesture.dy;
-
-                        // clamp
-                        const clamped = Math.max(COLLAPSED_HEIGHT, Math.min(EXPANDED_HEIGHT, next));
-                        heightAnimation.setValue(clamped);
-                    },
-                    onPanResponderRelease: (_evt, gesture) => {
-                        heightAnimation.stopAnimation((current) => {
-                            // If dragged down enough from collapsed, close
-                            const draggedDownFar =
-                                !isExpanded && gesture.dy > CLOSE_THRESHOLD;
-
-                            if (draggedDownFar) {
-                                onClose();
-                                return;
-                            }
-
-                            // Decide snap point based on where you ended
-                            const mid = (EXPANDED_HEIGHT + COLLAPSED_HEIGHT) / 2;
-
-                            if (current >= mid) {
-                                setIsExpanded(true);
-                                animateTo(EXPANDED_HEIGHT);
-                            } else {
-                                setIsExpanded(false);
-                                animateTo(COLLAPSED_HEIGHT);
-                            }
-                        });
-                    },
-                }),
-            [heightAnimation, isExpanded, onClose],
-        );
-        if (!buildingCode) return null;
 
         return (
             <View style={stylesWeb.overlay} pointerEvents="box-none">
@@ -101,30 +53,21 @@ export default function BuildingInformation({
                     ref={panelRef}
                     style={[stylesWeb.drawer, { height: heightAnimation }]}
                 >
-                    {/* Handle row (drag area) */}
-                    <View style={stylesWeb.handleRow} {...panResponder.panHandlers}>
-                        <View style={stylesWeb.handlePill} />
+                    
+                    <View style={stylesWeb.handleRow}>
+                        <Pressable onPress={onClose} style={stylesWeb.closeBtn}>
+                            <ChevronDown size={24} color= "#8e8e93"/>
+                        </Pressable>
                         <View style={stylesWeb.header}>
-                            <Text style={stylesWeb.title}>Building {buildingCode}</Text>
-
-                            <Pressable onPress={onClose} style={stylesWeb.closeBtn}>
-                                <Text style={stylesWeb.closeText}>Close</Text>
-                            </Pressable>
+                            <Text style={stylesWeb.title}>{buildingName}</Text>
                         </View>
                     </View>
 
-                    {/* Content scroll area */}
-                    <ScrollView
-                        style={stylesWeb.scroll}
-                        contentContainerStyle={stylesWeb.scrollContent}
-                    >
+                    
+                    <ScrollView style={stylesWeb.scroll} contentContainerStyle={stylesWeb.scrollContent}>
+                        {buildingPhotoLink ? (<Image style={stylesWeb.image} source={{uri: buildingPhotoLink}} resizeMode="contain" />):null}
                         <Text style={stylesWeb.bodyText}>
-                            Put your building details here…
-                        </Text>
-
-                        {/* example filler to prove scrolling */}
-                        <Text style={stylesWeb.bodyText}>
-                            {"\n"}More content…{"\n\n"}More content…{"\n\n"}More content…
+                            {buildingInfo ? buildingInfo : "Building information not available."}
                         </Text>
                     </ScrollView>
                 </Animated.View>
@@ -156,10 +99,10 @@ export default function BuildingInformation({
             <BottomSheetScrollView contentContainerStyle={stylesNative.contentContainer}>
                 <View style={{ gap: 8 }}>
                     <Text style={{ fontSize: 18, fontWeight: "700" }}>
-                        Building {buildingCode}
+                        {/*buildingName*/}
                     </Text>
                     <Text style={{ fontSize: 14 }}>
-
+                        {/*buildingInfo*/}
                     </Text>
                 </View>
             </BottomSheetScrollView>
@@ -218,14 +161,6 @@ const stylesWeb = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: "#E5E5EA",
     },
-    handlePill: {
-        width: 44,
-        height: 5,
-        borderRadius: 999,
-        backgroundColor: "#D1D1D6",
-        alignSelf: "center",
-        marginBottom: 10,
-    },
     header: {
         flexDirection: "row",
         alignItems: "center",
@@ -236,10 +171,9 @@ const stylesWeb = StyleSheet.create({
         fontWeight: "700",
     },
     closeBtn: {
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-        borderRadius: 10,
-        backgroundColor: "#F2F2F7",
+        alignSelf: "center",
+        padding: 4,
+        marginBottom: 5,
     },
     closeText: {
         fontSize: 14,
@@ -257,4 +191,9 @@ const stylesWeb = StyleSheet.create({
         fontSize: 14,
         lineHeight: 20,
     },
+    image: {
+        width: "100%",
+        height: 250,
+        marginBottom: 14,
+    }
 });
