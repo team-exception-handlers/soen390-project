@@ -137,6 +137,20 @@ export default function MapScreen() {
   const campusBuildings = BUILDINGS.filter(
     (building) => building.campus === campus,
   );
+
+  // Only show pins for buildings that have a polygon (exact or parent e.g. CJ for CJA)
+  const buildingHasPolygon = (building: { code: string }) => {
+    const hasExact = campusPolygons.features.some(
+      (f: { properties: { code: string } }) => f.properties.code === building.code,
+    );
+    const hasParent = campusPolygons.features.some(
+      (f: { properties: { code: string } }) =>
+        building.code.startsWith(f.properties.code) && f.properties.code.length >= 2,
+    );
+    return hasExact || hasParent;
+  };
+  const buildingsWithPolygons = campusBuildings.filter(buildingHasPolygon);
+
   const region = getCampusRegion(campus);
 
   useEffect(() => {
@@ -177,7 +191,7 @@ export default function MapScreen() {
   // Generate HTML for web map
   const mapHTML = useMemo(() => {
     const { latitude, longitude, latitudeDelta, longitudeDelta } = region;
-    const buildingData = campusBuildings.map(
+    const buildingData = buildingsWithPolygons.map(
       ({ latitude: lat, longitude: lng, code, shortName }) => ({
         latitude: lat,
         longitude: lng,
@@ -502,7 +516,7 @@ export default function MapScreen() {
             );
           })}
 
-          {campusBuildings.map((building) => {
+          {buildingsWithPolygons.map((building) => {
             const hasExactPolygon = campusPolygons.features.some(
               (f: any) => f.properties.code === building.code,
             );
