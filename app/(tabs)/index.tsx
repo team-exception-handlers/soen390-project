@@ -541,6 +541,8 @@ export default function MapScreen() {
     </View>);
 }
 
+const isWeb = Platform.OS === "web";
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -621,26 +623,26 @@ const styles = StyleSheet.create({
 
   buildingInfo: {
     position: "absolute",
-    top: Platform.OS !== "web" ? 80 : 53,
+    top: isWeb ? 53 : 80,
     alignSelf: "center",
     backgroundColor: "rgba(0,0,0,0.7)",
-    paddingVertical: Platform.OS !== "web" ? 4 : 8,
-    paddingHorizontal: Platform.OS !== "web" ? 8 : 16,
-    borderRadius: Platform.OS !== "web" ? 8 : 10,
+    paddingVertical: isWeb ? 8 : 4,
+    paddingHorizontal: isWeb ? 16 : 8,
+    borderRadius: isWeb ? 10 : 8,
     zIndex: 1000,
-    maxWidth: Platform.OS !== "web" ? "90%" : undefined,
+    maxWidth: isWeb ? undefined : "90%",
   },
 
   buildingInfoText: {
     color: "white",
-    fontSize: Platform.OS !== "web" ? 12 : 14,
+    fontSize: isWeb ? 14 : 12,
     fontWeight: "700",
     textAlign: "center",
   },
 
   buildingInfoTitle: {
     color: "#FFA500",
-    fontSize: Platform.OS !== "web" ? 12 : 14,
+    fontSize: isWeb ? 14 : 12,
     fontWeight: "600",
     marginBottom: 2,
     textAlign: "center",
