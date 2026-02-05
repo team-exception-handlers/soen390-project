@@ -39,28 +39,28 @@ export default function MapScreen() {
   let MapCalloutComponent: React.ComponentType<any> | null = null;
   let MapPolygonComponent: React.ComponentType<any> | null = null;
 
-    useEffect(() => {
-      if (Platform.OS !== "web") return;
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
 
-      const handler = (event: MessageEvent) => {
-        try {
-          const data =
-            typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+    const handler = (event: MessageEvent) => {
+      try {
+        const data =
+          typeof event.data === "string" ? JSON.parse(event.data) : event.data;
 
-          if (data?.type === "buildingSelected") {
-            setSelectedBuilding(data.buildingCode);
-          }
-          if (data?.type === "buildingDeselected") {
-            setSelectedBuilding(null);
-          }
-        } catch {
-          // ignore non-JSON messages
+        if (data?.type === "buildingSelected") {
+          setSelectedBuilding(data.buildingCode);
         }
-      };
+        if (data?.type === "buildingDeselected") {
+          setSelectedBuilding(null);
+        }
+      } catch {
+        // ignore non-JSON messages
+      }
+    };
 
-      window.addEventListener("message", handler);
-      return () => window.removeEventListener("message", handler);
-    }, []);
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
 
   if (Platform.OS !== "web" && !isExpoGo) {
     try {
@@ -210,7 +210,7 @@ export default function MapScreen() {
                     weight: 3
                 });
                 selectedPolygon = this;
-                window.parent.postMessage(JSON.stringify({ type: 'buildingSelected', buildingCode: buildingCode }), '*');
+                (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({ type: 'buildingSelected', buildingCode: buildingCode }), '*');
                 L.DomEvent.stopPropagation(e);
             });
 
@@ -242,7 +242,7 @@ export default function MapScreen() {
                     weight: 2
                 });
                 selectedPolygon = null;
-                window.parent.postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
+                (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
             }
         });
 
@@ -290,9 +290,9 @@ export default function MapScreen() {
                     }
                 }
                     if(selectedPolygon){
-                      window.parent.postMessage(JSON.stringify({type: 'buildingSelected', buildingCode: building.code}), '*');
+                      (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingSelected', buildingCode: building.code}), '*');
                     } else {
-                      window.parent.postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');  
+                      (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');  
                     }
                 L.DomEvent.stopPropagation(e);
             });
@@ -320,6 +320,11 @@ export default function MapScreen() {
   let buildingInfo = b?.description;
   let buildingName = b?.longName;
   let buildingPhotoLink = b?.photoLink;
+  const renderMode = Platform.OS === "web" ? "web-iframe" :
+    !MapViewComponent ? "webview-fallback" :
+      "native-map";
+
+  // console.log("Render mode:", renderMode);
   return (
     <View style={styles.container}>
       <AppHeader
@@ -328,11 +333,7 @@ export default function MapScreen() {
         searchText={searchText}
         onSearchTextChange={setSearchText}
       />
-      <View style={{ position: 'absolute', top: 100, left: 10, backgroundColor: 'yellow', padding: 10, zIndex: 99999 }}>
-        <Text>Selected: {selectedBuilding || 'none'}</Text>
-        <Text>Name: {buildingName || 'none'}</Text>
-        <Text>Has Info: {buildingInfo ? 'yes' : 'no'}</Text>
-      </View>
+
       {Platform.OS === "web" || !MapViewComponent ? (
         Platform.OS === "web" ? (
           <iframe
@@ -352,6 +353,19 @@ export default function MapScreen() {
             domStorageEnabled={true}
             startInLoadingState={true}
             scalesPageToFit={true}
+            onMessage={(event: any) => {
+              try {
+                const data = JSON.parse(event.nativeEvent.data);
+                if (data?.type === "buildingSelected") {
+                  setSelectedBuilding(data.buildingCode);
+                }
+                if (data?.type === "buildingDeselected") {
+                  setSelectedBuilding(null);
+                }
+              } catch {
+                // ignore non-JSON messages
+              }
+            }}
           />
         ) : null
       ) : MapMarkerComponent && MapCalloutComponent && MapPolygonComponent ? (
@@ -373,7 +387,7 @@ export default function MapScreen() {
               }),
             );
             const buildingCode = feature.properties.code;
-            const isSelected = selectedBuilding === buildingCode;
+            const isSelected = buildingCode && selectedBuilding && selectedBuilding === buildingCode;
 
             return (
               <MapPolygonComponent
@@ -386,7 +400,7 @@ export default function MapScreen() {
                 tappable={true}
                 onPress={() => {
                   setSelectedBuilding(
-                    selectedBuilding === buildingCode ? null : buildingCode
+                    prev => prev === buildingCode ? null : buildingCode
                   );
                 }}
               />
@@ -401,13 +415,13 @@ export default function MapScreen() {
             const polygonCode = hasExactPolygon
               ? building.code
               : campusPolygons.features.find(
-                  (f: any) =>
-                    building.code.startsWith(f.properties.code) &&
-                    f.properties.code.length >= 2,
-                )?.properties.code || building.code;
-                
-                console.log("Current selectedBuilding: ", selectedBuilding);
-                console.log("Building info: ", buildingName, buildingInfo);
+                (f: any) =>
+                  building.code.startsWith(f.properties.code) &&
+                  f.properties.code.length >= 2,
+              )?.properties.code || building.code;
+
+            console.log("Current selectedBuilding: ", selectedBuilding);
+            console.log("Building info: ", buildingName, buildingInfo);
             return (
               <MapMarkerComponent
                 key={building.code}
@@ -417,7 +431,7 @@ export default function MapScreen() {
                 }}
                 onPress={() => {
                   console.log('Selected Building:', building.code);
-                  setSelectedBuilding(selectedBuilding === building.code ? null : building.code);
+                  setSelectedBuilding(prev => prev === building.code ? null : building.code);
                 }}
               >
                 <View style={styles.markerContainer}>
@@ -437,14 +451,15 @@ export default function MapScreen() {
           </Text>
         </View>
       )}
-          <BuildingInformation
-            buildingCode={selectedBuilding}
-            onClose={() => setSelectedBuilding(null)}
-            buildingName = {buildingName}
-            buildingInfo = {buildingInfo}
-            buildingPhotoLink = {buildingPhotoLink}
-          />
-        
+      <BuildingInformation
+        key={selectedBuilding}
+        buildingCode={selectedBuilding}
+        onClose={() => setSelectedBuilding(null)}
+        buildingName={buildingName}
+        buildingInfo={buildingInfo}
+        buildingPhotoLink={buildingPhotoLink}
+      />
+
     </View>
   );
 }
@@ -513,7 +528,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
   },
-  sheetLayer:{
+  sheetLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 9998,
     elevation: 9999,

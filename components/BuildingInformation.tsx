@@ -35,7 +35,7 @@ export default function BuildingInformation({ buildingCode, onClose, buildingNam
 
     return (
         <View style={styles.overlay} pointerEvents="box-none">
-            <Animated.View style={[styles.drawer, { height: heightAnimation }]}>
+            <Animated.View style={[styles.drawer, { height: heightAnimation}]}>
                 <View style={styles.handleRow}>
                     <Pressable onPress={onClose} style={styles.closeBtn}>
                         <ChevronDown size={24} color="#8e8e93" />
@@ -64,6 +64,7 @@ const styles = StyleSheet.create({
         right: 0,
         bottom: 0,
         zIndex: 9999,
+        elevation: 9999,
         paddingHorizontal: 16,
         paddingBottom: 16,
     },
@@ -112,6 +113,7 @@ const styles = StyleSheet.create({
     bodyText: {
         fontSize: 14,
         lineHeight: 20,
+        marginBottom: 50,
     },
     image: {
         width: "100%",
