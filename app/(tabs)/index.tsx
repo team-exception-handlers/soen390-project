@@ -151,7 +151,7 @@ export default function MapScreen() {
   };
   const buildingsWithPolygons = campusBuildings.filter(buildingHasPolygon);
 
-  const region = getCampusRegion(campus);
+  const region = getCampusRegion(campus, campusPolygons.features);
 
   useEffect(() => {
     if (webViewRef.current && Platform.OS !== "web" && userLocation) {
