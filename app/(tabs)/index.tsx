@@ -421,11 +421,11 @@ export default function MapScreen() {
       {currentBuilding && (() => {
         const building = BUILDINGS.find(b => b.code === currentBuilding);
         return building ? (
-          <View style={styles.buildingInfo}>
+          <View style={styles.buildingInfo} testID="current-building-info">
             <Text style={styles.buildingInfoTitle}>
               Current Building:
             </Text>
-            <Text style={styles.buildingInfoText}>
+            <Text style={styles.buildingInfoText} testID="current-building-name">
               {building.longName} ({building.shortName}) - [{building.code}]
             </Text>
           </View>
@@ -434,6 +434,7 @@ export default function MapScreen() {
 
       {locationPermissionDenied && (
         <TouchableOpacity
+          testID="location-permission-banner"
           style={[
             styles.permissionBanner,
             { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 },
@@ -468,6 +469,7 @@ export default function MapScreen() {
         ) : WebView ? (
           <WebView
             key={campus}
+            testID="map-webview"
             ref={webViewRef}
             source={{ html: mapHTML }}
             style={styles.map}
@@ -480,6 +482,7 @@ export default function MapScreen() {
       ) : MapMarkerComponent && MapCalloutComponent && MapPolygonComponent ? (
         <MapViewComponent
           key={campus}
+          testID="map-native"
           style={styles.map}
           initialRegion={region}
           showsUserLocation={true}
@@ -501,6 +504,7 @@ export default function MapScreen() {
             return (
               <MapPolygonComponent
                 key={buildingCode}
+                testID={`polygon-${buildingCode}`}
                 coordinates={coordinates}
                 strokeColor={isSelected ? "#238c51" : "#A32638"}
                 fillColor={isSelected ? "#238c51" : "#A32638"}
@@ -531,6 +535,7 @@ export default function MapScreen() {
             return (
               <MapMarkerComponent
                 key={building.code}
+                testID={`marker-${building.code}`}
                 coordinate={{
                   latitude: building.latitude,
                   longitude: building.longitude,

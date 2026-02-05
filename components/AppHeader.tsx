@@ -44,21 +44,24 @@ export default function AppHeader({
     >
       <BlurView intensity={35} tint="light" style={styles.glassToggle}>
         <CampusButton
+          testID="campus-toggle-sgw"
           label="SGW"
           active={campus === "SGW"}
           onPress={() => onCampusChange("SGW")}
         />
         <CampusButton
+          testID="campus-toggle-loyola"
           label="Loyola"
           active={campus === "LOY"}
           onPress={() => onCampusChange("LOY")}
         />
       </BlurView>
 
-      <Text style={styles.title}>Where to?</Text>
+      <Text style={styles.title} testID="header-title">Where to?</Text>
 
       <View style={styles.searchContainer}>
         <TextInput
+          testID="search-input"
           value={searchText}
           onChangeText={onSearchTextChange}
           placeholder="Search buildings, rooms, services"
@@ -71,14 +74,16 @@ export default function AppHeader({
 }
 
 type CampusButtonProps = {
+  testID: string;
   label: string;
   active: boolean;
   onPress: () => void;
 };
 
-function CampusButton({ label, active, onPress }: Readonly <CampusButtonProps>) {
+function CampusButton({ testID, label, active, onPress }: Readonly<CampusButtonProps>) {
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       style={[styles.toggleButton, active && styles.toggleButtonActive]}
     >

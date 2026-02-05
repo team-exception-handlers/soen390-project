@@ -1,0 +1,32 @@
+# US-1.1: Current user location detection 
+# Verifies that the app receives location
+
+appId: host.exp.Exponent
+
+---
+- setPermissions:
+    permissions:
+      location: inuse
+
+# Set mock location to SGW - EV building
+- setLocation:
+    latitude: 45.495376
+    longitude: -73.577997
+
+- runFlow:
+    file: _launch-expo-go.yaml
+
+- assertVisible: "Where to?"
+
+- extendedWaitUntil:
+    visible:
+      id: "current-building-info"
+    timeout: 10000
+
+- assertVisible:
+    id: "current-building-name"
+- assertVisible:
+    text: "EV"
+
+- assertNotVisible:
+    id: "location-permission-banner"

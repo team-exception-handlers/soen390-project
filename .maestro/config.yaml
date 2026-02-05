@@ -1,0 +1,5 @@
+# Maestro E2E configuration 
+# Flows use Expo Go (host.exp.Exponent) by default.
+
+env:
+  EXPO_URL: "exp://localhost:8081"
