@@ -1,0 +1,4 @@
+appId: host.exp.Exponent
+
+---
+- openLink: "exp://localhost:8081"
