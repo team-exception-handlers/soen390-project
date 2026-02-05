@@ -5,6 +5,7 @@ node_modules/
 
 # Coverage reports
 coverage/
+test-report.html
 
 # Expo
 .expo/
