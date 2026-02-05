@@ -156,7 +156,7 @@ export default function MapScreen() {
   };
   const buildingsWithPolygons = campusBuildings.filter(buildingHasPolygon);
 
-  const region = getCampusRegion(campus);
+  const region = getCampusRegion(campus, campusPolygons.features);
 
   const b = BUILDINGS.find(building => building.code === selectedBuilding);
   let buildingInfo = b?.description;
