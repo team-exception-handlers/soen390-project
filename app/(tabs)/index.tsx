@@ -328,7 +328,11 @@ export default function MapScreen() {
         searchText={searchText}
         onSearchTextChange={setSearchText}
       />
-
+      <View style={{ position: 'absolute', top: 100, left: 10, backgroundColor: 'yellow', padding: 10, zIndex: 99999 }}>
+        <Text>Selected: {selectedBuilding || 'none'}</Text>
+        <Text>Name: {buildingName || 'none'}</Text>
+        <Text>Has Info: {buildingInfo ? 'yes' : 'no'}</Text>
+      </View>
       {Platform.OS === "web" || !MapViewComponent ? (
         Platform.OS === "web" ? (
           <iframe
@@ -382,7 +386,7 @@ export default function MapScreen() {
                 tappable={true}
                 onPress={() => {
                   setSelectedBuilding(
-                    selectedBuilding === buildingCode ? null : buildingCode,
+                    selectedBuilding === buildingCode ? null : buildingCode
                   );
                 }}
               />
@@ -401,7 +405,9 @@ export default function MapScreen() {
                     building.code.startsWith(f.properties.code) &&
                     f.properties.code.length >= 2,
                 )?.properties.code || building.code;
-
+                
+                console.log("Current selectedBuilding: ", selectedBuilding);
+                console.log("Building info: ", buildingName, buildingInfo);
             return (
               <MapMarkerComponent
                 key={building.code}
@@ -410,9 +416,8 @@ export default function MapScreen() {
                   longitude: building.longitude,
                 }}
                 onPress={() => {
-                  setSelectedBuilding(
-                    selectedBuilding === polygonCode ? null : polygonCode,
-                  );
+                  console.log('Selected Building:', building.code);
+                  setSelectedBuilding(selectedBuilding === building.code ? null : building.code);
                 }}
               >
                 <View style={styles.markerContainer}>
@@ -432,8 +437,6 @@ export default function MapScreen() {
           </Text>
         </View>
       )}
-      <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-        <View style={styles.sheetLayer} pointerEvents="box-none">
           <BuildingInformation
             buildingCode={selectedBuilding}
             onClose={() => setSelectedBuilding(null)}
@@ -441,8 +444,7 @@ export default function MapScreen() {
             buildingInfo = {buildingInfo}
             buildingPhotoLink = {buildingPhotoLink}
           />
-        </View>
-      </View>
+        
     </View>
   );
 }
@@ -513,7 +515,7 @@ const styles = StyleSheet.create({
   },
   sheetLayer:{
     ...StyleSheet.absoluteFillObject,
-    zIndex: 9999,
+    zIndex: 9998,
     elevation: 9999,
   },
 });

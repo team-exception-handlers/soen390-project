@@ -1,7 +1,6 @@
-import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { ChevronDown } from "lucide-react-native";
-import React, { useEffect, useMemo, useRef } from "react";
-import { Animated, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 type BuildingInformationProps = {
     buildingCode: string | null;
     onClose: () => void;
@@ -10,128 +9,55 @@ type BuildingInformationProps = {
     buildingPhotoLink: string | undefined;
 };
 
-export default function BuildingInformation({
-    buildingCode,
-    onClose,
-    buildingName,
-    buildingInfo,
-    buildingPhotoLink,
-}: BuildingInformationProps) {
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const EXPANDED_HEIGHT = Math.min(600, SCREEN_HEIGHT * 0.9);
+const COLLAPSED_HEIGHT = 0;
 
-    // for web rendering
-    if (Platform.OS === "web") {
+export default function BuildingInformation({ buildingCode, onClose, buildingName, buildingInfo, buildingPhotoLink, }: BuildingInformationProps) {
+    const heightAnimation = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
 
-        const panelRef = useRef<View>(null);
-        const EXPANDED_HEIGHT = 600;
-        const COLLAPSED_HEIGHT = 0;
-
-        const heightAnimation = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
-
-        const animateTo = (toValue: number) => {
-            Animated.timing(heightAnimation, {
-                toValue,
-                duration: 220,
-                useNativeDriver: false,
-            }).start();
-        };
-
-        useEffect(() => {
-            if (!buildingCode) {
-                animateTo(COLLAPSED_HEIGHT);
-                return;
-            }
-
-            animateTo(EXPANDED_HEIGHT);
-
-            const node = panelRef.current as any;
-            node?.scrollIntoView?.({ behavior: "smooth", block: "end" });
-        }, [buildingCode]);
-
-        return (
-            <View style={stylesWeb.overlay} pointerEvents="box-none">
-                <Animated.View
-                    ref={panelRef}
-                    style={[stylesWeb.drawer, { height: heightAnimation }]}
-                >
-                    
-                    <View style={stylesWeb.handleRow}>
-                        <Pressable onPress={onClose} style={stylesWeb.closeBtn}>
-                            <ChevronDown size={24} color= "#8e8e93"/>
-                        </Pressable>
-                        <View style={stylesWeb.header}>
-                            <Text style={stylesWeb.title}>{buildingName}</Text>
-                        </View>
-                    </View>
-
-                    
-                    <ScrollView style={stylesWeb.scroll} contentContainerStyle={stylesWeb.scrollContent}>
-                        {buildingPhotoLink ? (<Image style={stylesWeb.image} source={{uri: buildingPhotoLink}} resizeMode="contain" />):null}
-                        <Text style={stylesWeb.bodyText}>
-                            {buildingInfo ? buildingInfo : "Building information not available."}
-                        </Text>
-                    </ScrollView>
-                </Animated.View>
-            </View>
-        );
-    }
-
-    // for native rendering
-    const bottomSheetRef = useRef<BottomSheet>(null);
-    const snapPoints = useMemo(() => ["50%", "90%"], []);
+    const animateTo = (toValue: number) => {
+        Animated.timing(heightAnimation, {
+            toValue,
+            duration: 220,
+            useNativeDriver: false,
+        }).start();
+    };
 
     useEffect(() => {
-        if (buildingCode) bottomSheetRef.current?.expand();
-        else bottomSheetRef.current?.close();
+        if (!buildingCode) {
+            animateTo(COLLAPSED_HEIGHT);
+            return;
+        }
+
+        animateTo(EXPANDED_HEIGHT);
     }, [buildingCode]);
 
-    if (!buildingCode) return null;
-
     return (
-        <BottomSheet
-            ref={bottomSheetRef}
-            index={-1}
-            snapPoints={snapPoints}
-            enablePanDownToClose
-            onClose={onClose}
-            backgroundStyle={stylesNative.bottomSheetBackground}
-            handleIndicatorStyle={stylesNative.handleIndicator}
-        >
-            <BottomSheetScrollView contentContainerStyle={stylesNative.contentContainer}>
-                <View style={{ gap: 8 }}>
-                    <Text style={{ fontSize: 18, fontWeight: "700" }}>
-                        {/*buildingName*/}
-                    </Text>
-                    <Text style={{ fontSize: 14 }}>
-                        {/*buildingInfo*/}
-                    </Text>
+        <View style={styles.overlay} pointerEvents="box-none">
+            <Animated.View style={[styles.drawer, { height: heightAnimation }]}>
+                <View style={styles.handleRow}>
+                    <Pressable onPress={onClose} style={styles.closeBtn}>
+                        <ChevronDown size={24} color="#8e8e93" />
+                    </Pressable>
+                    <View style={styles.header}>
+                        <Text style={styles.title}>{buildingName}</Text>
+                    </View>
                 </View>
-            </BottomSheetScrollView>
-        </BottomSheet>
+
+
+                <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+                    {buildingPhotoLink ? (<Image style={styles.image} source={{ uri: buildingPhotoLink }} resizeMode="contain" />) : null}
+                    <Text style={styles.bodyText}>
+                        {buildingInfo ? buildingInfo : "Building information not available."}
+                    </Text>
+                </ScrollView>
+            </Animated.View>
+        </View>
     );
 }
 
-const stylesNative = StyleSheet.create({
-    bottomSheetBackground: {
-        backgroundColor: "#FFFFFF",
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: -4 },
-        elevation: 10,
-    },
-    handleIndicator: {
-        backgroundColor: "#D1D1D6",
-        width: 40,
-        height: 4,
-    },
-    contentContainer: {
-        padding: 16,
-    },
-});
-
-const stylesWeb = StyleSheet.create({
+const styles = StyleSheet.create({
     overlay: {
         position: "absolute",
         left: 0,
@@ -144,7 +70,7 @@ const stylesWeb = StyleSheet.create({
     drawer: {
         width: "100%",
         maxWidth: 520,
-        alignSelf: "center", 
+        alignSelf: "center",
         backgroundColor: "#FFFFFF",
         borderRadius: 16,
         overflow: "hidden",
@@ -152,6 +78,7 @@ const stylesWeb = StyleSheet.create({
         shadowOpacity: 0.15,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
+        elevation: 10,
     },
 
     handleRow: {
@@ -175,11 +102,6 @@ const stylesWeb = StyleSheet.create({
         padding: 4,
         marginBottom: 5,
     },
-    closeText: {
-        fontSize: 14,
-        fontWeight: "600",
-    },
-
     scroll: {
         flex: 1,
     },
