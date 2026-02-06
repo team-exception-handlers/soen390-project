@@ -14,8 +14,8 @@ import {
   startWatchingLocation
 } from "../../utils/locationUtils";
 
+import BuildingInformation from "@/components/BuildingInformation";
 import { getCampusRegion } from "../../utils/mapRegions";
-
 let WebView: React.ComponentType<any> | null = null
 if (Platform.OS !== "web") {
   try {
@@ -47,6 +47,27 @@ export default function MapScreen() {
   let MapMarkerComponent: React.ComponentType<any> | null = null;
   let MapCalloutComponent: React.ComponentType<any> | null = null;
   let MapPolygonComponent: React.ComponentType<any> | null = null;
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    const handler = (event : MessageEvent) => {
+      try {
+        const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+
+        if(data?.type === "buildingSelected"){
+          setSelectedBuilding(data.buildingCode);
+        }
+        if(data?.type === "buildingDeselected"){
+          setSelectedBuilding(null);
+        }
+      } catch {
+        // ignore non-JSON messages
+      }
+    };
+
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
 
   if (Platform.OS !== "web" && !isExpoGo) {
     try {
@@ -122,6 +143,11 @@ export default function MapScreen() {
     (building) => building.campus === campus,
   );
   const region = getCampusRegion(campus);
+
+  const b = BUILDINGS.find(building => building.code === selectedBuilding);
+  let buildingInfo = b?.description;
+  let buildingName = b?.longName;
+  let buildingPhotoLink = b?.photoLink;
 
   useEffect(() => {
     if (webViewRef.current && Platform.OS !== "web" && userLocation) {
@@ -277,7 +303,7 @@ export default function MapScreen() {
                           weight: 3
                       });
                       selectedPolygon = this;
-
+                      (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({ type: 'buildingSelected', buildingCode: buildingCode }), '*');
                       L.DomEvent.stopPropagation(e);
                   });
 
@@ -314,6 +340,7 @@ export default function MapScreen() {
                           weight: 2
                       });
                       selectedPolygon = null;
+                      (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
                   }
               });
 
@@ -359,6 +386,11 @@ export default function MapScreen() {
                               selectedPolygon = polygon;
                           }
                       }
+                          if(selectedPolygon){
+                            (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type:'buildingSelected', buildingCode: building.code}), '*');
+                          } else {
+                            (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
+                          }
                       L.DomEvent.stopPropagation(e);
                   });
               });
@@ -401,6 +433,20 @@ export default function MapScreen() {
         domStorageEnabled
         startInLoadingState
         scalesPageToFit
+        onMessage={(event: any)=> {
+          try{
+            const data = JSON.parse(event.nativeEvent.data);
+            if(data?.type === "buildingSelected"){
+              setSelectedBuilding(data.buildingCode);
+            }
+
+            if(data?.type==="buildingDeselected"){
+              setSelectedBuilding(null);
+            }
+          } catch {
+            // ignore non-JSON messages
+          }
+        }}
       />
     ) : null;
 
@@ -426,7 +472,7 @@ export default function MapScreen() {
           );
 
           const buildingCode = feature.properties.code;
-          const isSelected =
+          const isSelected = buildingCode && selectedBuilding && 
             selectedBuilding === buildingCode || currentBuilding === buildingCode;
 
           return (
@@ -538,6 +584,14 @@ export default function MapScreen() {
         </TouchableOpacity>
       )}
       {shouldUseWebFallback ? webMapContent : nativeMapContent}
+
+      <BuildingInformation
+      buildingCode = {selectedBuilding}
+      onClose={() => setSelectedBuilding(null)}
+      buildingName = {buildingName}
+      buildingInfo = {buildingInfo}
+      buildingPhotoLink = {buildingPhotoLink}
+      />
     </View>);
 }
 
