@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     padding: 4,
     overflow: "hidden",
     backgroundColor: "rgba(255,255,255,0.15)",
-    transform: Platform.OS === "web" ? [] : [{ translateY: -25 }],
+    transform: Platform.OS === "web" ? [] : [{ translateY: -15 }],
     marginTop: Platform.OS === "web" ? -20 : 0,
   },
 
