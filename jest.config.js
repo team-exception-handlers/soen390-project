@@ -9,5 +9,25 @@ module.exports = {
             includeConsoleLog: true,
             sort: 'titleAsc'
         }]
-    ]
+    ],
+    collectCoverageFrom: [
+    '**/*.{ts,tsx}',
+    '!**/*.d.ts',
+    '!**/*.test.{ts,tsx}',
+    '!**/*.spec.{ts,tsx}',
+    '!**/__tests__/**',
+    '!**/__mocks__/**',
+    '!**/node_modules/**',
+    '!**/coverage/**',
+    '!**/assets/**',
+    '!**/constants/**',
+    '!**/types/**',
+    '!**/styles/**',
+    '!**/theme/**',
+    '!babel.config.js',
+    '!metro.config.js',
+    '!**/hooks/**',
+    '!**/app/**',
+    '!**/components/**',
+  ],
 };
