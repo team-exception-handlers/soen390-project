@@ -8,6 +8,8 @@ export type BuildingRecord = {
   address: string;
   latitude: number;
   longitude: number;
+  description: string | undefined;
+  photoLink: string | undefined;
 };
 
 export const BUILDINGS: BuildingRecord[] = [
@@ -19,6 +21,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141, Sherbrooke West",
     latitude: 45.457984,
     longitude: -73.639834,
+    description:
+      "Opened in 1916 and completed in stages through 1927, the Administration Building is one of the original Loyola Campus structures. Designed by architects Peden and McLaren, it features matte Greendale brick with limestone trim, carved wooden details and distinctive oak doors inspired by the University Church of St. Mary the Virgin in Oxford, England. The building is also a Montreal heritage site. \n \nOver the years, it has served many purposes — including housing Jesuit priests and student residences — and today it’s home to Student Services and Faculty of Arts and Science administrative offices. It connects directly to the F.C. Smith (FC) and Central (CC) buildings.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/ad/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750701647513.jpg",
   },
   {
     campus: "SGW",
@@ -28,6 +34,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2160 Bishop Street",
     latitude: 45.497856,
     longitude: -73.579588,
+    description:
+      "Built between 1890 and 1891, this annex features a limestone façade and understated ornamentation around the windows. It was once a private home and even served as a student housing co-op in the 1960s. \n \nConcordia acquired the annex in 1969, and it now provides offices and shared spaces for student and community services.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/b/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750701724050.jpg",
   },
   {
     campus: "LOY",
@@ -37,6 +47,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "3502 Bermore Avenue",
     latitude: 45.459793,
     longitude: -73.639174,
+    description:
+      "Located on the Loyola Campus, the BB Annex supports campus services that enhance university life. The building is home to CPE les P’tits Profs, a childcare centre providing high-quality early childhood education to faculty, staff and student families within the Concordia community.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/bb/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1754505281032.jpg",
   },
   {
     campus: "LOY",
@@ -46,6 +60,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "3500 Bermore Avenue",
     latitude: 45.459819,
     longitude: -73.639152,
+    description:
+      "The BH Annex is situated on the Loyola Campus. It houses Les P’tits Profs Daycare, which offers quality childcare for Concordia faculty, staff and students. The building plays a key role in fostering a supportive, family-friendly campus environment.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/bh/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1754505255461.jpg",
   },
   {
     campus: "LOY",
@@ -55,6 +73,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke West",
     latitude: 45.458204,
     longitude: -73.6403,
+    description:
+      "Opened in 1947, the Central Building was designed in harmony with Loyola Campus’s original 1913 style. The building connects key spaces at the heart of campus, linking the Administration (AD) Building with the Loyola Jesuit Hall and Conference Centre (RF) and the Psychology (PY) Building. \n \nThe Central Building originally housed classrooms, a library occupying most of the top floor, a gymnasium, and student bedrooms. Today, it includes classrooms, the Guadagni Lounge — named for beloved professor Franco Guadagni — and the student-run campus radio station, CJLO. \n \nHistoric Loyola College graduation photos line the second-floor hallway, offering a glimpse into the university’s past. The building is designated a heritage property by the City of Montreal.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/cc/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750701910958.jpg",
   },
   {
     campus: "SGW",
@@ -64,6 +86,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2149 Mackay Street",
     latitude: 45.497467,
     longitude: -73.579925,
+    description:
+      "The CI Annex is a Victorian-era building, forming part of a trio of historic homes just north of the Hall Building. Built around 1884, it showcases grey limestone walls, decorative stonework and a distinctive two-storey bay window with angled sides. \n \nAfter serving as a private residence and later a restaurant, the building was acquired by the university in 1971.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/ci/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750700006681.jpg",
   },
   {
     campus: "LOY",
@@ -73,6 +99,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141, Sherbrooke Wes",
     latitude: 45.457478,
     longitude: -73.640354,
+    description:
+      "Originally built in 1962 as the Drummond Science Complex, this building was fully renovated and expanded in 2005. It now houses the Communication Studies and Journalism departments, as well as a bookstore, open lounge space and small café. \n  \nThe Communication Studies and Journalism Building features specialized media spaces. These include a fully digitized radio and television broadcast operation, network access, high-tech classrooms, new media and computer labs, and studios with high-end audiovisual equipment, including production, video and editing suites. ",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/cj/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750702027234.jpg",
   },
   {
     campus: "LOY",
@@ -82,6 +112,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141, Sherbrooke Wes",
     latitude: 45.457478,
     longitude: -73.640354,
+    description:
+      "Originally built in 1962 as the Drummond Science Complex, this building was fully renovated and expanded in 2005. It now houses the Communication Studies and Journalism departments, as well as a bookstore, open lounge space and small café. \n \nThe Communication Studies and Journalism Building features specialized media spaces. These include a fully digitized radio and television broadcast operation, network access, high-tech classrooms, new media and computer labs, and studios with high-end audiovisual equipment, including production, video and editing suites. ",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/cj/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750702027234.jpg",
   },
   {
     campus: "LOY",
@@ -91,6 +125,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141, Sherbrooke West",
     latitude: 45.457478,
     longitude: -73.640354,
+    description:
+      "Originally built in 1962 as the Drummond Science Complex, this building was fully renovated and expanded in 2005. It now houses the Communication Studies and Journalism departments, as well as a bookstore, open lounge space and small café. \n \nThe Communication Studies and Journalism Building features specialized media spaces. These include a fully digitized radio and television broadcast operation, network access, high-tech classrooms, new media and computer labs, and studios with high-end audiovisual equipment, including production, video and editing suites. ",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/cj/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750702027234.jpg",
   },
   {
     campus: "LOY",
@@ -100,6 +138,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141, Sherbrooke Wes",
     latitude: 45.457478,
     longitude: -73.640354,
+    description:
+      "Originally built in 1962 as the Drummond Science Complex, this building was fully renovated and expanded in 2005. It now houses the Communication Studies and Journalism departments, as well as a bookstore, open lounge space and small café. \n \nThe Communication Studies and Journalism Building features specialized media spaces. These include a fully digitized radio and television broadcast operation, network access, high-tech classrooms, new media and computer labs, and studios with high-end audiovisual equipment, including production, video and editing suites. ",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/cj/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750702027234.jpg",
   },
   {
     campus: "SGW",
@@ -109,6 +151,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1665 Ste-Catherine W",
     latitude: 45.494259,
     longitude: -73.579007,
+    description:
+      "Located on the Sir George Williams Campus, the CL Annex is a dedicated space for learning and academic services. The building is home to classrooms and facilities that support Concordia Continuing Education programs, providing a convenient downtown location for students pursuing professional development and lifelong learning.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/cl/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750702106400.jpg",
   },
   {
     campus: "SGW",
@@ -118,6 +164,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2140 Bishop Street",
     latitude: 45.497827,
     longitude: -73.579409,
+    description:
+      "This row house was built in 1891 as a twin to the neighbouring MI Annex, also featuring red Scottish sandstone and Romanesque-inspired detailing. \n \nAfter years as a private residence, it was acquired by Concordia in 1971. Its distinct gabled roofline and original bay windows hint at its 19th-century residential roots.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/d/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750702147171.jpg",
   },
   {
     campus: "SGW",
@@ -127,6 +177,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2070 Mackay Street",
     latitude: 45.496944,
     longitude: -73.579555,
+    description:
+      "The Engineering, Computer Science and Visual Arts Integrated Complex (EV Building) opened in September 2005, a striking addition to Montreal’s downtown landscape. \n \nThe 17-storey complex unites the Gina Cody School of Engineering and Computer Science and the Faculty of Fine Arts in a bold, light-filled structure on the Sir George Williams Campus. Its two towers, connected on every floor, were designed to encourage collaboration between disciplines while responding thoughtfully to their urban surroundings. \n \nThe Engineering and Computer Science tower contains over 300 specialized labs, student areas and the faculty Dean's Office, integrating a large part of the faculty in one space. \n \nThe Visual Arts tower houses Studio Arts, Art History and the faculty Dean's Office, with specialized spaces for traditional and digital media. It also boasts an art gallery, a black box theatre and art history amphitheatres. \n \nThe complex also includes a fitness and recreation centre, and an underground tunnel to the Guy-De Maisonneuve (GM) Building and Guy-Concordia metro station.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/en/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750702290723.jpg",
   },
   {
     campus: "SGW",
@@ -136,7 +190,13 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2155 Guy Street",
     latitude: 45.496428,
     longitude: -73.57999,
+    description:
+      "Built in 1954, the ER Building is a 14-storey office tower on Concordia’s Sir George Williams Campus. It houses academic departments and research centres and institutes. Concordia occupies space on 11 floors.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/er/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750702362372.jpg",
   },
+
+  // can't find description for ES
   {
     campus: "SGW",
     code: "ES",
@@ -145,7 +205,11 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2135 Guy Street",
     latitude: 45.496172,
     longitude: -73.579922,
+    description: undefined,
+    photoLink: undefined,
   },
+
+  // can't find description for ET
   {
     campus: "SGW",
     code: "ET",
@@ -154,15 +218,22 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2125-2127 Guy Street",
     latitude: 45.496163,
     longitude: -73.579904,
+    description: undefined,
+    photoLink: undefined,
   },
   {
     campus: "SGW",
     code: "EV",
     shortName: "EV Building",
-    longName: "Engineering, Computer Science and Visual Arts Integrated Complex",
+    longName:
+      "Engineering, Computer Science and Visual Arts Integrated Complex",
     address: "1515 Ste-Catherine W",
     latitude: 45.495376,
     longitude: -73.577997,
+    description:
+      "The Engineering, Computer Science and Visual Arts Integrated Complex (EV Building) opened in September 2005, a striking addition to Montreal’s downtown landscape. \n \nThe 17-storey complex unites the Gina Cody School of Engineering and Computer Science and the Faculty of Fine Arts in a bold, light-filled structure on the Sir George Williams Campus. Its two towers, connected on every floor, were designed to encourage collaboration between disciplines while responding thoughtfully to their urban surroundings. \n \nThe Engineering and Computer Science tower contains over 300 specialized labs, student areas and the faculty Dean's Office, integrating a large part of the faculty in one space. \n \nThe Visual Arts tower houses Studio Arts, Art History and the faculty Dean's Office, with specialized spaces for traditional and digital media. It also boasts an art gallery, a black box theatre and art history amphitheatres. \n \nThe complex also includes a fitness and recreation centre, and an underground tunnel to the Guy-De Maisonneuve (GM) Building and Guy-Concordia metro station.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/ev/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750702823530.jpg",
   },
   {
     campus: "SGW",
@@ -172,6 +243,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2060 Mackay Street",
     latitude: 45.496874,
     longitude: -73.579468,
+    description:
+      "The FA Annex, a three-storey Victorian house built in 1875, stands out with its steep slate roof, detailed dormer windows and prominent stone bay window at the front. \n \nOnce home to notable Montrealers, it became part of the university in 1970. Today, it hosts offices and student services, including part of the Department of Religions and Cultures.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/fa/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750702940372.jpg",
   },
   {
     campus: "SGW",
@@ -181,6 +256,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1250 Guy Street",
     latitude: 45.494666,
     longitude: -73.577603,
+    description:
+      "The Faubourg Building, a 12-storey postmodern tower, opened in 1990 at the corner of Guy Street and Ste. Catherine Street West. Originally designed as a hotel, it became an office building and was acquired by Concordia in 1997. \n \nToday, it’s home to Concordia Continuing Education and the Mel Hoppenheim School of Cinema, along with labs, classrooms, offices, study spaces and student services. \n \nThe building is part of a larger complex that once hosted a Buick car showroom, bowling alley and the legendary Toe Blake’s Tavern. Its red brick, green aluminum and glass exterior stands out with a distinctive sawtooth pattern along Guy Street. \n \nThe Faubourg Building connects to the Faubourg Ste-Catherine (FG) and Grey Nuns Annex (GA) Buildings and offers indoor parking.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/fb/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750703069703.jpg",
   },
   {
     campus: "LOY",
@@ -190,6 +269,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke West",
     latitude: 45.458493,
     longitude: -73.639287,
+    description:
+      "The F.C. Smith Building is a multi-use space at Loyola Campus, best known today as home to the Loyola Chapel. Opened in 1933, the building has received a heritage designation from the City of Montreal. \n \nThe Loyola Chapel offers a beautiful and quiet non-denominational environment, open to people of all faiths for reflection, celebration and community events. The building also hosts classes, events and other activities connected to student life and the broader university community.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/fb/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750703069703.jpg",
   },
   {
     campus: "SGW",
@@ -199,6 +282,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1610 Ste-Catherine",
     latitude: 45.494381,
     longitude: -73.578425,
+    description:
+      "Located on the site of a former auto showroom, the Faubourg Ste-Catherine Building has a colourful history. Built in 1926, the building was originally a McLaughlin-Buick dealership and then later hosted a bowling alley, a pool room and a tavern. In 1985, the building was redeveloped into an indoor urban market inspired by Boston's Faneuil Hall, with an attached tower originally intended as a hotel. \n \nToday, the building houses classrooms as well as the Department of Education's Student Resource Centre. You can also find a selection of restaurants in the building's sunlit atrium.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/fg/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750703205424.jpg",
   },
   {
     campus: "SGW",
@@ -208,6 +295,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1211-1215 St-Mathieu",
     latitude: 45.494123,
     longitude: -73.57787,
+    description:
+      "Built in stages between 1869 and 1925, the Grey Nuns Annex originally housed workers for the Grey Nuns’ hospital complex. It once included dorms, a bakery and workshops for painters and carpenters. \n \nAcquired by Concordia in 2014, the stone building now serves as a research and administrative hub for Concordia’s Department of Education and other university services. Highlights include its preschool education lab and a modern footbridge linking it to the Faubourg (FB) Building. \n \nWith its historic dormers and stone walls, the annex is a rare example of 19th-century institutional architecture preserved on campus.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/ga/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750703691368.jpg",
   },
   {
     campus: "LOY",
@@ -217,6 +308,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke W",
     latitude: 45.457017,
     longitude: -73.640432,
+    description:
+      "The Centre for Structural and Functional Genomics was officially inaugurated in November 2011 as part of the celebrations marking the 6th year of Montreal’s designation as a UNESCO City of Design.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/ge/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1752776070279.jpg",
   },
   {
     campus: "SGW",
@@ -226,6 +321,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1550 DeMaisonneuve W",
     latitude: 45.495983,
     longitude: -73.578824,
+    description:
+      "The Centre for Structural and Functional Genomics was officially inaugurated in November 2011 as part of the celebrations marking the 6th year of Montreal’s designation as a UNESCO City of Design.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/ge/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1752776070279.jpg",
   },
   {
     campus: "SGW",
@@ -235,6 +334,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1190 Guy Street",
     latitude: 45.493622,
     longitude: -73.577003,
+    description:
+      "The Sisters of Charity of Montreal, also known as the Grey Nuns, have played an important part in the city’s history. Their former Mother House, built in 1871, was acquired by Concordia in 2007, serving a new purpose while preserving its outstanding heritage. \n \nToday, the five-floor Grey Nuns Building houses approximately 600 undergraduate students and offers a beautiful reading room, an early-childhood observation nursery and a kitchen serving both campuses.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/gn/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750703536218.jpg",
   },
   {
     campus: "SGW",
@@ -244,6 +347,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1190 Guy Street",
     latitude: 45.493622,
     longitude: -73.577003,
+    description:
+      "The Sisters of Charity of Montreal, also known as the Grey Nuns, have played an important part in the city’s history. Their former Mother House, built in 1871, was acquired by Concordia in 2007, serving a new purpose while preserving its outstanding heritage. \n \nToday, the five-floor Grey Nuns Building houses approximately 600 undergraduate students and offers a beautiful reading room, an early-childhood observation nursery and a kitchen serving both campuses.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/gn/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750703536218.jpg",
   },
   {
     campus: "SGW",
@@ -253,6 +360,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1190 Guy Street",
     latitude: 45.493622,
     longitude: -73.577003,
+    description:
+      "The Sisters of Charity of Montreal, also known as the Grey Nuns, have played an important part in the city’s history. Their former Mother House, built in 1871, was acquired by Concordia in 2007, serving a new purpose while preserving its outstanding heritage. \n \nToday, the five-floor Grey Nuns Building houses approximately 600 undergraduate students and offers a beautiful reading room, an early-childhood observation nursery and a kitchen serving both campuses.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/gn/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750703536218.jpg",
   },
   {
     campus: "SGW",
@@ -262,6 +373,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1190 Guy Street",
     latitude: 45.493622,
     longitude: -73.577003,
+    description:
+      "The Sisters of Charity of Montreal, also known as the Grey Nuns, have played an important part in the city’s history. Their former Mother House, built in 1871, was acquired by Concordia in 2007, serving a new purpose while preserving its outstanding heritage. \n \nToday, the five-floor Grey Nuns Building houses approximately 600 undergraduate students and offers a beautiful reading room, an early-childhood observation nursery and a kitchen serving both campuses.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/gn/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750703536218.jpg",
   },
   {
     campus: "SGW",
@@ -271,6 +386,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1538, Sherbrooke W",
     latitude: 45.496673,
     longitude: -73.581409,
+    description:
+      "Located on the Sir George Williams Campus, the GS Building houses the Concordia University Part-time Faculty Association (CUPFA). The building provides office and meeting spaces for CUPFA’s operations, supporting part-time faculty members in their academic and professional activities.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/gs/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1753390286932.jpg",
   },
   {
     campus: "SGW",
@@ -280,6 +399,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1455 DeMaisonneuve W",
     latitude: 45.497092,
     longitude: -73.5788,
+    description:
+      "Completed in 1966, the Henry F. Hall Building is a prominent academic and social hub on the Sir George Williams Campus. Its cube-like form and exterior of pre-fabricated, stressed concrete reflect the Brutalist architectural style, a movement often associated with French architect Le Corbusier. \n \nInside, the building brings together many academic departments — particularly in the social sciences — along with classrooms and engineering teaching and research labs. \n \nBeyond academics, it's a lively centre of student life, home to the Student Success Centre, Concordia Theatre and student spaces like the Hive Café, Reggie's Pub, the People's Potato and student association offices.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/h/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750703745830.jpg",
   },
   {
     campus: "LOY",
@@ -289,6 +412,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke West",
     latitude: 45.459356,
     longitude: -73.64127,
+    description:
+      "Opened in 1964, Hingston Hall, wing HA, is one of two wings originally built as a student residence on the Loyola Campus. Today, it still serves this purpose, housing 131 students across its four floors. \n \nThe building is named after William Hales Hingston, S.J., a key figure in Loyola’s early development, and honours Loyola's tradition of residential student life.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/ha/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750703805691.jpg",
   },
   {
     campus: "LOY",
@@ -298,6 +425,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke West",
     latitude: 45.459308,
     longitude: -73.641849,
+    description:
+      "Hingston Hall, wing HB, opened in 1964 as part of the original Hingston Hall complex. It underwent major renovations in 2012 to convert the building into a modern student residence. \n \nToday, the building provides housing for 118 students, supporting Loyola Campus’ vibrant community.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/hb/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750703951339.jpg",
   },
   {
     campus: "LOY",
@@ -307,6 +438,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke West",
     latitude: 45.459663,
     longitude: -73.64208,
+    description:
+      "Hingston Hall, wing HC, the smallest wing of the Hingston complex, complements the residential wings with academic space. \n \nIt contains offices, classrooms and two Fine Arts amphitheatres, serving as a key space for learning and research at the Loyola Campus.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/hc/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750703989751.jpg",
   },
   {
     campus: "LOY",
@@ -316,6 +451,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141, Sherbrooke W",
     latitude: 45.458513,
     longitude: -73.641921,
+    description:
+      "The Applied Science Hub is a state-of-the-art facility on Loyola Campus that opened in December 2020. The hub expands on the Richard J. Renaud Science Complex and reflects Concordia’s commitment to interdisciplinary research and sustainable design. \n \nThis LEED Gold–certified building includes four floors of high-tech labs and collaborative spaces, supporting research in agriculture, health, sustainability and engineering. Facilities include equipment for aquatic biology, cellular imaging, nanoscience, bioprocessing and more. \n \nThe Applied Science Hub also houses the District 3 Innovation Hub, where students, researchers and entrepreneurs can collaborate on scaling up ideas and startups with real-world impact.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/hu/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1752777007725.jpg",
   },
   {
     campus: "LOY",
@@ -325,6 +464,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke West",
     latitude: 45.458432,
     longitude: -73.643235,
+    description:
+      "Tucked into the northwest corner of Loyola Campus, the Jesuit Residence is a quiet, seven-storey building with a long history. Originally built in 1969 to house the Jesuit priests of Loyola College, it remained in use by the Jesuit Order until Concordia purchased the property. The residence reopened for student housing in 2006. \n \nToday, the residence offers 52 private rooms spread across six floors, most of which are reserved for graduate students. The top floor offers common areas for cooking, eating and small gatherings, while the basement has a laundry room and a games room.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/jr/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1752775378408.jpg",
   },
   {
     campus: "SGW",
@@ -334,6 +477,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2150 Bishop Street",
     latitude: 45.497777,
     longitude: -73.579531,
+    description:
+      "The oldest of the Bishop annexes, this row house was built in 1890. Its Romanesque-inspired stonework and carved details — like rounded archways and a stone porch with balcony — make it especially striking. \n \nAcquired in 1970, the annex now houses offices for departments and unions.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/k/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750704193887.jpg",
   },
   {
     campus: "SGW",
@@ -343,7 +490,13 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1400 DeMaisonneuve W",
     latitude: 45.49705,
     longitude: -73.578009,
+    description:
+      "Opened in 1992, the J.W. McConnell (LB) Building is a central academic and cultural hub on the Sir George Williams Campus. Its tiered, stepped profile was designed to complement the surrounding neighbourhood, with its height gradually increasing from two to 10 storeys. \n \nThe lower floors feature a mix of public and student-focused spaces, including a student service centre, bookstore, print shop, art gallery and more. An underground tunnel links the building to the Hall Building and Guy-Concordia metro station. \n \nThe second to fifth floors house the R. Howard Webster Library, offering a variety of study spaces and services. \n \nlevels contain classrooms, academic department offices and conference spaces.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/lb/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750706334758.jpg",
   },
+
+  // can't find description for LC
   {
     campus: "SGW",
     code: "LC",
@@ -352,6 +505,8 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1426 Bishop Street",
     latitude: 45.496782,
     longitude: -73.577358,
+    description: undefined,
+    photoLink: undefined,
   },
   {
     campus: "SGW",
@@ -361,6 +516,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1424 Bishop Street",
     latitude: 45.496697,
     longitude: -73.577312,
+    description:
+      "Built in 1894, this red sandstone townhouse features ornate stonework and a three-storey bay window. Over time, it housed offices, restaurants and cafés. \n \nIn 2019, Concordia converted the building into a daycare and nursery for the Concordia Student Union. While the interior has evolved, many original architectural features remain visible from the street.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/ld/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750704279111.jpg",
   },
   {
     campus: "SGW",
@@ -370,6 +529,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1535 De Maisonneuve Blvd. W",
     latitude: 45.496357,
     longitude: -73.579425,
+    description:
+      "The Learning Square opened in 2019 to provide extra classroom space while the Henry F. Hall Building underwent renovations. This bright, modular two-storey structure was designed for flexibility and future reuse by Montreal-based firm Lapointe Magne et associés. \n \nIt houses eight state-of-the-art classrooms and includes universal accessibility features like gender-neutral washrooms and step-free entry.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/ls/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750704406530.jpg",
   },
   {
     campus: "SGW",
@@ -379,6 +542,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2135 Mackay Street",
     latitude: 45.497368,
     longitude: -73.579777,
+    description:
+      "The M Annex is a 3-storey Victorian building located just north of the Hall Building. Built around 1884, it features a grey limestone facade, carved stone details and a distinctive two-storey curved bay window. \n \nOriginally a private residence, it later housed the Canadian Red Cross and was converted into apartments before being acquired by the university in 1967.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/m/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750704516786.jpg",
   },
   {
     campus: "SGW",
@@ -388,6 +555,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1450 Guy Street",
     latitude: 45.495304,
     longitude: -73.579044,
+    description:
+      "In 2009, the John Molson Building officially opened on the corner of Guy and de Maisonneuve. It includes digitally equipped teaching amphitheatres and classrooms, faculty and graduate student offices, the Office of the Dean, student and faculty social space, as well as space for privatized programs. Special features also include case study rooms designed for group work, and laboratories for consumer behaviour research. \n \nSet on a tight footprint typical of a downtown property, the building is 15 storeys high, with two basement levels. The distinctive design features two-storey stacked atria, a vertically interconnected ground floor concourse, and a tunnel running under Guy Street connecting to the Guy-Concordia metro station and the Engineering, Computer Science and Visual Arts Integrated Complex. \n \nThe building was awarded LEED (Leadership in Energy and Environmental Design) Silver level certification for its eco-friendly design.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/mb/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1752848969887.jpg",
   },
   {
     campus: "SGW",
@@ -397,7 +568,13 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2130 Bishop Street",
     latitude: 45.497807,
     longitude: -73.579261,
+    description:
+      "Built in 1891, this red sandstone house was designed in the Richardsonian Romanesque style with bay windows, ironwork and a bold gabled roof. Concordia acquired it in 1971. \n \nOnce a private home, today the MI Annex hosts union offices.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/mi/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750706431105.jpg",
   },
+
+  // can't find description for MK
   {
     campus: "SGW",
     code: "MK",
@@ -406,7 +583,11 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2000-20002 Mackay St",
     latitude: 45.496606,
     longitude: -73.579025,
+    description: undefined,
+    photoLink: undefined,
   },
+
+  // can't find description for MM
   {
     campus: "SGW",
     code: "MM",
@@ -415,7 +596,11 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1209 Guy Street",
     latitude: 45.494665,
     longitude: -73.576365,
+    description: undefined,
+    photoLink: undefined,
   },
+
+  // can't find description for MN
   {
     campus: "SGW",
     code: "MN",
@@ -424,7 +609,11 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1205-1207 Guy Street",
     latitude: 45.494568,
     longitude: -73.576315,
+    description: undefined,
+    photoLink: undefined,
   },
+
+  // can't find description for MT
   {
     campus: "SGW",
     code: "MT",
@@ -433,6 +622,8 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1195 Guy Street",
     latitude: 45.494442,
     longitude: -73.576108,
+    description: undefined,
+    photoLink: undefined,
   },
   {
     campus: "SGW",
@@ -442,6 +633,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2170 Bishop Street",
     latitude: 45.497963,
     longitude: -73.579506,
+    description:
+      "Built in 1891, the MU Annex blends limestone and textured concrete, giving it a distinct look among the Bishop Street row houses. Once a private home, it was later converted into apartments before being acquired by Concordia in 1971. \n \nToday, it provides office space for various university services.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/mu/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750706503707.jpg",
   },
   {
     campus: "SGW",
@@ -451,7 +646,13 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2020 Mackay Street",
     latitude: 45.496745,
     longitude: -73.579113,
+    description:
+      "Designed and likely built by architect William Tutin Thomas in 1873-74, this three-storey Victorian building includes a striking bay window with a copper-clad oriel. \n \nOriginally a private residence for brokers and businessmen, the P Annex was acquired by the university in 1969 and is now used for offices and student services.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/p/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750706979083.jpg",
   },
+
+  // can't find description for PB
   {
     campus: "LOY",
     code: "PB",
@@ -460,6 +661,8 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7200 Sherbrooke W",
     latitude: 45.456534,
     longitude: -73.638106,
+    description: undefined,
+    photoLink: undefined,
   },
   {
     campus: "LOY",
@@ -469,6 +672,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7200 Sherbrooke W",
     latitude: 45.457088,
     longitude: -73.637683,
+    description:
+      "Located on the south side of Sherbrooke Street at the Loyola Campus, the PERFORM Centre building, which houses the School of Health and its laboratories, makes a striking impression as it inclines towards de Maisonneuve Street. \n \nStudents and the general public can join fitness classes, work out or consult with a personal trainer at the PERFORM Gym, as well as meet with a dietitian, attend workshops or visit kinesiology and athletic therapy internship clinics. \n \nDesigned with natural lighting and advanced energy recuperation systems, the centre earned LEED Gold certification in 2011 for its sustainable construction.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/pc/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1754056606860.jpg",
   },
   {
     campus: "SGW",
@@ -478,6 +685,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2100 Mackay Street",
     latitude: 45.497066,
     longitude: -73.57979,
+    description:
+      "Built around 1957, the PR Annex reflects a modern style with artificial stone at street level and brick above. Its metal accents and clean lines are typical of mid-century design. \n \nThe four-storey building was acquired by the university in 1974 and now serves as space for offices and student services.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/pr/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750707056205.jpg",
   },
   {
     campus: "LOY",
@@ -487,6 +698,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke W",
     latitude: 45.459636,
     longitude: -73.639758,
+    description:
+      "Built in 1923 as the Loyola College Arena, the Physical Services Building has played many roles over the years. Originally home to the college’s first rink, it was expanded in 1941 with a south wall addition to house a Canadian Officers Training Corps (COTC) drill hall, which was later repurposed as a cafeteria after World War II. \n \nFollowing the opening of the Athletics Complex in 1967 and the relocation of the COTC, the building was converted for Facilities Operations Services. \n \nToday, this two-storey structure continues to support Concordia’s Facilities Operations Services and also serves as a workspace for student theatre workshops and engineering projects, including vehicle design and fabrication initiatives.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/ps/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1753211858581.jpg",
   },
   {
     campus: "LOY",
@@ -496,6 +711,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke W",
     latitude: 45.459308,
     longitude: -73.638941,
+    description:
+      "Opened in 1990, the Oscar Peterson Concert Hall is a 513-seat venue used for concerts, lectures, recordings and other performances. The concert hall features adjustable acoustics and a birch-paneled stage backdrop. \n \nOpened in 1990, the Oscar Peterson Concert Hall is a 513-seat venue used for concerts, lectures, recordings and other performances. The concert hall features adjustable acoustics and a birch-paneled stage backdrop. \n \nThe concert hall is connected to the Student Centre and Vanier Library.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/pt/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750712426795.jpg",
   },
   {
     campus: "LOY",
@@ -505,6 +724,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke W",
     latitude: 45.458938,
     longitude: -73.640467,
+    description:
+      "The Psychology Building, one of Loyola Campus’s original buildings, was first known as the Junior Building and served both high school and college students. Built around 1927, it was expanded in 1969 with a modern addition and fully renovated in the early 1990s to house the Department of Psychology. \n \nThe three-storey L-shaped structure, with its historic detailing and large classrooms, once included a chapel and dormitories. Today, it features offices, labs and classrooms and remains directly connected to the Loyola Jesuit Hall and Conference Centre (RF).",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/py/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750712426337.jpg",
   },
   {
     campus: "SGW",
@@ -514,6 +737,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2010 Mackay Street",
     latitude: 45.496648,
     longitude: -73.579094,
+    description:
+      "Built in 1875 by architect Alexander Goodsir Fowler, the Q Annex is a modest two-storey Victorian stone home with simple lines and minimal ornamentation. \n \nOnce home to the Polish Consulate, it became university property in 1969 and now houses offices and student services.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/q/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750707299714.jpg",
   },
   {
     campus: "SGW",
@@ -523,6 +750,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2050 Mackay Street",
     latitude: 45.496826,
     longitude: -73.579389,
+    description:
+      "Built in 1875, the R Annex is one of a trio of similar Victorian houses on this block. It features a stone facade, bay window and intricate slate-roofed dormers. \n \nThe annex was acquired by the university in 1970 and now houses offices, including part of the Department of Religions and Cultures.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/r/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750712426828.jpg",
   },
   {
     campus: "LOY",
@@ -532,6 +763,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7200 Sherbrooke W",
     latitude: 45.456774,
     longitude: -73.63761,
+    description:
+      "Opened in 1967, the Recreation and Athletics Complex is the heart of varsity and recreational sports at Concordia’s Loyola Campus. It features the NHL-standard Ed Meagher Arena, a 4,000-seat stadium, gymnasium and two outdoor turf fields. \n \nToday, the complex is home to Concordia Stingers varsity teams, intramural leagues, fitness classes and community sports programs. Students can join pick-up games or participate in organized leagues for basketball, volleyball, soccer, rugby and more.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/ra/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1753387180607.jpg",
   },
   {
     campus: "LOY",
@@ -541,6 +776,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke W",
     latitude: 45.458489,
     longitude: -73.641028,
+    description:
+      "Originally known as the Refectory, this historic building is one of the oldest structures on the Loyola Campus. Built in the shape of a cross, it originally featured elegant dining halls, an infirmary and a distinctive sundial on its south façade. \n \nIn 2012, the building officially reopened as the Loyola Jesuit Hall and Conference Centre after a major restoration. This transformation marked a key milestone in the revitalization of the Loyola Campus. \n \nToday, this historic building is an important gathering place for community and social events. The space includes an alumni centre, lounge, large conference and meeting rooms, catering facilities and offices.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/rf/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1754321077294.jpg",
   },
   {
     campus: "SGW",
@@ -550,6 +789,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2040 Mackay Street",
     latitude: 45.496796,
     longitude: -73.579259,
+    description:
+      "The RR Annex, built in 1875, was transformed over the years from a private home to apartments, and even a restaurant in the 1960s. It retains its Victorian charm with a stone bay window mansard roof, and preserved stained glass elements. \n \nThe building was acquired by Concordia in 1979 and now houses the Liberal Arts College.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/rr/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750773247509.jpg",
   },
   {
     campus: "SGW",
@@ -559,6 +802,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2145 Mackay Street",
     latitude: 45.497423,
     longitude: -73.579851,
+    description:
+      "The S Annex is a historic three-storey Victorian residence, just steps from the Hall Building. Built around 1884, it features a grey limestone exterior with intricate stone carvings and a two-storey bay window with an octagonal layout that continues into the mansard roof. \n \nOnce known as “Odstone Hall,” the building served as a private home for nearly a century before becoming university property in 1970. \n \nToday, the S Annex houses part of the Department of Philosophy and is connected internally to the M Annex next door.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/s/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750774186296.jpg",
   },
   {
     campus: "SGW",
@@ -568,6 +815,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1590 Doctor Penfield",
     latitude: 45.4966,
     longitude: -73.58609,
+    description:
+      "Built in 1970, the Samuel Bronfman Building was originally home to the Canadian Jewish Congress. It was designed by architect Fred Lebensold and stands out for its bold concrete structure and unique triangular shape. In 1999, the building was acquired by Concordia. \n \nIt now houses offices, centres and institutes for the Faculty of Arts and Science. You’ll also find some quiet common areas and an indoor parking garage for faculty and staff.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/sb/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750774358727.jpg",
   },
   {
     campus: "LOY",
@@ -577,6 +828,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke W",
     latitude: 45.459131,
     longitude: -73.639251,
+    description:
+      "Opened in 1973, the Student Centre was designed as a space for students, by students. It originally housed lounges, music-listening spaces and a student pub, The Wolf and Kettle — later renamed The Hive. \n \nToday, the building hosts Buzz Dining Hall, the Hive Café, music practice rooms and student association offices. Built with student and alumni contributions, the centre was refreshed through the “Revive the Hive” campaign in the late 1990s. \n \nIt connects directly to the Oscar Peterson Concert Hall and Vanier Library.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/sc/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750774420596.jpg",
   },
   {
     campus: "LOY",
@@ -586,6 +841,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke W",
     latitude: 45.459298,
     longitude: -73.642478,
+    description:
+      "Completed in 2021, the Future Buildings Laboratory supports research and innovation in sustainable buildings and infrastructure. It carries forward the legacy of Concordia’s Solar House, originally designed for the university’s entry in the prestigious U.S. Solar Decathlon in 2005. After the competition, the house was reassembled on campus as a permanent research facility. \n \nToday, the laboratory serves as a world-class living lab where students and researchers explore net-zero energy envelope design, intelligent building systems and renewable nano-grid integration.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/sh/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750774494391.jpg",
   },
   {
     campus: "LOY",
@@ -595,6 +854,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke W",
     latitude: 45.457881,
     longitude: -73.641565,
+    description:
+      "Opened in 2003, the Richard J. Renaud Science Complex changed the face of Concordia's west-end campus. This state-of-the-art teaching and research facility includes teaching facilities, offices and laboratories for various science departments. \n \nThe avant-garde design promotes interdisciplinarity and innovation in one of the top university sciences facilities in Canada. The award-winning building also features energy-efficient sustainable architecture. The complex includes the former Bryan Building (built in 1968), which has been completely renovated and fully integrated into the new structure. \n \nThe complex connects directly to the Centre for Structural and Functional Genomics (GE), Applied Science Hub (HU) and the Loyola Jesuit Hall and Conference Centre (RF).",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/sp/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1753215175111.jpg",
   },
   {
     campus: "SGW",
@@ -604,6 +867,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2030 Mackay Street",
     latitude: 45.49671,
     longitude: -73.57927,
+    description:
+      "The T Annex dates to 1875 and features a classic Victorian facade of grey stone, with a bay window topped by a copper oriel. The three-storey rowhouse was divided into apartments in 1957 and became university property soon after. \n \nThe annex now accommodates offices and student services.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/t/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750775449149.jpg",
   },
   {
     campus: "LOY",
@@ -613,7 +880,13 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7079 Terrebonne",
     latitude: 45.459992,
     longitude: -73.640897,
+    description:
+      "Located a short walk from the heart of Loyola Campus, Concordia’s Terrebonne Building is a standalone facility that plays an important role in the university’s campus network. \n \nIt houses the Centre for the Arts in Human Development (CAHD) — an educational, clinical and research centre serving adults with disabilities, neurodivergence and other needs.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/ta/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1759152574654.jpg",
   },
+
+  // can't find description for TB
   {
     campus: "LOY",
     code: "TB",
@@ -622,6 +895,8 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7075 Terrebonne",
     latitude: 45.460051,
     longitude: -73.640842,
+    description: undefined,
+    photoLink: undefined,
   },
   {
     campus: "SGW",
@@ -631,7 +906,13 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1410 Guy Street",
     latitude: 45.495103,
     longitude: -73.578375,
+    description:
+      "The classic bank building at Guy Street and Sainte-Catherine Street, the Toronto-Dominion Building opened in 1903 as a branch of the Bank of Toronto. The building was one of the first commercial projects of the Montreal architectural firm Ross and MacFarlane. \n \nInspiration for the design came from the Knickerbocker Trust Company Building in New York, which had been conceived four years earlier by architects McKim, Mead and Whyte, and was modeled on the Temple of Zeus in Agrigento (ca 480 BCE). \n \nIn 2005, TD Canada Trust donated this heritage bank building to Concordia. The Toronto-Dominion Building is adjacent to the John Molson Building.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/td/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1753213459658.jpg",
   },
+
+  // can't find description for TU
   {
     campus: "SGW",
     code: "TU",
@@ -640,6 +921,8 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1550 DeMaisonneuve",
     latitude: 45.49648,
     longitude: -73.578918,
+    description: undefined,
+    photoLink: undefined,
   },
   {
     campus: "SGW",
@@ -649,6 +932,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2110 Mackay Street",
     latitude: 45.497101,
     longitude: -73.579907,
+    description:
+      "Built in 1937, the V Annex was originally an apartment building called the “Florentia apartments.” This four-storey structure features a white-painted limestone ground floor that contrasts with brown brick above. \n \nIt was acquired by the university in 1970 and today houses offices and student services. Inside, some original finishes may remain, including a curved staircase and cast-iron radiators.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/v/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750775826854.jpg",
   },
   {
     campus: "SGW",
@@ -658,6 +945,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "1395 Rene Levesque W",
     latitude: 45.495543,
     longitude: -73.573795,
+    description:
+      "Concordia’s Visual Arts Building has been home to the Faculty of Fine Arts' visual arts programs since 1979. Originally built in 1923, the four-storey, L-shaped building features large windows, a concrete structure and a chamomile-coloured façade. Its courtyard entrance and green space out front — once a used car lot — are frequently used for student art installations. \n \nToday, the Visual Arts Building houses facilities for the creative arts, including the VAV Gallery, which showcases student artwork to the university community and public.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/va/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750775886127.jpg",
   },
   {
     campus: "LOY",
@@ -667,6 +958,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke W",
     latitude: 45.458822,
     longitude: -73.638573,
+    description:
+      "Originally built in 1964 as Loyola’s first library, this structure became known as the Vanier Extension after the new Vanier Library opened in 1989. Today, the Extension offers flexible, digitally equipped classrooms and also houses spaces for the Department of Applied Human Sciences. \n \nThe building is directly connected to the Vanier Library and other campus buildings, and features public art, including The Four Horsemen by François Houde, installed in 1989.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/ve/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1754323922442.jpg",
   },
   {
     campus: "LOY",
@@ -676,6 +971,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "7141 Sherbrooke W",
     latitude: 45.459026,
     longitude: -73.638606,
+    description:
+      "Named after distinguished Loyola alumnus and former Governor General of Canada Georges P. Vanier, this library has been a cornerstone of the Loyola Campus since 1964. Originally accommodating 150,000 volumes and seating 600 visitors, the Vanier Library doubled in capacity following major renovations and the addition of the Vanier Extension in 1989. \n \nToday, the library offers a mix of silent study spaces and collaborative work areas. Students can explore its three floors, spend time in one of its 22 learning spaces and reserve group study rooms.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/vl/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750775944461.jpg",
   },
   {
     campus: "SGW",
@@ -685,6 +984,10 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2080 Mackay Street",
     latitude: 45.49694,
     longitude: -73.579593,
+    description:
+      "Built around 1878, the X Annex is a Victorian home known for its ornate stone details with carved accents around windows and doors. \n \nThe building was acquired by the university in 1969 and now offers space for offices and student services.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/x/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750776118230.jpg",
   },
   {
     campus: "SGW",
@@ -694,5 +997,9 @@ export const BUILDINGS: BuildingRecord[] = [
     address: "2090 Mackay Street",
     latitude: 45.496981,
     longitude: -73.579705,
+    description:
+      "Dating back to 1879, the Z Annex is a three-storey Victorian stone house with a distinctive slate mansard roof and bay-window. Decorative woodwork and stone engravings highlight its original craftsmanship. \n \nFormerly a private residence, the building was acquired by Concordia in 1969 and now supports student services and office functions.",
+    photoLink:
+      "https://www.concordia.ca/content/concordia/en/maps/buildings/z/_jcr_content/content-main/grid_container_307846512/grid-container-parsys/box_427340212/box-parsys/image.img.jpg/1750776165500.jpg",
   },
 ];

@@ -26,7 +26,7 @@ export default function AppHeader({
   onCampusChange,
   searchText,
   onSearchTextChange,
-}: AppHeaderProps) {
+}: Readonly<AppHeaderProps>) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isWide = width >= 900;
@@ -38,7 +38,7 @@ export default function AppHeader({
       end={{ x: 1, y: 1 }}
       style={[
         styles.container,
-        Platform.OS !== "web" ? { paddingTop: insets.top + 12 } : null,
+        Platform.OS === "web" ? null : { paddingTop: insets.top + 12 },
         Platform.OS === "web" && isWide ? { paddingHorizontal: 28 } : null,
       ]}
     >
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     padding: 4,
     overflow: "hidden",
     backgroundColor: "rgba(255,255,255,0.15)",
-    transform: Platform.OS !== "web" ? [{ translateY: -25 }] : [],
+    transform: Platform.OS === "web" ? [] : [{ translateY: -15 }],
     marginTop: Platform.OS === "web" ? -20 : 0,
   },
 
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    marginTop: Platform.OS !== "web" ? 30 : 14,
+    marginTop: Platform.OS === "web" ? 14 : 30,
     marginBottom: 10,
     fontSize: 28,
     fontWeight: "700",

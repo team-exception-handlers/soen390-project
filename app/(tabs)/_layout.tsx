@@ -3,6 +3,23 @@ import { Tabs } from "expo-router";
 import { Platform, StyleSheet } from "react-native";
 import BottomTabIcon from "../../components/BottomTabIcon";
 
+const TabBarBackground = () =>
+  Platform.OS === "ios" ? (
+    <BlurView
+      intensity={80}
+      tint="light"
+      style={StyleSheet.absoluteFill}
+    />
+  ) : null;
+
+const MapTabIcon = ({ focused }: { focused: boolean }) => (
+  <BottomTabIcon focused={focused} label="Map" type="map" />
+);
+
+const ProfileTabIcon = ({ focused }: { focused: boolean }) => (
+  <BottomTabIcon focused={focused} label="Profile" type="profile" />
+);
+
 export default function TabsLayout() {
   return (
     <Tabs
@@ -16,14 +33,7 @@ export default function TabsLayout() {
           borderTopWidth: 0,
         },
 
-        tabBarBackground: () =>
-          Platform.OS === "ios" ? (
-            <BlurView
-              intensity={80}
-              tint="light"
-              style={StyleSheet.absoluteFill}
-            />
-          ) : null,
+        tabBarBackground: () => <TabBarBackground />,
 
         tabBarItemStyle: {
           paddingVertical: 6,
@@ -33,18 +43,14 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          tabBarIcon: ({ focused }) => (
-            <BottomTabIcon focused={focused} label="Map" type="map" />
-          ),
+          tabBarIcon: MapTabIcon,
         }}
       />
 
       <Tabs.Screen
         name="profile"
         options={{
-          tabBarIcon: ({ focused }) => (
-            <BottomTabIcon focused={focused} label="Profile" type="profile" />
-          ),
+          tabBarIcon: ProfileTabIcon,
         }}
       />
     </Tabs>
