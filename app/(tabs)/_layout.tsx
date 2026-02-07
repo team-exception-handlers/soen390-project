@@ -74,7 +74,7 @@ export default function TabsLayout() {
           },
         ],
 
-        tabBarBackground: () => <TabBarBackground />,
+        tabBarBackground: TabBarBackground,
 
         tabBarItemStyle: {
           paddingVertical: 0,

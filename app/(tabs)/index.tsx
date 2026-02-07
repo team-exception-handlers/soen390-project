@@ -1,4 +1,4 @@
-import Constants from "expo-constants";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -47,7 +47,8 @@ export default function MapScreen() {
   const [locationPermissionDenied, setLocationPermissionDenied] =
     useState(false);
 
-  const isExpoGo = Constants.appOwnership === "expo";
+  const isExpoGo =
+    Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
@@ -428,9 +429,8 @@ export default function MapScreen() {
                   });
               });
 
-              ${
-                userLat && userLng
-                  ? `
+              ${userLat && userLng
+        ? `
               console.log('Adding user marker at:', ${userLat}, ${userLng});
               const userIcon = L.divIcon({
                   className: 'user-marker',
@@ -440,8 +440,8 @@ export default function MapScreen() {
               });
               window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
               `
-                  : 'console.log("No user location available");'
-              }
+        : 'console.log("No user location available");'
+      }
           </script>
       </body>
       </html>
@@ -458,49 +458,59 @@ export default function MapScreen() {
 
   const shouldUseWebFallback = Platform.OS === "web" || !MapViewComponent;
 
-  const webMapContent =
-    Platform.OS === "web" ? (
-      <iframe
-        key={campus}
-        src={`data:text/html;charset=utf-8,${encodeURIComponent(mapHTML)}`}
-        style={styles.map as any}
-        frameBorder="0"
-        allowFullScreen
-        title="Concordia map"
-      />
-    ) : WebView ? (
-      <WebView
-        key={campus}
-        testID="map-webview"
-        ref={webViewRef}
-        source={{ html: mapHTML }}
-        style={styles.map}
-        javaScriptEnabled
-        domStorageEnabled
-        startInLoadingState
-        scalesPageToFit
-        onMessage={(event: any) => {
-          try {
-            const data = JSON.parse(event.nativeEvent.data);
-            if (data?.type === "buildingSelected") {
-              setSelectedBuilding(data.buildingCode);
-            }
+  const renderWebMapContent = () => {
+    if (Platform.OS === "web") {
+      return (
+        <iframe
+          key={campus}
+          src={`data:text/html;charset=utf-8,${encodeURIComponent(mapHTML)}`}
+          style={[styles.map, { border: 0 }] as any}
+          allowFullScreen
+          title="Concordia map"
+        />
+      );
+    }
 
-            if (data?.type === "buildingDeselected") {
-              setSelectedBuilding(null);
+    if (WebView) {
+      return (
+        <WebView
+          key={campus}
+          testID="map-webview"
+          ref={webViewRef}
+          source={{ html: mapHTML }}
+          style={styles.map}
+          javaScriptEnabled
+          domStorageEnabled
+          startInLoadingState
+          scalesPageToFit
+          onMessage={(event: any) => {
+            try {
+              const data = JSON.parse(event.nativeEvent.data);
+              if (data?.type === "buildingSelected") {
+                setSelectedBuilding(data.buildingCode);
+              }
+
+              if (data?.type === "buildingDeselected") {
+                setSelectedBuilding(null);
+              }
+            } catch {
+              // ignore non-JSON messages
             }
-          } catch {
-            // ignore non-JSON messages
-          }
-        }}
-      />
-    ) : null;
+          }}
+        />
+      );
+    }
+
+    return null;
+  };
+
+  const webMapContent = renderWebMapContent();
 
   const nativeMapContent =
     MapViewComponent &&
-    MapMarkerComponent &&
-    MapCalloutComponent &&
-    MapPolygonComponent ? (
+      MapMarkerComponent &&
+      MapCalloutComponent &&
+      MapPolygonComponent ? (
       <MapViewComponent
         key={campus}
         testID="map-native"
@@ -550,10 +560,10 @@ export default function MapScreen() {
           const polygonCode = hasExactPolygon
             ? building.code
             : campusPolygons.features.find(
-                (f: any) =>
-                  building.code.startsWith(f.properties.code) &&
-                  f.properties.code.length >= 2,
-              )?.properties.code || building.code;
+              (f: any) =>
+                building.code.startsWith(f.properties.code) &&
+                f.properties.code.length >= 2,
+            )?.properties.code || building.code;
 
           return (
             <MapMarkerComponent
