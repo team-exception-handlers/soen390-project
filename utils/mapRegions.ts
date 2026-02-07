@@ -7,6 +7,10 @@ export type MapRegion = {
   longitudeDelta: number;
 };
 
+export type PolygonFeature = {
+  properties: { code: string };
+};
+
 const DEFAULT_REGION: MapRegion = {
   latitude: 45.4967,
   longitude: -73.5799,
@@ -14,13 +18,37 @@ const DEFAULT_REGION: MapRegion = {
   longitudeDelta: 0.02,
 };
 
-/**
- * Calculating the map that will fit all the buildings for each campus we have
- */
-export function getCampusRegion(campus: Campus): MapRegion {
-  const campusBuildings = BUILDINGS.filter(
-    (building) => building.campus === campus
+function buildingHasPolygon(
+  building: { code: string },
+  polygonFeatures: readonly PolygonFeature[],
+): boolean {
+  const hasExact = polygonFeatures.some(
+    (f) => f.properties.code === building.code,
   );
+  const hasParent = polygonFeatures.some(
+    (f) =>
+      building.code.startsWith(f.properties.code) && f.properties.code.length >= 2,
+  );
+  return hasExact || hasParent;
+}
+
+/**
+ * Calculate the map region so it fits and centers on buildings that have polygons.
+ * If polygonFeatures is provided, only those buildings are used so the map centers on what's actually shown.
+ */
+export function getCampusRegion(
+  campus: Campus,
+  polygonFeatures?: readonly PolygonFeature[],
+): MapRegion {
+  let campusBuildings = BUILDINGS.filter(
+    (building) => building.campus === campus,
+  );
+
+  if (polygonFeatures && polygonFeatures.length > 0) {
+    campusBuildings = campusBuildings.filter((b) =>
+      buildingHasPolygon(b, polygonFeatures),
+    );
+  }
 
   if (campusBuildings.length === 0) {
     return DEFAULT_REGION;
@@ -40,8 +68,9 @@ export function getCampusRegion(campus: Campus): MapRegion {
 
   const latitude = (minLat + maxLat) / 2;
   const longitude = (minLng + maxLng) / 2;
-  const latitudeDelta = Math.max((maxLat - minLat) * 1.4, 0.005);
-  const longitudeDelta = Math.max((maxLng - minLng) * 1.4, 0.005);
+  const paddingMultiplier = campus === "LOY" ? 1.1 : 1.4;
+  const latitudeDelta = Math.max((maxLat - minLat) * paddingMultiplier, 0.005);
+  const longitudeDelta = Math.max((maxLng - minLng) * paddingMultiplier, 0.005);
 
   return { latitude, longitude, latitudeDelta, longitudeDelta };
 }

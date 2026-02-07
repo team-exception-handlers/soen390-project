@@ -1,7 +1,14 @@
 import Constants from "expo-constants";
 import * as Location from "expo-location";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Linking,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import { BUILDINGS } from "../../constants/buildings";
@@ -11,12 +18,12 @@ import {
   findUserBuilding,
   hasLocationPermission,
   requestLocationPermission,
-  startWatchingLocation
+  startWatchingLocation,
 } from "../../utils/locationUtils";
 
 import BuildingInformation from "@/components/BuildingInformation";
 import { getCampusRegion } from "../../utils/mapRegions";
-let WebView: React.ComponentType<any> | null = null
+let WebView: React.ComponentType<any> | null = null;
 if (Platform.OS !== "web") {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -33,15 +40,17 @@ export default function MapScreen() {
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const webViewRef = useRef<any>(null);
   const [userLocation, setUserLocation] = useState<any>(null);
-  const [currentBuilding, setCurrentBuilding] = useState<string | null | undefined>(undefined);
+  const [currentBuilding, setCurrentBuilding] = useState<
+    string | null | undefined
+  >(undefined);
   const locationSubscription = useRef<any>(null);
-  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
+  const [locationPermissionDenied, setLocationPermissionDenied] =
+    useState(false);
 
   const isExpoGo = Constants.appOwnership === "expo";
 
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
-
 
   let MapViewComponent: React.ComponentType<any> | null = null;
   let MapMarkerComponent: React.ComponentType<any> | null = null;
@@ -50,14 +59,15 @@ export default function MapScreen() {
   useEffect(() => {
     if (Platform.OS !== "web") return;
 
-    const handler = (event : MessageEvent) => {
+    const handler = (event: MessageEvent) => {
       try {
-        const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+        const data =
+          typeof event.data === "string" ? JSON.parse(event.data) : event.data;
 
-        if(data?.type === "buildingSelected"){
+        if (data?.type === "buildingSelected") {
           setSelectedBuilding(data.buildingCode);
         }
-        if(data?.type === "buildingDeselected"){
+        if (data?.type === "buildingDeselected") {
           setSelectedBuilding(null);
         }
       } catch {
@@ -98,21 +108,27 @@ export default function MapScreen() {
         }
       }
 
-      const subscription = await startWatchingLocation((location: Location.LocationObject) => {
-        setUserLocation(location);
-        setLocationPermissionDenied(false);
-        const { latitude, longitude } = location.coords;
+      const subscription = await startWatchingLocation(
+        (location: Location.LocationObject) => {
+          setUserLocation(location);
+          setLocationPermissionDenied(false);
+          const { latitude, longitude } = location.coords;
 
-        const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
-        const building = findUserBuilding(latitude, longitude, polygons as any);
+          const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
+          const building = findUserBuilding(
+            latitude,
+            longitude,
+            polygons as any,
+          );
 
-        if (building !== currentBuilding) {
-          setCurrentBuilding(building);
-          console.log("Current building:", building || "Outside");
-        }
+          if (building !== currentBuilding) {
+            setCurrentBuilding(building);
+            console.log("Current building:", building || "Outside");
+          }
 
-        console.log("User location:", latitude, longitude);
-      });
+          console.log("User location:", latitude, longitude);
+        },
+      );
 
       if (subscription) {
         locationSubscription.current = subscription;
@@ -124,7 +140,7 @@ export default function MapScreen() {
     return () => {
       if (locationSubscription.current) {
         try {
-          if (typeof locationSubscription.current.remove === 'function') {
+          if (typeof locationSubscription.current.remove === "function") {
             locationSubscription.current.remove();
           }
         } catch (error) {
@@ -134,6 +150,7 @@ export default function MapScreen() {
         }
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentBuilding is set by this effect, not read
   }, [campus]);
 
   // Get polygon data based on campus
@@ -142,9 +159,25 @@ export default function MapScreen() {
   const campusBuildings = BUILDINGS.filter(
     (building) => building.campus === campus,
   );
-  const region = getCampusRegion(campus);
 
-  const b = BUILDINGS.find(building => building.code === selectedBuilding);
+  // Only show pins for buildings that have a polygon (exact or parent e.g. CJ for CJA)
+  const buildingHasPolygon = (building: { code: string }) => {
+    const hasExact = campusPolygons.features.some(
+      (f: { properties: { code: string } }) =>
+        f.properties.code === building.code,
+    );
+    const hasParent = campusPolygons.features.some(
+      (f: { properties: { code: string } }) =>
+        building.code.startsWith(f.properties.code) &&
+        f.properties.code.length >= 2,
+    );
+    return hasExact || hasParent;
+  };
+  const buildingsWithPolygons = campusBuildings.filter(buildingHasPolygon);
+
+  const region = getCampusRegion(campus, campusPolygons.features);
+
+  const b = BUILDINGS.find((building) => building.code === selectedBuilding);
   let buildingInfo = b?.description;
   let buildingName = b?.longName;
   let buildingPhotoLink = b?.photoLink;
@@ -187,7 +220,7 @@ export default function MapScreen() {
   // Generate HTML for web map
   const mapHTML = useMemo(() => {
     const { latitude, longitude, latitudeDelta, longitudeDelta } = region;
-    const buildingData = campusBuildings.map(
+    const buildingData = buildingsWithPolygons.map(
       ({ latitude: lat, longitude: lng, code, shortName }) => ({
         latitude: lat,
         longitude: lng,
@@ -395,7 +428,9 @@ export default function MapScreen() {
                   });
               });
 
-              ${userLat && userLng ? `
+              ${
+                userLat && userLng
+                  ? `
               console.log('Adding user marker at:', ${userLat}, ${userLng});
               const userIcon = L.divIcon({
                   className: 'user-marker',
@@ -404,12 +439,22 @@ export default function MapScreen() {
                   iconAnchor: [10, 10]
               });
               window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
-              ` : 'console.log("No user location available");'}
+              `
+                  : 'console.log("No user location available");'
+              }
           </script>
       </body>
       </html>
     `;
-  }, [campus, currentBuilding]);
+  }, [
+    buildingsWithPolygons,
+    campus,
+    campusPolygons,
+    currentBuilding,
+    region,
+    userLocation?.coords.latitude,
+    userLocation?.coords.longitude,
+  ]);
 
   const shouldUseWebFallback = Platform.OS === "web" || !MapViewComponent;
 
@@ -426,6 +471,7 @@ export default function MapScreen() {
     ) : WebView ? (
       <WebView
         key={campus}
+        testID="map-webview"
         ref={webViewRef}
         source={{ html: mapHTML }}
         style={styles.map}
@@ -433,14 +479,14 @@ export default function MapScreen() {
         domStorageEnabled
         startInLoadingState
         scalesPageToFit
-        onMessage={(event: any)=> {
-          try{
+        onMessage={(event: any) => {
+          try {
             const data = JSON.parse(event.nativeEvent.data);
-            if(data?.type === "buildingSelected"){
+            if (data?.type === "buildingSelected") {
               setSelectedBuilding(data.buildingCode);
             }
 
-            if(data?.type==="buildingDeselected"){
+            if (data?.type === "buildingDeselected") {
               setSelectedBuilding(null);
             }
           } catch {
@@ -452,11 +498,12 @@ export default function MapScreen() {
 
   const nativeMapContent =
     MapViewComponent &&
-      MapMarkerComponent &&
-      MapCalloutComponent &&
-      MapPolygonComponent ? (
+    MapMarkerComponent &&
+    MapCalloutComponent &&
+    MapPolygonComponent ? (
       <MapViewComponent
         key={campus}
+        testID="map-native"
         style={styles.map}
         initialRegion={region}
         showsUserLocation
@@ -468,16 +515,18 @@ export default function MapScreen() {
             (coord: number[]) => ({
               latitude: coord[1],
               longitude: coord[0],
-            })
+            }),
           );
 
           const buildingCode = feature.properties.code;
-          const isSelected = buildingCode && selectedBuilding && 
-            selectedBuilding === buildingCode || currentBuilding === buildingCode;
+          const isSelected =
+            selectedBuilding === buildingCode ||
+            currentBuilding === buildingCode;
 
           return (
             <MapPolygonComponent
               key={buildingCode}
+              testID={`polygon-${buildingCode}`}
               coordinates={coordinates}
               strokeColor={isSelected ? "#238c51" : "#A32638"}
               fillColor={isSelected ? "#238c51" : "#A32638"}
@@ -486,37 +535,37 @@ export default function MapScreen() {
               tappable
               onPress={() =>
                 setSelectedBuilding(
-                  selectedBuilding === buildingCode ? null : buildingCode
+                  selectedBuilding === buildingCode ? null : buildingCode,
                 )
               }
             />
           );
         })}
 
-        {campusBuildings.map((building) => {
+        {buildingsWithPolygons.map((building) => {
           const hasExactPolygon = campusPolygons.features.some(
-            (f: any) => f.properties.code === building.code
+            (f: any) => f.properties.code === building.code,
           );
 
-          const polygonCode =
-            hasExactPolygon
-              ? building.code
-              : campusPolygons.features.find(
+          const polygonCode = hasExactPolygon
+            ? building.code
+            : campusPolygons.features.find(
                 (f: any) =>
                   building.code.startsWith(f.properties.code) &&
-                  f.properties.code.length >= 2
+                  f.properties.code.length >= 2,
               )?.properties.code || building.code;
 
           return (
             <MapMarkerComponent
               key={building.code}
+              testID={`marker-${building.code}`}
               coordinate={{
                 latitude: building.latitude,
                 longitude: building.longitude,
               }}
               onPress={() =>
                 setSelectedBuilding(
-                  selectedBuilding === polygonCode ? null : polygonCode
+                  selectedBuilding === polygonCode ? null : polygonCode,
                 )
               }
             >
@@ -547,35 +596,38 @@ export default function MapScreen() {
         onSearchTextChange={setSearchText}
       />
 
-      {currentBuilding && (() => {
-        const building = BUILDINGS.find(b => b.code === currentBuilding);
-        return building ? (
-          <View style={styles.buildingInfo}>
-            <Text style={styles.buildingInfoTitle}>
-              Current Building:
-            </Text>
-            <Text style={styles.buildingInfoText}>
-              {building.longName} ({building.shortName}) - [{building.code}]
-            </Text>
-          </View>
-        ) : null;
-      })()}
+      {currentBuilding &&
+        (() => {
+          const building = BUILDINGS.find((b) => b.code === currentBuilding);
+          return building ? (
+            <View style={styles.buildingInfo} testID="current-building-info">
+              <Text style={styles.buildingInfoTitle}>Current Building:</Text>
+              <Text
+                style={styles.buildingInfoText}
+                testID="current-building-name"
+              >
+                {building.longName} ({building.shortName}) - [{building.code}]
+              </Text>
+            </View>
+          ) : null;
+        })()}
 
       {locationPermissionDenied && (
         <TouchableOpacity
+          testID="location-permission-banner"
           style={[
             styles.permissionBanner,
             { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 },
           ]}
           onPress={async () => {
-            const { canAskAgain } = await Location.getForegroundPermissionsAsync();
+            const { canAskAgain } =
+              await Location.getForegroundPermissionsAsync();
             if (canAskAgain) {
               await requestLocationPermission();
             } else {
               await Linking.openSettings();
             }
           }}
-
           activeOpacity={0.7}
         >
           <Text style={styles.permissionText}>
@@ -586,13 +638,14 @@ export default function MapScreen() {
       {shouldUseWebFallback ? webMapContent : nativeMapContent}
 
       <BuildingInformation
-      buildingCode = {selectedBuilding}
-      onClose={() => setSelectedBuilding(null)}
-      buildingName = {buildingName}
-      buildingInfo = {buildingInfo}
-      buildingPhotoLink = {buildingPhotoLink}
+        buildingCode={selectedBuilding}
+        onClose={() => setSelectedBuilding(null)}
+        buildingName={buildingName}
+        buildingInfo={buildingInfo}
+        buildingPhotoLink={buildingPhotoLink}
       />
-    </View>);
+    </View>
+  );
 }
 
 const isWeb = Platform.OS === "web";
@@ -702,5 +755,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     opacity: 0.9,
   },
-
 });
