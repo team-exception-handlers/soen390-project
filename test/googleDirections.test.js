@@ -67,7 +67,7 @@ describe('utils/googleDirections', () => {
 
   test('fetchDirections throws when response not ok', async () => {
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY = 'K';
-    globalThis.fetch = jest.fn().mockResolvedValue({ ok: false });
+    globalThis.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500 });
     await expect(fetchDirections('A', 'B')).rejects.toThrow('Directions API request failed with 500.');
   });
 });
