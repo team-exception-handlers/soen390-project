@@ -68,7 +68,7 @@ export function getCampusRegion(
 
   const latitude = (minLat + maxLat) / 2;
   const longitude = (minLng + maxLng) / 2;
-  const paddingMultiplier = campus === "LOY" ? 1.1 : 0.75;
+  const paddingMultiplier = campus === "LOY" ? 1.1 : 1.4;
   const latitudeDelta = Math.max((maxLat - minLat) * paddingMultiplier, 0.005);
   const longitudeDelta = Math.max((maxLng - minLng) * paddingMultiplier, 0.005);
 
