@@ -55,19 +55,19 @@ describe('utils/googleDirections', () => {
   test('fetchDirections calls fetch and returns json', async () => {
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY = 'K';
 
-    global.fetch = jest.fn().mockResolvedValue({
+    globalThis.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue({ routes: [] }),
     });
 
     const data = await fetchDirections({ latitude: 1, longitude: 2 }, { latitude: 3, longitude: 4 });
-    expect(global.fetch).toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalled();
     expect(data).toEqual({ routes: [] });
   });
 
   test('fetchDirections throws when response not ok', async () => {
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY = 'K';
-    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500 });
+    globalThis.fetch = jest.fn().mockResolvedValue({ ok: false });
     await expect(fetchDirections('A', 'B')).rejects.toThrow('Directions API request failed with 500.');
   });
 });
