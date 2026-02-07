@@ -52,6 +52,10 @@ export default function MapScreen() {
 
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
+  const isWebPlatform = Platform.OS === "web";
+  const userLat = isWebPlatform ? userLocation?.coords.latitude || null : null;
+  const userLng = isWebPlatform ? userLocation?.coords.longitude || null : null;
+  const currentBuildingForHTML = isWebPlatform ? currentBuilding : null;
 
   let MapViewComponent: React.ComponentType<any> | null = null;
   let MapMarkerComponent: React.ComponentType<any> | null = null;
@@ -155,28 +159,37 @@ export default function MapScreen() {
   }, [campus]);
 
   // Get polygon data based on campus
-  const campusPolygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
+  const campusPolygons = useMemo(
+    () => (campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS),
+    [campus],
+  );
 
-  const campusBuildings = BUILDINGS.filter(
-    (building) => building.campus === campus,
+  const campusBuildings = useMemo(
+    () => BUILDINGS.filter((building) => building.campus === campus),
+    [campus],
   );
 
   // Only show pins for buildings that have a polygon (exact or parent e.g. CJ for CJA)
-  const buildingHasPolygon = (building: { code: string }) => {
-    const hasExact = campusPolygons.features.some(
-      (f: { properties: { code: string } }) =>
-        f.properties.code === building.code,
-    );
-    const hasParent = campusPolygons.features.some(
-      (f: { properties: { code: string } }) =>
-        building.code.startsWith(f.properties.code) &&
-        f.properties.code.length >= 2,
-    );
-    return hasExact || hasParent;
-  };
-  const buildingsWithPolygons = campusBuildings.filter(buildingHasPolygon);
+  const buildingsWithPolygons = useMemo(() => {
+    const buildingHasPolygon = (building: { code: string }) => {
+      const hasExact = campusPolygons.features.some(
+        (f: { properties: { code: string } }) =>
+          f.properties.code === building.code,
+      );
+      const hasParent = campusPolygons.features.some(
+        (f: { properties: { code: string } }) =>
+          building.code.startsWith(f.properties.code) &&
+          f.properties.code.length >= 2,
+      );
+      return hasExact || hasParent;
+    };
+    return campusBuildings.filter(buildingHasPolygon);
+  }, [campusBuildings, campusPolygons]);
 
-  const region = getCampusRegion(campus, campusPolygons.features);
+  const region = useMemo(
+    () => getCampusRegion(campus, campusPolygons.features),
+    [campus, campusPolygons],
+  );
 
   const b = BUILDINGS.find((building) => building.code === selectedBuilding);
   let buildingInfo = b?.description;
@@ -218,6 +231,54 @@ export default function MapScreen() {
     }
   }, [userLocation]);
 
+  useEffect(() => {
+    if (Platform.OS === "web" || !webViewRef.current) return;
+
+    const script = `
+      (function() {
+        try {
+          if (typeof L === 'undefined' || !window.polygonMap) return;
+          const nextCode = ${JSON.stringify(currentBuilding ?? null)};
+          const selectedCode = window.selectedBuildingCode || null;
+
+          if (
+            window.currentBuildingCode &&
+            window.currentBuildingCode !== selectedCode &&
+            window.currentBuildingPolygon
+          ) {
+            window.currentBuildingPolygon.setStyle({
+              color: '#A32638',
+              fillColor: '#A32638',
+              fillOpacity: 0.2,
+              weight: 2
+            });
+          }
+
+          if (nextCode && window.polygonMap[nextCode]) {
+            window.currentBuildingPolygon = window.polygonMap[nextCode];
+            window.currentBuildingCode = nextCode;
+            if (nextCode !== selectedCode) {
+              window.currentBuildingPolygon.setStyle({
+                color: '#FFA500',
+                fillColor: '#FFA500',
+                fillOpacity: 0.5,
+                weight: 3
+              });
+            }
+          } else {
+            window.currentBuildingPolygon = null;
+            window.currentBuildingCode = null;
+          }
+        } catch (e) {
+          console.log('Current building highlight error:', e);
+        }
+      })();
+      true;
+    `;
+
+    webViewRef.current?.injectJavaScript(script);
+  }, [currentBuilding, userLocation]);
+
   // Generate HTML for web map
   const mapHTML = useMemo(() => {
     const { latitude, longitude, latitudeDelta, longitudeDelta } = region;
@@ -234,9 +295,6 @@ export default function MapScreen() {
     const maxLat = latitude + latitudeDelta / 2;
     const minLng = longitude - longitudeDelta / 2;
     const maxLng = longitude + longitudeDelta / 2;
-
-    const userLat = userLocation?.coords.latitude || null;
-    const userLng = userLocation?.coords.longitude || null;
 
     return `
       <!DOCTYPE html>
@@ -291,10 +349,13 @@ export default function MapScreen() {
               window.map = map; 
               const buildings = ${JSON.stringify(buildingData)};
               const polygonData = ${JSON.stringify(campusPolygons)};
-              const currentBuilding = ${JSON.stringify(currentBuilding)};
+              const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               let selectedPolygon = null;
               window.polygonMap = {};
               window.currentBuildingPolygon = null;
+              window.currentBuildingCode = null;
+              window.selectedBuildingCode = null;
+              window.selectedPolygon = null;
               window.userMarker = null;  
 
               L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -337,6 +398,8 @@ export default function MapScreen() {
                           weight: 3
                       });
                       selectedPolygon = this;
+                      window.selectedBuildingCode = buildingCode;
+                      window.selectedPolygon = selectedPolygon;
                       (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({ type: 'buildingSelected', buildingCode: buildingCode }), '*');
                       L.DomEvent.stopPropagation(e);
                   });
@@ -357,6 +420,7 @@ export default function MapScreen() {
               // Highlight current building if available
               if (currentBuilding && window.polygonMap[currentBuilding]) {
                   window.currentBuildingPolygon = window.polygonMap[currentBuilding];
+                  window.currentBuildingCode = currentBuilding;
                   window.currentBuildingPolygon.setStyle({
                       color: '#FFA500',
                       fillColor: '#FFA500',
@@ -374,6 +438,8 @@ export default function MapScreen() {
                           weight: 2
                       });
                       selectedPolygon = null;
+                      window.selectedBuildingCode = null;
+                      window.selectedPolygon = null;
                       (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
                   }
               });
@@ -421,8 +487,12 @@ export default function MapScreen() {
                           }
                       }
                           if(selectedPolygon){
+                            window.selectedBuildingCode = building.code;
+                            window.selectedPolygon = selectedPolygon;
                             (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type:'buildingSelected', buildingCode: building.code}), '*');
                           } else {
+                            window.selectedBuildingCode = null;
+                            window.selectedPolygon = null;
                             (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
                           }
                       L.DomEvent.stopPropagation(e);
@@ -450,11 +520,13 @@ export default function MapScreen() {
     buildingsWithPolygons,
     campus,
     campusPolygons,
-    currentBuilding,
+    currentBuildingForHTML,
     region,
-    userLocation?.coords.latitude,
-    userLocation?.coords.longitude,
+    userLat,
+    userLng,
   ]);
+
+  const webViewSource = useMemo(() => ({ html: mapHTML }), [mapHTML]);
 
   const shouldUseWebFallback = Platform.OS === "web" || !MapViewComponent;
 
@@ -464,7 +536,7 @@ export default function MapScreen() {
         <iframe
           key={campus}
           src={`data:text/html;charset=utf-8,${encodeURIComponent(mapHTML)}`}
-          style={[styles.map, { border: 0 }] as any}
+          style={{ ...(StyleSheet.flatten(styles.map) as object), border: 0 }}
           allowFullScreen
           title="Concordia map"
         />
@@ -477,7 +549,7 @@ export default function MapScreen() {
           key={campus}
           testID="map-webview"
           ref={webViewRef}
-          source={{ html: mapHTML }}
+          source={webViewSource}
           style={styles.map}
           javaScriptEnabled
           domStorageEnabled
