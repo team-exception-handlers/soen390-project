@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react-native";
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
     Animated,
     Dimensions,
@@ -30,13 +30,13 @@ export default function BuildingInformation({
   buildingPhotoLink,
 }: BuildingInformationProps) {
   const heightAnimation = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
-  const animateTo = (toValue: number) => {
+  const animateTo = useCallback((toValue: number) => {
     Animated.timing(heightAnimation, {
       toValue,
       duration: 220,
       useNativeDriver: false,
     }).start();
-  };
+  }, [heightAnimation]);
 
   useEffect(() => {
     if (!buildingCode) {
@@ -45,7 +45,7 @@ export default function BuildingInformation({
     }
 
     animateTo(EXPANDED_HEIGHT);
-  }, [buildingCode]);
+  }, [buildingCode, animateTo]);
 
   return (
     <View style={styles.overlay} pointerEvents="box-none">

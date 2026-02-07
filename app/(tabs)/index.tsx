@@ -150,6 +150,7 @@ export default function MapScreen() {
         }
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentBuilding is set by this effect, not read
   }, [campus]);
 
   // Get polygon data based on campus
@@ -445,7 +446,15 @@ export default function MapScreen() {
       </body>
       </html>
     `;
-  }, [campus, currentBuilding]);
+  }, [
+    buildingsWithPolygons,
+    campus,
+    campusPolygons,
+    currentBuilding,
+    region,
+    userLocation?.coords.latitude,
+    userLocation?.coords.longitude,
+  ]);
 
   const shouldUseWebFallback = Platform.OS === "web" || !MapViewComponent;
 
