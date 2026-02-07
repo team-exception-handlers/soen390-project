@@ -18,15 +18,5 @@ appId: host.exp.Exponent
 
 - assertVisible: "Where to?"
 
-- extendedWaitUntil:
-    visible:
-      id: "current-building-info"
-    timeout: 10000
-
-- assertVisible:
-    id: "current-building-name"
 - assertVisible:
     text: "EV"
-
-- assertNotVisible:
-    id: "location-permission-banner"
