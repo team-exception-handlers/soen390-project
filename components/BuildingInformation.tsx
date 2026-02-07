@@ -1,21 +1,21 @@
 import { ChevronDown } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef } from "react";
 import {
-    Animated,
-    Dimensions,
-    Image,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Animated,
+  Dimensions,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 type BuildingInformationProps = {
-  buildingCode: string | null;
-  onClose: () => void;
-  buildingName: string | undefined;
-  buildingInfo: string | undefined;
-  buildingPhotoLink: string | undefined;
+  readonly buildingCode: string | null;
+  readonly onClose: () => void;
+  readonly buildingName: string | undefined;
+  readonly buildingInfo: string | undefined;
+  readonly buildingPhotoLink: string | undefined;
 };
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -83,9 +83,7 @@ export default function BuildingInformation({
             />
           ) : null}
           <Text testID="building-info-description" style={styles.bodyText}>
-            {buildingInfo
-              ? buildingInfo
-              : "Building information not available."}
+            {buildingInfo || "Building information not available."}
           </Text>
         </ScrollView>
       </Animated.View>
