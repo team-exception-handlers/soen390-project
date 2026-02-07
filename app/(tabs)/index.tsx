@@ -1,4 +1,4 @@
-import Constants from "expo-constants";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -47,7 +47,8 @@ export default function MapScreen() {
   const [locationPermissionDenied, setLocationPermissionDenied] =
     useState(false);
 
-  const isExpoGo = Constants.appOwnership === "expo";
+  const isExpoGo =
+    Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
@@ -463,8 +464,7 @@ export default function MapScreen() {
         <iframe
           key={campus}
           src={`data:text/html;charset=utf-8,${encodeURIComponent(mapHTML)}`}
-          style={styles.map as any}
-          frameBorder="0"
+          style={[styles.map, { border: 0 }] as any}
           allowFullScreen
           title="Concordia map"
         />
