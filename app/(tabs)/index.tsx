@@ -43,6 +43,7 @@ export default function MapScreen() {
   const [currentBuilding, setCurrentBuilding] = useState<
     string | null | undefined
   >(undefined);
+  const [webMapReady, setWebMapReady] = useState(false);
   const locationSubscription = useRef<any>(null);
   const [locationPermissionDenied, setLocationPermissionDenied] =
     useState(false);
@@ -197,17 +198,25 @@ export default function MapScreen() {
   let buildingPhotoLink = b?.photoLink;
 
   useEffect(() => {
-    if (webViewRef.current && Platform.OS !== "web" && userLocation) {
+    if (
+      webViewRef.current &&
+      Platform.OS !== "web" &&
+      userLocation &&
+      webMapReady
+    ) {
       const { latitude, longitude } = userLocation.coords;
 
       const script = `
       (function() {
         try {
-          if (typeof L !== 'undefined' && window.map) {
+            if (typeof L !== 'undefined' && window.map) {
             if (window.userMarker) {
               // Just update position
               window.userMarker.setLatLng([${latitude}, ${longitude}]);
-              window.map.panTo([${latitude}, ${longitude}], { animate: true, duration: 0.5 });
+              if (window.followUser !== false && !window.hasCenteredOnUser) {
+                window.map.panTo([${latitude}, ${longitude}], { animate: true, duration: 0.5 });
+                window.hasCenteredOnUser = true;
+              }
               console.log('User marker updated to:', ${latitude}, ${longitude});
             } else {
               // Create marker if it doesn't exist
@@ -218,6 +227,10 @@ export default function MapScreen() {
                 iconAnchor: [10, 10]
               });
               window.userMarker = L.marker([${latitude}, ${longitude}], { icon: userIcon }).addTo(window.map);
+              if (window.followUser !== false) {
+                window.map.panTo([${latitude}, ${longitude}], { animate: true, duration: 0.5 });
+                window.hasCenteredOnUser = true;
+              }
               console.log('User marker created at:', ${latitude}, ${longitude});
             }
           }
@@ -229,17 +242,20 @@ export default function MapScreen() {
     `;
       webViewRef.current?.injectJavaScript(script);
     }
-  }, [userLocation]);
+  }, [userLocation, webMapReady]);
 
   useEffect(() => {
-    if (Platform.OS === "web" || !webViewRef.current) return;
+    if (Platform.OS === "web" || !webViewRef.current || !webMapReady) return;
 
     const script = `
       (function() {
         try {
           if (typeof L === 'undefined' || !window.polygonMap) return;
           const nextCode = ${JSON.stringify(currentBuilding ?? null)};
-          const selectedCode = window.selectedBuildingCode || null;
+          const selectedCode =
+            (window.selectedPolygon && window.selectedPolygon.__buildingCode) ||
+            window.selectedBuildingCode ||
+            null;
 
           if (
             window.currentBuildingCode &&
@@ -266,8 +282,8 @@ export default function MapScreen() {
               });
             }
           } else {
-            window.currentBuildingPolygon = null;
-            window.currentBuildingCode = null;
+              window.currentBuildingPolygon = null;
+              window.currentBuildingCode = null;
           }
         } catch (e) {
           console.log('Current building highlight error:', e);
@@ -277,7 +293,7 @@ export default function MapScreen() {
     `;
 
     webViewRef.current?.injectJavaScript(script);
-  }, [currentBuilding, userLocation]);
+  }, [currentBuilding, userLocation, selectedBuilding, webMapReady]);
 
   // Generate HTML for web map
   const mapHTML = useMemo(() => {
@@ -357,6 +373,8 @@ export default function MapScreen() {
               window.selectedBuildingCode = null;
               window.selectedPolygon = null;
               window.userMarker = null;  
+              window.followUser = true;
+              window.hasCenteredOnUser = false;
 
               L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                   attribution: '© OpenStreetMap contributors',
@@ -364,39 +382,64 @@ export default function MapScreen() {
                   maxNativeZoom: 19  
               }).addTo(map);
 
+              const defaultPolygonStyle = {
+                  color: '#A32638',
+                  fillColor: '#A32638',
+                  fillOpacity: 0.2,
+                  weight: 2
+              };
+
+              const currentPolygonStyle = {
+                  color: '#FFA500',
+                  fillColor: '#FFA500',
+                  fillOpacity: 0.5,
+                  weight: 3
+              };
+
+              const selectedPolygonStyle = {
+                  color: '#238c51',
+                  fillColor: '#238c51',
+                  fillOpacity: 0.5,
+                  weight: 3
+              };
+
+              const resetPolygonStyle = (polygon) => {
+                  if (!polygon) return;
+                  const code = polygon.__buildingCode || null;
+                  if (code && window.currentBuildingCode === code) {
+                      polygon.setStyle(currentPolygonStyle);
+                  } else {
+                      polygon.setStyle(defaultPolygonStyle);
+                  }
+              };
+
               const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
               map.fitBounds(bounds, { padding: [20, 20] });
+
+              const disableFollow = () => {
+                  window.followUser = false;
+              };
+
+              map.on('dragstart', disableFollow);
+              map.on('zoomstart', disableFollow);
+              map.on('movestart', disableFollow);
 
               // Render building polygons
               polygonData.features.forEach((feature) => {
                   const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
                   const buildingCode = feature.properties.code;
 
-                  const polygon = L.polygon(coordinates, {
-                      color: '#A32638',
-                      fillColor: '#A32638',
-                      fillOpacity: 0.2,
-                      weight: 2
-                  }).addTo(map);
+                  const polygon = L.polygon(coordinates, defaultPolygonStyle).addTo(map);
 
                   window.polygonMap[buildingCode] = polygon;
+                  polygon.__buildingCode = buildingCode;
 
                   polygon.on('click', function(e) {
                       if (selectedPolygon) {
-                          selectedPolygon.setStyle({
-                              color: '#A32638',
-                              fillColor: '#A32638',
-                              fillOpacity: 0.2,
-                              weight: 2
-                          });
+                          resetPolygonStyle(selectedPolygon);
                       }
 
-                      this.setStyle({
-                          color: '#238c51',
-                          fillColor: '#238c51',
-                          fillOpacity: 0.5,
-                          weight: 3
-                      });
+                      this.setStyle(selectedPolygonStyle);
                       selectedPolygon = this;
                       window.selectedBuildingCode = buildingCode;
                       window.selectedPolygon = selectedPolygon;
@@ -421,22 +464,12 @@ export default function MapScreen() {
               if (currentBuilding && window.polygonMap[currentBuilding]) {
                   window.currentBuildingPolygon = window.polygonMap[currentBuilding];
                   window.currentBuildingCode = currentBuilding;
-                  window.currentBuildingPolygon.setStyle({
-                      color: '#FFA500',
-                      fillColor: '#FFA500',
-                      fillOpacity: 0.5,
-                      weight: 3
-                  });
+                  window.currentBuildingPolygon.setStyle(currentPolygonStyle);
               }
 
               map.on('click', function() {
                   if (selectedPolygon) {
-                      selectedPolygon.setStyle({
-                          color: '#A32638',
-                          fillColor: '#A32638',
-                          fillOpacity: 0.2,
-                          weight: 2
-                      });
+                      resetPolygonStyle(selectedPolygon);
                       selectedPolygon = null;
                       window.selectedBuildingCode = null;
                       window.selectedPolygon = null;
@@ -466,23 +499,14 @@ export default function MapScreen() {
 
                       if (polygon) {
                           if (selectedPolygon) {
-                              selectedPolygon.setStyle({
-                                  color: '#A32638',
-                                  fillColor: '#A32638',
-                                  fillOpacity: 0.2,
-                                  weight: 2
-                              });
+                              resetPolygonStyle(selectedPolygon);
                           }
 
                           if (selectedPolygon === polygon) {
+                              resetPolygonStyle(selectedPolygon);
                               selectedPolygon = null;
                           } else {
-                              polygon.setStyle({
-                                  color: '#238c51',
-                                  fillColor: '#238c51',
-                                  fillOpacity: 0.5,
-                                  weight: 3
-                              });
+                              polygon.setStyle(selectedPolygonStyle);
                               selectedPolygon = polygon;
                           }
                       }
@@ -530,6 +554,12 @@ export default function MapScreen() {
 
   const shouldUseWebFallback = Platform.OS === "web" || !MapViewComponent;
 
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      setWebMapReady(false);
+    }
+  }, [campus]);
+
   const renderWebMapContent = () => {
     if (Platform.OS === "web") {
       return (
@@ -555,6 +585,7 @@ export default function MapScreen() {
           domStorageEnabled
           startInLoadingState
           scalesPageToFit
+          onLoadEnd={() => setWebMapReady(true)}
           onMessage={(event: any) => {
             try {
               const data = JSON.parse(event.nativeEvent.data);
@@ -601,19 +632,30 @@ export default function MapScreen() {
           );
 
           const buildingCode = feature.properties.code;
-          const isSelected =
-            selectedBuilding === buildingCode ||
-            currentBuilding === buildingCode;
+          const isSelected = selectedBuilding === buildingCode;
+          const isCurrent = currentBuilding === buildingCode;
+          const strokeColor = isSelected
+            ? "#238c51"
+            : isCurrent
+              ? "#FFA500"
+              : "#A32638";
+          const fillColor = isSelected
+            ? "#238c51"
+            : isCurrent
+              ? "#FFA500"
+              : "#A32638";
+          const strokeWidth = isSelected ? 3 : isCurrent ? 3 : 2;
+          const fillOpacity = isSelected ? 0.5 : isCurrent ? 0.5 : 0.2;
 
           return (
             <MapPolygonComponent
               key={buildingCode}
               testID={`polygon-${buildingCode}`}
               coordinates={coordinates}
-              strokeColor={isSelected ? "#238c51" : "#A32638"}
-              fillColor={isSelected ? "#238c51" : "#A32638"}
-              strokeWidth={isSelected ? 3 : 2}
-              fillOpacity={isSelected ? 0.5 : 0.2}
+              strokeColor={strokeColor}
+              fillColor={fillColor}
+              strokeWidth={strokeWidth}
+              fillOpacity={fillOpacity}
               tappable
               onPress={() =>
                 setSelectedBuilding(
