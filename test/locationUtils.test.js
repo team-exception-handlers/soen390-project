@@ -62,6 +62,7 @@ describe('utils/locationUtils', () => {
   });
 
   test('startWatchingLocation returns null on watchPositionAsync error', async () => {
+    jest.spyOn(console, 'error').mockImplementation(jest.fn());
     const Location = require('expo-location');
     Location.getForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
     Location.watchPositionAsync.mockRejectedValue(new Error('boom'));
