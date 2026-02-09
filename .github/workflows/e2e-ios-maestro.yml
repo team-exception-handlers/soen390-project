@@ -34,15 +34,43 @@ jobs:
             npm ci
           fi
 
+      - name: Restore prebuilt ios folder
+        uses: actions/cache@v4
+        id: cache-ios
+        with:
+          path: ios
+          key: ios-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json') }}
+
       - name: Ensure iOS native project
         run: |
-          if [ ! -d ios ]; then
+          if [ ! -d ios ] || [ -z "$(ls -A ios 2>/dev/null)" ]; then
             npx expo prebuild -p ios --no-install
           fi
+
+      - name: Save prebuilt ios folder
+        if: steps.cache-ios.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ios
+          key: ios-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json') }}
+
+      - name: Restore CocoaPods cache
+        uses: actions/cache@v4
+        id: cache-pods
+        with:
+          path: ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
 
       - name: Install CocoaPods
         run: |
           cd ios && pod install && cd ..
+
+      - name: Save CocoaPods cache
+        if: steps.cache-pods.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
 
       - name: Resolve Xcode project and scheme
         id: xcode
@@ -62,29 +90,42 @@ jobs:
           echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
           cd ..
 
+      - name: Restore DerivedData cache
+        uses: actions/cache@v4
+        id: cache-dd
+        with:
+          path: build/ios/DerivedData
+          key: ios-dd-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'ios/**/*.xcodeproj/project.pbxproj', 'ios/**/*.xcworkspace/contents.xcworkspacedata') }}
+
       - name: Build iOS app for Simulator
         run: |
           cd ios
           DD="$GITHUB_WORKSPACE/build/ios/DerivedData"
           mkdir -p "$DD"
+          # ONLY_ACTIVE_ARCH=YES builds one arch (arm64 on M1) for simulator, much faster
           if [ "${{ steps.xcode.outputs.using }}" = "workspace" ]; then
             xcodebuild -workspace "${{ steps.xcode.outputs.workspace }}" \
               -scheme "${{ steps.xcode.outputs.scheme }}" \
-              -configuration Debug \
-              -sdk iphonesimulator \
+              -configuration Debug -sdk iphonesimulator \
               -derivedDataPath "$DD" \
               -destination 'generic/platform=iOS Simulator' \
-              build
+              ONLY_ACTIVE_ARCH=YES build
           else
             xcodebuild -project "${{ steps.xcode.outputs.project }}" \
               -scheme "${{ steps.xcode.outputs.scheme }}" \
-              -configuration Debug \
-              -sdk iphonesimulator \
+              -configuration Debug -sdk iphonesimulator \
               -derivedDataPath "$DD" \
               -destination 'generic/platform=iOS Simulator' \
-              build
+              ONLY_ACTIVE_ARCH=YES build
           fi
           cd ..
+
+      - name: Save DerivedData cache
+        if: steps.cache-dd.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: build/ios/DerivedData
+          key: ios-dd-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'ios/**/*.xcodeproj/project.pbxproj', 'ios/**/*.xcworkspace/contents.xcworkspacedata') }}
 
       - name: Locate built .app
         id: app
