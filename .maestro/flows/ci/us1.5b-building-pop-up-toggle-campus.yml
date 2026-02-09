@@ -1,0 +1,60 @@
+# US-1.5b: Building pop-up and toggle between campuses (CI – deterministic)
+
+appId: com.anonymous.concordiaclassfinder
+
+---
+- assertVisible: "Where to?"
+
+- assertVisible:
+    id: "campus-toggle-sgw"
+
+- runFlow:
+    commands:
+      - tapOn:
+          point: "45%,50%"
+
+- extendedWaitUntil:
+    visible: "Henry F. Hall Building"
+    timeout: 10000
+
+- extendedWaitUntil:
+    visible:
+      id: "building-info-close"
+    timeout: 3000
+
+- tapOn:
+    id: "building-info-close"
+
+- assertNotVisible: "Henry F. Hall Building"
+
+- tapOn:
+    id: "campus-toggle-loyola"
+- extendedWaitUntil:
+    visible:
+      text: "Loyola"
+    timeout: 3000
+
+- assertVisible:
+    id: "campus-toggle-loyola"
+
+- assertVisible:
+    id: "campus-toggle-sgw"
+
+- runFlow:
+    commands:
+      - tapOn:
+          point: "40%,70%"
+
+- extendedWaitUntil:
+    visible: "Richard J. Renaud Science Complex"
+    timeout: 10000
+
+- extendedWaitUntil:
+    visible:
+      id: "building-info-close"
+    timeout: 3000
+
+- tapOn:
+    id: "building-info-close"
+
+- assertNotVisible: "Richard J. Renaud Science Complex"

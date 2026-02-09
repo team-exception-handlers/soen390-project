@@ -1,11 +1,9 @@
-# US-1.1: Support both SGW and Loyola campus maps
+# US-1.1: Support both SGW and Loyola campus maps (CI – deterministic)
 # Verifies that both campus maps load and display correctly
 
-appId: host.exp.Exponent
+appId: com.anonymous.concordiaclassfinder
 
 ---
-- runFlow:
-    file: _launch-expo-go.yaml
 - assertVisible: "Where to?"
 - assertVisible: "SGW"
 - assertVisible: "Loyola"

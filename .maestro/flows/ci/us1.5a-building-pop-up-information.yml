@@ -1,0 +1,29 @@
+# US-1.5a: Show additional information for each building (CI – deterministic)
+# Tap building --> pop-up shows building name, and building details
+
+appId: com.anonymous.concordiaclassfinder
+
+---
+- assertVisible: "Where to?"
+
+- assertVisible:
+    id: "campus-toggle-sgw"
+
+- runFlow:
+    commands:
+      - tapOn:
+          point: "45%,50%"
+
+- extendedWaitUntil:
+    visible: "Henry F. Hall Building"
+    timeout: 10000
+
+- extendedWaitUntil:
+    visible:
+      id: "building-info-close"
+    timeout: 3000
+
+- tapOn:
+    id: "building-info-close"
+
+- assertNotVisible: "Henry F. Hall Building"
