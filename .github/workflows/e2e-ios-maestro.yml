@@ -102,7 +102,6 @@ jobs:
           cd ios
           DD="$GITHUB_WORKSPACE/build/ios/DerivedData"
           mkdir -p "$DD"
-          # ONLY_ACTIVE_ARCH=YES builds one arch (arm64 on M1) for simulator, much faster
           if [ "${{ steps.xcode.outputs.using }}" = "workspace" ]; then
             xcodebuild -workspace "${{ steps.xcode.outputs.workspace }}" \
               -scheme "${{ steps.xcode.outputs.scheme }}" \
