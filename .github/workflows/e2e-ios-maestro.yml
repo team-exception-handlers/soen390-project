@@ -90,9 +90,10 @@ jobs:
         id: app
         run: |
           DD="$GITHUB_WORKSPACE/build/ios/DerivedData"
-          APP=$(find "$DD" -maxdepth 4 -type d -name "*.app" -path "*Debug*iphonesimulator*" 2>/dev/null | head -1)
+          # DerivedData/Build/Products/Debug-iphonesimulator/AppName.app is 5 levels deep
+          APP=$(find "$DD" -type d -name "*.app" -path "*Debug*iphonesimulator*" 2>/dev/null | head -1)
           if [ -z "$APP" ]; then
-            APP=$(find "$DD" -maxdepth 6 -type d -name "*.app" 2>/dev/null | head -1)
+            APP=$(find "$DD" -type d -name "*.app" 2>/dev/null | head -1)
           fi
           echo "path=$APP" >> $GITHUB_OUTPUT
           echo "Resolved .app: $APP"
@@ -101,12 +102,34 @@ jobs:
       - name: Boot iOS Simulator
         run: |
           xcrun simctl list devices
-          DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 15 " | head -1 | sed -E 's/ *\(([^)]+)\).*/\1/')
+          # Prefer iPhone 17 on latest OS; fallback to any available iPhone
+          LINE=$(xcrun simctl list devices available | grep -E "iPhone 17\s+" | head -1)
+          if [ -z "$LINE" ]; then
+            LINE=$(xcrun simctl list devices available | grep "iPhone" | head -1)
+          fi
+          # Extract UDID (last parenthesized UUID on the line)
+          DEVICE=$(echo "$LINE" | sed -nE 's/.*\(([0-9A-F-]{36})\).*/\1/p')
           if [ -z "$DEVICE" ]; then
-            DEVICE=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/ *\(([^)]+)\).*/\1/')
+            echo "::error::Could not find an available iPhone simulator"
+            xcrun simctl list devices available
+            exit 1
           fi
           echo "Booting device: $DEVICE"
           xcrun simctl boot "$DEVICE" || true
+          # Wait for simulator to be fully booted before installing app (avoids exit 148)
+          echo "Waiting for simulator to boot..."
+          for i in $(seq 1 30); do
+            if xcrun simctl list devices | grep "$DEVICE" | grep -q Booted; then
+              echo "Simulator booted."
+              break
+            fi
+            sleep 2
+          done
+          if ! xcrun simctl list devices | grep "$DEVICE" | grep -q Booted; then
+            echo "::error::Simulator did not reach Booted state"
+            xcrun simctl list devices
+            exit 1
+          fi
           echo "DEVICE_UDID=$DEVICE" >> $GITHUB_ENV
 
       - name: Install Maestro CLI
@@ -135,7 +158,7 @@ jobs:
       - name: Run Maestro CI flows
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
-          maestro test .maestro/flows/ci --format junit --output .maestro/output
+          maestro --device "$DEVICE_UDID" test .maestro/flows/ci --format junit --output .maestro/output
 
       - name: Upload Maestro artifacts on failure
         if: failure()
