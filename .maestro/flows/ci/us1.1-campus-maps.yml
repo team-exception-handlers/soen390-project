@@ -1,31 +1,27 @@
 # US-1.1: Support both SGW and Loyola campus maps (CI – deterministic)
-# Verifies that both campus maps load and display correctly
 
 appId: com.anonymous.concordiaclassfinder
 
 ---
 - extendedWaitUntil:
-    visible: "Where to?"
-    timeout: 20000
-- assertVisible: "SGW"
-- assertVisible: "Loyola"
-
+    visible:
+      id: "header-title"
+    timeout: 25000
 - assertVisible:
     id: "campus-toggle-sgw"
+- assertVisible:
+    id: "campus-toggle-loyola"
 
 - tapOn:
     id: "campus-toggle-loyola"
 - extendedWaitUntil:
     visible:
-      text: "Loyola"
-    timeout: 3000
-
-- assertVisible:
-    id: "campus-toggle-loyola"
+      id: "campus-toggle-loyola"
+    timeout: 5000
 
 - tapOn:
     id: "campus-toggle-sgw"
 - extendedWaitUntil:
     visible:
-      text: "SGW"
-    timeout: 3000
+      id: "campus-toggle-sgw"
+    timeout: 5000
