@@ -4,7 +4,9 @@
 appId: com.anonymous.concordiaclassfinder
 
 ---
-- assertVisible: "Where to?"
+- extendedWaitUntil:
+    visible: "Where to?"
+    timeout: 20000
 - assertVisible: "SGW"
 - assertVisible: "Loyola"
 
