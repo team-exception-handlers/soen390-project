@@ -10,10 +10,8 @@ appId: host.exp.Exponent
 - assertVisible:
     id: "campus-toggle-sgw"
 
-- runFlow:
-    commands:
-      - tapOn:
-          point: "45%,50%"
+- tapOn:
+    point: "45%,50%"
 
 - extendedWaitUntil:
     visible: "Henry F. Hall Building"
@@ -42,10 +40,8 @@ appId: host.exp.Exponent
 - assertVisible:
     id: "campus-toggle-sgw"
 
-- runFlow:
-    commands:
-      - tapOn:
-          point: "40%,70%"
+- tapOn:
+    point: "40%,70%"
 
 - extendedWaitUntil:
     visible: "Richard J. Renaud Science Complex"

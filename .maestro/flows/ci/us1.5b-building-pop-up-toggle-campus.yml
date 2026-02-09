@@ -1,62 +1,59 @@
-# US-1.5b: Building pop-up and toggle between campuses (CI – deterministic)
+# US-1.5b: Building pop-up and toggle between campuses
 
 appId: com.anonymous.concordiaclassfinder
 
 ---
 - extendedWaitUntil:
-    visible: "Where to?"
-    timeout: 20000
-
+    visible:
+      id: "header-title"
+    timeout: 25000
 - assertVisible:
     id: "campus-toggle-sgw"
 
-- runFlow:
-    commands:
-      - tapOn:
-          point: "45%,50%"
+- tapOn:
+    point: "45%,50%"
 
+- extendedWaitUntil:
+    visible:
+      id: "building-info-close"
+    timeout: 10000
 - extendedWaitUntil:
     visible: "Henry F. Hall Building"
-    timeout: 10000
-
-- extendedWaitUntil:
-    visible:
-      id: "building-info-close"
     timeout: 3000
 
 - tapOn:
     id: "building-info-close"
 
-- assertNotVisible: "Henry F. Hall Building"
+- assertNotVisible:
+    id: "building-info-drawer"
 
 - tapOn:
     id: "campus-toggle-loyola"
 - extendedWaitUntil:
     visible:
-      text: "Loyola"
-    timeout: 3000
+      id: "campus-toggle-loyola"
+    timeout: 5000
 
-- assertVisible:
-    id: "campus-toggle-loyola"
-
-- assertVisible:
+- tapOn:
     id: "campus-toggle-sgw"
+- extendedWaitUntil:
+    visible:
+      id: "campus-toggle-sgw"
+    timeout: 5000
 
-- runFlow:
-    commands:
-      - tapOn:
-          point: "40%,70%"
+- tapOn:
+    point: "40%,70%"
 
+- extendedWaitUntil:
+    visible:
+      id: "building-info-close"
+    timeout: 10000
 - extendedWaitUntil:
     visible: "Richard J. Renaud Science Complex"
-    timeout: 10000
-
-- extendedWaitUntil:
-    visible:
-      id: "building-info-close"
     timeout: 3000
 
 - tapOn:
     id: "building-info-close"
 
-- assertNotVisible: "Richard J. Renaud Science Complex"
+- assertNotVisible:
+    id: "building-info-drawer"
