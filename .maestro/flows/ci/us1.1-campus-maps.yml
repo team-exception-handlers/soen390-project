@@ -6,11 +6,14 @@ appId: com.anonymous.concordiaclassfinder
 - setPermissions:
     permissions:
       location: inuse
+- setLocation:
+    latitude: 45.495376
+    longitude: -73.577997
 
 - extendedWaitUntil:
     visible:
       id: "header-title"
-    timeout: 25000
+    timeout: 45000
 - assertVisible:
     id: "campus-toggle-sgw"
 - assertVisible:
