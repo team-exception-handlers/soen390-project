@@ -1,0 +1,30 @@
+# US-1.1: Support both SGW and Loyola campus maps (manual – Expo Go)
+
+appId: host.exp.Exponent
+
+---
+- runFlow:
+    file: _launch-expo-go.yaml
+- assertVisible: "Where to?"
+- assertVisible: "SGW"
+- assertVisible: "Loyola"
+
+- assertVisible:
+    id: "campus-toggle-sgw"
+
+- tapOn:
+    id: "campus-toggle-loyola"
+- extendedWaitUntil:
+    visible:
+      text: "Loyola"
+    timeout: 3000
+
+- assertVisible:
+    id: "campus-toggle-loyola"
+
+- tapOn:
+    id: "campus-toggle-sgw"
+- extendedWaitUntil:
+    visible:
+      text: "SGW"
+    timeout: 3000

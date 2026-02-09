@@ -1,5 +1,4 @@
-# US-1.5b: Show additional information for each building (pop-up information) and toggle between campuses
-# Tap building --> pop-up shows building name, and building details
+# US-1.5b: Building pop-up and toggle campuses (manual – Expo Go)
 
 appId: host.exp.Exponent
 

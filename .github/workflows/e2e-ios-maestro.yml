@@ -1,0 +1,151 @@
+# E2E tests: build iOS app for Simulator, run CI-safe Maestro flows.
+# No Expo Go; uses development build on iOS Simulator.
+
+name: E2E iOS (Maestro)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: ["**"]
+
+jobs:
+  e2e-ios:
+    name: Maestro E2E (iOS Simulator)
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install JS dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            corepack enable && pnpm i --frozen-lockfile
+          elif [ -f yarn.lock ]; then
+            yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      - name: Ensure iOS native project
+        run: |
+          if [ ! -d ios ]; then
+            npx expo prebuild -p ios --no-install
+          fi
+
+      - name: Install CocoaPods
+        run: |
+          cd ios && pod install && cd ..
+
+      - name: Resolve Xcode project and scheme
+        id: xcode
+        run: |
+          cd ios
+          WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' 2>/dev/null | head -1)
+          if [ -n "$WORKSPACE" ]; then
+            echo "workspace=$(basename "$WORKSPACE")" >> $GITHUB_OUTPUT
+            echo "using=workspace" >> $GITHUB_OUTPUT
+          else
+            PROJ=$(find . -maxdepth 1 -name '*.xcodeproj' 2>/dev/null | head -1)
+            echo "project=$(basename "$PROJ")" >> $GITHUB_OUTPUT
+            echo "using=project" >> $GITHUB_OUTPUT
+          fi
+          SCHEME=$(xcodebuild -list 2>/dev/null | sed -n '1,/Schemes:/d;/^$/q;p' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v -E 'Tests|UITests' | head -1)
+          [ -z "$SCHEME" ] && SCHEME=$(xcodebuild -list 2>/dev/null | sed -n '1,/Schemes:/d;/^$/q;p' | head -1 | xargs)
+          echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
+          cd ..
+
+      - name: Build iOS app for Simulator
+        run: |
+          cd ios
+          DD="$GITHUB_WORKSPACE/build/ios/DerivedData"
+          mkdir -p "$DD"
+          if [ "${{ steps.xcode.outputs.using }}" = "workspace" ]; then
+            xcodebuild -workspace "${{ steps.xcode.outputs.workspace }}" \
+              -scheme "${{ steps.xcode.outputs.scheme }}" \
+              -configuration Debug \
+              -sdk iphonesimulator \
+              -derivedDataPath "$DD" \
+              -destination 'generic/platform=iOS Simulator' \
+              build
+          else
+            xcodebuild -project "${{ steps.xcode.outputs.project }}" \
+              -scheme "${{ steps.xcode.outputs.scheme }}" \
+              -configuration Debug \
+              -sdk iphonesimulator \
+              -derivedDataPath "$DD" \
+              -destination 'generic/platform=iOS Simulator' \
+              build
+          fi
+          cd ..
+
+      - name: Locate built .app
+        id: app
+        run: |
+          DD="$GITHUB_WORKSPACE/build/ios/DerivedData"
+          APP=$(find "$DD" -maxdepth 4 -type d -name "*.app" -path "*Debug*iphonesimulator*" 2>/dev/null | head -1)
+          if [ -z "$APP" ]; then
+            APP=$(find "$DD" -maxdepth 6 -type d -name "*.app" 2>/dev/null | head -1)
+          fi
+          echo "path=$APP" >> $GITHUB_OUTPUT
+          echo "Resolved .app: $APP"
+          if [ ! -d "$APP" ]; then echo "::error::Built .app not found"; exit 1; fi
+
+      - name: Boot iOS Simulator
+        run: |
+          xcrun simctl list devices
+          DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 15 " | head -1 | sed -E 's/ *\(([^)]+)\).*/\1/')
+          if [ -z "$DEVICE" ]; then
+            DEVICE=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/ *\(([^)]+)\).*/\1/')
+          fi
+          echo "Booting device: $DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          echo "DEVICE_UDID=$DEVICE" >> $GITHUB_ENV
+
+      - name: Install Maestro CLI
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+          echo "$HOME/.maestro/bin" >> $GITHUB_ENV
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro --version
+
+      - name: Debug info
+        run: |
+          echo "=== Simulators ==="
+          xcrun simctl list devices
+          echo "=== Resolved .app ==="
+          echo "${{ steps.app.outputs.path }}"
+          echo "=== Maestro version ==="
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro --version
+          echo "=== CI flows ==="
+          ls -la .maestro/flows/ci/
+
+      - name: Install app on Simulator
+        run: |
+          xcrun simctl install "$DEVICE_UDID" "${{ steps.app.outputs.path }}"
+
+      - name: Run Maestro CI flows
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro test .maestro/flows/ci --format junit --output .maestro/output
+
+      - name: Upload Maestro artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-e2e-logs
+          path: |
+            .maestro/output
+            .maestro/**/*.log
+            .maestro/**/screenshots
+          if-no-files-found: ignore
