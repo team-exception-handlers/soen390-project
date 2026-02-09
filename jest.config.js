@@ -33,6 +33,5 @@ module.exports = {
     '!metro.config.js',
     '!**/hooks/**',
     '!**/app/**',
-    '!**/components/**',
   ],
 };
