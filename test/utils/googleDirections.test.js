@@ -1,4 +1,5 @@
-const { buildDirectionsUrl, fetchDirections } = require('../utils/googleDirections.ts');
+const path = require('path');
+const { buildDirectionsUrl, fetchDirections } = require(path.join(__dirname, '..', '..', 'utils', 'googleDirections.ts'));
 
 describe('utils/googleDirections', () => {
   const OLD_ENV = process.env;

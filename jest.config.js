@@ -1,6 +1,11 @@
 module.exports = {
     preset: 'ts-jest',
     testMatch: ['**/*.test.js'],
+    testEnvironment: 'node',
+    moduleFileExtensions: ['js','jsx','ts','tsx','json','node'],
+    transform: {
+        '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: 'tsconfig.json' }]
+    },
     reporters: [
         "default",
         ["./node_modules/jest-html-reporter", {

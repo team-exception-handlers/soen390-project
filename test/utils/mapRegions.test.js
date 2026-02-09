@@ -4,8 +4,10 @@ describe('utils/mapRegions', () => {
   });
 
   test('returns default region when no buildings for campus', () => {
-    jest.doMock('../constants/buildings', () => ({ BUILDINGS: [] }));
-    const { getCampusRegion } = require('../utils/mapRegions.ts');
+    const path = require('path');
+    jest.doMock(require.resolve(path.join(__dirname, '..', '..', 'constants', 'buildings')),
+      () => ({ BUILDINGS: [] }));
+    const { getCampusRegion } = require(path.join(__dirname, '..', '..', 'utils', 'mapRegions.ts'));
 
     const region = getCampusRegion('SGW');
 
@@ -22,8 +24,10 @@ describe('utils/mapRegions', () => {
       { campus: 'SGW', latitude: 45, longitude: -73 },
       { campus: 'SGW', latitude: 46, longitude: -72 },
     ];
-    jest.doMock('../constants/buildings', () => ({ BUILDINGS: buildings }));
-    const { getCampusRegion } = require('../utils/mapRegions.ts');
+    const path = require('path');
+    jest.doMock(require.resolve(path.join(__dirname, '..', '..', 'constants', 'buildings')),
+      () => ({ BUILDINGS: buildings }));
+    const { getCampusRegion } = require(path.join(__dirname, '..', '..', 'utils', 'mapRegions.ts'));
 
     const region = getCampusRegion('SGW');
 
@@ -38,8 +42,10 @@ describe('utils/mapRegions', () => {
       { campus: 'LOY', latitude: 45.1, longitude: -73.1 },
       { campus: 'LOY', latitude: 45.1, longitude: -73.1 },
     ];
-    jest.doMock('../constants/buildings', () => ({ BUILDINGS: buildings }));
-    const { getCampusRegion } = require('../utils/mapRegions.ts');
+    const path = require('path');
+    jest.doMock(require.resolve(path.join(__dirname, '..', '..', 'constants', 'buildings')),
+      () => ({ BUILDINGS: buildings }));
+    const { getCampusRegion } = require(path.join(__dirname, '..', '..', 'utils', 'mapRegions.ts'));
 
     const region = getCampusRegion('LOY');
 
