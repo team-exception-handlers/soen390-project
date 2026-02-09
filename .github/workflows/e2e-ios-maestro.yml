@@ -1,5 +1,4 @@
-# E2E tests: build iOS app for Simulator, run CI-safe Maestro flows.
-# No Expo Go; uses development build on iOS Simulator.
+# E2E tests: build iOS app for Simulator
 
 name: E2E iOS (Maestro)
 
@@ -114,7 +113,6 @@ jobs:
         run: |
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
-          echo "$HOME/.maestro/bin" >> $GITHUB_ENV
           export PATH="$HOME/.maestro/bin:$PATH"
           maestro --version
 
