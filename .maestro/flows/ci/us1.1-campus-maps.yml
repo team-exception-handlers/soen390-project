@@ -3,6 +3,10 @@
 appId: com.anonymous.concordiaclassfinder
 
 ---
+- setPermissions:
+    permissions:
+      location: allow
+
 - extendedWaitUntil:
     visible:
       id: "header-title"
