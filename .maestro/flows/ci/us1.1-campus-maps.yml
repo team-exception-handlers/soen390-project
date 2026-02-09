@@ -5,7 +5,7 @@ appId: com.anonymous.concordiaclassfinder
 ---
 - setPermissions:
     permissions:
-      location: allow
+      location: inuse
 
 - extendedWaitUntil:
     visible:
