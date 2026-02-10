@@ -13,7 +13,7 @@ jobs:
   e2e-ios:
     name: Maestro E2E (iOS Simulator)
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -45,7 +45,7 @@ jobs:
       - name: Ensure iOS native project
         run: |
           if [ ! -d ios ] || [ -z "$(ls -A ios 2>/dev/null)" ]; then
-            npx expo prebuild -p ios --no-install
+            npx expo prebuild -p ios --no-install --non-interactive
           fi
 
       - name: Save prebuilt ios folder

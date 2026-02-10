@@ -3,10 +3,19 @@
 appId: host.exp.Exponent
 
 ---
+- setPermissions:
+    permissions:
+      location: inuse
+- setLocation:
+    latitude: 45.495376
+    longitude: -73.577997
 - runFlow:
     file: _launch-expo-go.yaml
-- assertVisible: "Where to?"
 
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
 - assertVisible:
     id: "campus-toggle-sgw"
 
@@ -14,15 +23,15 @@ appId: host.exp.Exponent
     point: "45%,50%"
 
 - extendedWaitUntil:
-    visible: "Henry F. Hall Building"
-    timeout: 10000
-
-- extendedWaitUntil:
     visible:
       id: "building-info-close"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Henry F. Hall Building"
     timeout: 3000
 
 - tapOn:
     id: "building-info-close"
 
-- assertNotVisible: "Henry F. Hall Building"
+- assertNotVisible:
+    id: "building-info-drawer"
