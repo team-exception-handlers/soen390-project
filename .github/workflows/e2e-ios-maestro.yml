@@ -9,11 +9,15 @@ on:
     branches: ["**"]
   workflow_call:
 
+concurrency:
+  group: e2e-ios-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   e2e-ios:
     name: Maestro E2E (iOS Simulator)
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
 
     steps:
       - name: Checkout
@@ -26,14 +30,25 @@ jobs:
           cache: "npm"
 
       - name: Install JS dependencies
+        run: npm ci
+
+      - name: Boot iOS Simulator (early, in parallel with later steps)
         run: |
-          if [ -f pnpm-lock.yaml ]; then
-            corepack enable && pnpm i --frozen-lockfile
-          elif [ -f yarn.lock ]; then
-            yarn install --frozen-lockfile
-          else
-            npm ci
+          LINE=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro\s*\(" | head -1)
+          if [ -z "$LINE" ]; then
+            LINE=$(xcrun simctl list devices available | grep -E "iPhone 17\s*\(" | head -1)
           fi
+          if [ -z "$LINE" ]; then
+            LINE=$(xcrun simctl list devices available | grep "iPhone" | head -1)
+          fi
+          DEVICE=$(echo "$LINE" | sed -nE 's/.*\(([0-9A-F-]{36})\).*/\1/p')
+          if [ -z "$DEVICE" ]; then
+            echo "::error::No iPhone simulator found"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          xcrun simctl boot "$DEVICE" 2>/dev/null || true
+          echo "DEVICE_UDID=$DEVICE" >> $GITHUB_ENV
 
       - name: Restore prebuilt ios folder
         uses: actions/cache@v4
@@ -63,6 +78,7 @@ jobs:
           key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
 
       - name: Install CocoaPods
+        if: steps.cache-pods.outputs.cache-hit != 'true'
         run: |
           cd ios && pod install && cd ..
 
@@ -109,14 +125,16 @@ jobs:
               -configuration Debug -sdk iphonesimulator \
               -derivedDataPath "$DD" \
               -destination 'generic/platform=iOS Simulator' \
-              ONLY_ACTIVE_ARCH=YES build
+              ONLY_ACTIVE_ARCH=YES \
+              -quiet build
           else
             xcodebuild -project "${{ steps.xcode.outputs.project }}" \
               -scheme "${{ steps.xcode.outputs.scheme }}" \
               -configuration Debug -sdk iphonesimulator \
               -derivedDataPath "$DD" \
               -destination 'generic/platform=iOS Simulator' \
-              ONLY_ACTIVE_ARCH=YES build
+              ONLY_ACTIVE_ARCH=YES \
+              -quiet build
           fi
           cd ..
 
@@ -140,41 +158,18 @@ jobs:
           echo "Resolved .app: $APP"
           if [ ! -d "$APP" ]; then echo "::error::Built .app not found"; exit 1; fi
 
-      - name: Boot iOS Simulator
+      - name: Wait for Simulator ready
         run: |
-          xcrun simctl list devices
-          # Prefer iPhone 17 Pro on latest OS; fallback to iPhone 17, then any iPhone
-          LINE=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro\s*\(" | head -1)
-          if [ -z "$LINE" ]; then
-            LINE=$(xcrun simctl list devices available | grep -E "iPhone 17\s*\(" | head -1)
-          fi
-          if [ -z "$LINE" ]; then
-            LINE=$(xcrun simctl list devices available | grep "iPhone" | head -1)
-          fi
-          # Extract UDID (last parenthesized UUID on the line)
-          DEVICE=$(echo "$LINE" | sed -nE 's/.*\(([0-9A-F-]{36})\).*/\1/p')
-          if [ -z "$DEVICE" ]; then
-            echo "::error::Could not find an available iPhone simulator"
-            xcrun simctl list devices available
-            exit 1
-          fi
-          echo "Booting device: $DEVICE"
-          xcrun simctl boot "$DEVICE" || true
-          # Wait for simulator to be fully booted before installing app (avoids exit 148)
-          echo "Waiting for simulator to boot..."
-          for i in $(seq 1 30); do
-            if xcrun simctl list devices | grep "$DEVICE" | grep -q Booted; then
-              echo "Simulator booted."
-              break
+          for i in $(seq 1 25); do
+            if xcrun simctl list devices | grep "$DEVICE_UDID" | grep -q Booted; then
+              echo "Simulator ready."
+              exit 0
             fi
             sleep 2
           done
-          if ! xcrun simctl list devices | grep "$DEVICE" | grep -q Booted; then
-            echo "::error::Simulator did not reach Booted state"
-            xcrun simctl list devices
-            exit 1
-          fi
-          echo "DEVICE_UDID=$DEVICE" >> $GITHUB_ENV
+          echo "::error::Simulator did not reach Booted state"
+          xcrun simctl list devices
+          exit 1
 
       - name: Install Maestro CLI
         run: |
@@ -182,18 +177,6 @@ jobs:
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
           export PATH="$HOME/.maestro/bin:$PATH"
           maestro --version
-
-      - name: Debug info
-        run: |
-          echo "=== Simulators ==="
-          xcrun simctl list devices
-          echo "=== Resolved .app ==="
-          echo "${{ steps.app.outputs.path }}"
-          echo "=== Maestro version ==="
-          export PATH="$HOME/.maestro/bin:$PATH"
-          maestro --version
-          echo "=== CI flows ==="
-          ls -la .maestro/flows/ci/
 
       - name: Install app on Simulator
         run: |
@@ -205,11 +188,24 @@ jobs:
           mkdir -p .maestro/output
           maestro --device "$DEVICE_UDID" test .maestro/flows/ci --format junit --output .maestro/output/report.xml
 
+      - name: Prepare Maestro artifacts for upload
+        if: failure() || success()
+        run: |
+          mkdir -p maestro-e2e-logs
+          cp -r .maestro/output maestro-e2e-logs/ 2>/dev/null || true
+          cp -r .maestro/flows maestro-e2e-logs/ 2>/dev/null || true
+          cp .maestro/config.yaml maestro-e2e-logs/ 2>/dev/null || true
+          # Maestro may write screenshots/logs under .maestro (e.g. tests subdir)
+          for dir in .maestro/tests .maestro/.maestro; do
+            [ -d "$dir" ] && cp -r "$dir" maestro-e2e-logs/ 2>/dev/null || true
+          done
+          echo "Contents for artifact:"
+          find maestro-e2e-logs -type f 2>/dev/null || true
+
       - name: Upload Maestro artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: maestro-e2e-logs
-          path: .maestro/
-          include-hidden-files: true
+          path: maestro-e2e-logs/
           if-no-files-found: ignore
