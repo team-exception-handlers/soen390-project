@@ -9,6 +9,8 @@ appId: com.anonymous.concordiaclassfinder
 - setLocation:
     latitude: 45.495376
     longitude: -73.577997
+- runFlow:
+    file: _launch-app.yaml
 
 - extendedWaitUntil:
     visible:
