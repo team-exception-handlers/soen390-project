@@ -3,11 +3,8 @@
 name: E2E iOS (Maestro)
 
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: ["**"]
   workflow_call:
+  workflow_dispatch:
 
 concurrency:
   group: e2e-ios-${{ github.ref }}
@@ -30,7 +27,7 @@ jobs:
           cache: "npm"
 
       - name: Install JS dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit
 
       - name: Boot iOS Simulator (early, in parallel with later steps)
         run: |
@@ -56,6 +53,8 @@ jobs:
         with:
           path: ios
           key: ios-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json') }}
+          restore-keys: |
+            ios-prebuild-${{ runner.os }}-
 
       - name: Ensure iOS native project
         run: |
@@ -76,6 +75,8 @@ jobs:
         with:
           path: ios/Pods
           key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            pods-${{ runner.os }}-
 
       - name: Install CocoaPods
         if: steps.cache-pods.outputs.cache-hit != 'true'
@@ -113,6 +114,8 @@ jobs:
         with:
           path: build/ios/DerivedData
           key: ios-dd-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'ios/**/*.xcodeproj/project.pbxproj', 'ios/**/*.xcworkspace/contents.xcworkspacedata') }}
+          restore-keys: |
+            ios-dd-${{ runner.os }}-
 
       - name: Build iOS app for Simulator
         run: |
@@ -122,18 +125,22 @@ jobs:
           if [ "${{ steps.xcode.outputs.using }}" = "workspace" ]; then
             xcodebuild -workspace "${{ steps.xcode.outputs.workspace }}" \
               -scheme "${{ steps.xcode.outputs.scheme }}" \
-              -configuration Debug -sdk iphonesimulator \
+              -configuration Release -sdk iphonesimulator \
               -derivedDataPath "$DD" \
               -destination 'generic/platform=iOS Simulator' \
               ONLY_ACTIVE_ARCH=YES \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              -parallelizeTargets \
               -quiet build
           else
             xcodebuild -project "${{ steps.xcode.outputs.project }}" \
               -scheme "${{ steps.xcode.outputs.scheme }}" \
-              -configuration Debug -sdk iphonesimulator \
+              -configuration Release -sdk iphonesimulator \
               -derivedDataPath "$DD" \
               -destination 'generic/platform=iOS Simulator' \
               ONLY_ACTIVE_ARCH=YES \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              -parallelizeTargets \
               -quiet build
           fi
           cd ..
@@ -149,11 +156,23 @@ jobs:
         id: app
         run: |
           DD="$GITHUB_WORKSPACE/build/ios/DerivedData"
-          # DerivedData/Build/Products/Debug-iphonesimulator/AppName.app is 5 levels deep
-          APP=$(find "$DD" -type d -name "*.app" -path "*Debug*iphonesimulator*" 2>/dev/null | head -1)
+          EXPECTED_BUNDLE_ID="com.anonymous.concordiaclassfinder"
+          # DerivedData/Build/Products/Release-iphonesimulator/AppName.app is 5 levels deep
+          APP=$(find "$DD" -type d -name "*.app" -path "*Release*iphonesimulator*" 2>/dev/null | head -1)
           if [ -z "$APP" ]; then
             APP=$(find "$DD" -type d -name "*.app" 2>/dev/null | head -1)
           fi
+          # If multiple apps exist, prefer the one that matches our bundle id.
+          while IFS= read -r CANDIDATE; do
+            [ -z "$CANDIDATE" ] && continue
+            PLIST="$CANDIDATE/Info.plist"
+            [ ! -f "$PLIST" ] && continue
+            BID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$PLIST" 2>/dev/null || true)
+            if [ "$BID" = "$EXPECTED_BUNDLE_ID" ]; then
+              APP="$CANDIDATE"
+              break
+            fi
+          done < <(find "$DD" -type d -name "*.app" 2>/dev/null)
           echo "path=$APP" >> $GITHUB_OUTPUT
           echo "Resolved .app: $APP"
           if [ ! -d "$APP" ]; then echo "::error::Built .app not found"; exit 1; fi
@@ -185,14 +204,15 @@ jobs:
       - name: Run Maestro CI flows
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
-          mkdir -p .maestro/output
-          maestro --device "$DEVICE_UDID" test .maestro/flows/ci --format junit --output .maestro/output/report.xml
+          mkdir -p .maestro/output .maestro/debug
+          maestro --device "$DEVICE_UDID" test .maestro/flows/ci --format junit --output .maestro/output/report.xml --debug-output .maestro/debug
 
       - name: Prepare Maestro artifacts for upload
         if: failure() || success()
         run: |
           mkdir -p maestro-e2e-logs
           cp -r .maestro/output maestro-e2e-logs/ 2>/dev/null || true
+          cp -r .maestro/debug maestro-e2e-logs/ 2>/dev/null || true
           cp -r .maestro/flows maestro-e2e-logs/ 2>/dev/null || true
           cp .maestro/config.yaml maestro-e2e-logs/ 2>/dev/null || true
           # Maestro may write screenshots/logs under .maestro (e.g. tests subdir)

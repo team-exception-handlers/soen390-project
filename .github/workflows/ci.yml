@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - main
+      - automate-E2E-tests
 
 jobs:
   test:
@@ -25,7 +26,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts --prefer-offline --no-audit
 
       - name: Run ESLint
         run: npm run lint
@@ -50,5 +51,4 @@ jobs:
   e2e-maestro:
     name: Maestro E2E (iOS)
     uses: ./.github/workflows/e2e-ios-maestro.yml
-    needs: test
     secrets: inherit
