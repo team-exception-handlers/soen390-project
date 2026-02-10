@@ -48,7 +48,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   e2e-maestro:
-    name: Maestro E2E (Android)
-    uses: ./.github/workflows/e2e-android-maestro.yml
+    name: Maestro E2E (iOS)
+    uses: ./.github/workflows/e2e-ios-maestro.yml
     needs: test
     secrets: inherit

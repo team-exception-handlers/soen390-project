@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: ["**"]
   workflow_call:
 
 jobs:
@@ -143,8 +143,11 @@ jobs:
       - name: Boot iOS Simulator
         run: |
           xcrun simctl list devices
-          # Prefer iPhone 17 on latest OS; fallback to any available iPhone
-          LINE=$(xcrun simctl list devices available | grep -E "iPhone 17\s+" | head -1)
+          # Prefer iPhone 17 Pro on latest OS; fallback to iPhone 17, then any iPhone
+          LINE=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro\s*\(" | head -1)
+          if [ -z "$LINE" ]; then
+            LINE=$(xcrun simctl list devices available | grep -E "iPhone 17\s*\(" | head -1)
+          fi
           if [ -z "$LINE" ]; then
             LINE=$(xcrun simctl list devices available | grep "iPhone" | head -1)
           fi
@@ -199,15 +202,13 @@ jobs:
       - name: Run Maestro CI flows
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
-          maestro --device "$DEVICE_UDID" test .maestro/flows/ci --format junit --output .maestro/output
+          mkdir -p .maestro/output
+          maestro --device "$DEVICE_UDID" test .maestro/flows/ci --format junit --output .maestro/output/report.xml
 
       - name: Upload Maestro artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: maestro-e2e-logs
-          path: |
-            .maestro/output
-            .maestro/**/*.log
-            .maestro/**/screenshots
+          path: .maestro/
           if-no-files-found: ignore
