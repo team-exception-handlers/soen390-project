@@ -211,4 +211,5 @@ jobs:
         with:
           name: maestro-e2e-logs
           path: .maestro/
+          include-hidden-files: true
           if-no-files-found: ignore
