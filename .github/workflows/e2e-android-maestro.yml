@@ -17,6 +17,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Java (Gradle cache)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -24,7 +31,7 @@ jobs:
           cache: "npm"
 
       - name: Install JS dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit
 
       - name: Restore prebuilt android folder
         uses: actions/cache@v4
@@ -32,6 +39,8 @@ jobs:
         with:
           path: android
           key: android-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json') }}
+          restore-keys: |
+            android-prebuild-${{ runner.os }}-
 
       - name: Ensure Android native project
         run: |
@@ -49,7 +58,7 @@ jobs:
       - name: Build debug APK
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --parallel --build-cache
           cd ..
           APK_PATH=$(find android -name "*.apk" -path "*debug*" 2>/dev/null | head -1)
           if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
