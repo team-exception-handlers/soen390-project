@@ -185,7 +185,7 @@ jobs:
       - name: Run Maestro CI flows
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
-          export MAESTRO_DRIVER_STARTUP_TIMEOUT=240000
+          export MAESTRO_DRIVER_STARTUP_TIMEOUT=600000
           echo "MAESTRO_DRIVER_STARTUP_TIMEOUT=$MAESTRO_DRIVER_STARTUP_TIMEOUT"
           mkdir -p .maestro/output .maestro/debug
           mkdir -p .maestro/recordings
@@ -202,6 +202,7 @@ jobs:
             VIDEO_FILE=".maestro/recordings/${FLOW_BASE}-ios-simulator-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.mp4"
             JUNIT_FILE=".maestro/output/${FLOW_BASE}.xml"
             DEBUG_DIR=".maestro/debug/${FLOW_BASE}"
+            LOG_FILE=".maestro/output/${FLOW_BASE}.log"
 
             echo "Running flow: $FLOW"
             mkdir -p "$DEBUG_DIR"
@@ -214,9 +215,21 @@ jobs:
             fi
 
             set +e
-            maestro --device "$DEVICE_UDID" test "$FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR"
+            maestro --device "$DEVICE_UDID" test "$FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >"$LOG_FILE" 2>&1
             FLOW_EXIT=$?
             set -e
+            cat "$LOG_FILE"
+
+            if [ $FLOW_EXIT -ne 0 ] && grep -q "iOS driver not ready in time" "$LOG_FILE"; then
+              echo "::warning::Driver startup timeout for $FLOW_NAME. Retrying once..."
+              xcrun simctl bootstatus "$DEVICE_UDID" -b || true
+              sleep 5
+              set +e
+              maestro --device "$DEVICE_UDID" test "$FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >>"$LOG_FILE" 2>&1
+              FLOW_EXIT=$?
+              set -e
+              cat "$LOG_FILE"
+            fi
 
             if kill -0 "$REC_PID" 2>/dev/null; then
               kill -INT "$REC_PID" 2>/dev/null || true
