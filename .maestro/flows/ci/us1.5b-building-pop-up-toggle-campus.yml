@@ -19,16 +19,24 @@ appId: com.anonymous.concordiaclassfinder
 - assertVisible:
     id: "campus-toggle-sgw"
 
+- extendedWaitUntil:
+    visible:
+      id: "map-native"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "marker-H"
+    timeout: 30000
 - tapOn:
-    point: "45%,50%"
+    id: "marker-H"
 
 - extendedWaitUntil:
     visible:
       id: "building-info-close"
-    timeout: 10000
+    timeout: 20000
 - extendedWaitUntil:
     visible: "Henry F. Hall Building"
-    timeout: 3000
+    timeout: 10000
 
 - tapOn:
     id: "building-info-close"
@@ -42,6 +50,10 @@ appId: com.anonymous.concordiaclassfinder
     visible:
       id: "campus-toggle-loyola"
     timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "marker-SP"
+    timeout: 30000
 
 - tapOn:
     id: "campus-toggle-sgw"
@@ -49,17 +61,31 @@ appId: com.anonymous.concordiaclassfinder
     visible:
       id: "campus-toggle-sgw"
     timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "marker-H"
+    timeout: 30000
 
 - tapOn:
-    point: "40%,70%"
+    id: "campus-toggle-loyola"
+- extendedWaitUntil:
+    visible:
+      id: "campus-toggle-loyola"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "marker-SP"
+    timeout: 30000
+- tapOn:
+    id: "marker-SP"
 
 - extendedWaitUntil:
     visible:
       id: "building-info-close"
-    timeout: 10000
+    timeout: 20000
 - extendedWaitUntil:
     visible: "Richard J. Renaud Science Complex"
-    timeout: 3000
+    timeout: 10000
 
 - tapOn:
     id: "building-info-close"
