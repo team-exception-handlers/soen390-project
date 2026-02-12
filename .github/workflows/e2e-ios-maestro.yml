@@ -62,13 +62,6 @@ jobs:
             npx expo prebuild -p ios --no-install --non-interactive
           fi
 
-      - name: Save prebuilt ios folder
-        if: steps.cache-ios.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ios
-          key: ios-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json') }}
-
       - name: Restore CocoaPods cache
         uses: actions/cache@v4
         id: cache-pods
@@ -82,13 +75,6 @@ jobs:
         if: steps.cache-pods.outputs.cache-hit != 'true'
         run: |
           cd ios && pod install && cd ..
-
-      - name: Save CocoaPods cache
-        if: steps.cache-pods.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ios/Pods
-          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
 
       - name: Resolve Xcode project and scheme
         id: xcode
@@ -145,13 +131,6 @@ jobs:
           fi
           cd ..
 
-      - name: Save DerivedData cache
-        if: steps.cache-dd.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: build/ios/DerivedData
-          key: ios-dd-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'ios/**/*.xcodeproj/project.pbxproj', 'ios/**/*.xcworkspace/contents.xcworkspacedata') }}
-
       - name: Locate built .app
         id: app
         run: |
@@ -205,7 +184,28 @@ jobs:
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
           mkdir -p .maestro/output .maestro/debug
+          mkdir -p .maestro/recordings
+          VIDEO_FILE=".maestro/recordings/ios-simulator-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.mp4"
+          xcrun simctl io "$DEVICE_UDID" recordVideo --codec=h264 "$VIDEO_FILE" >/tmp/simctl-record-video.log 2>&1 &
+          REC_PID=$!
+          sleep 2
+          if ! kill -0 "$REC_PID" 2>/dev/null; then
+            echo "::warning::Failed to start simulator video recording. Check /tmp/simctl-record-video.log"
+          fi
+          set +e
           maestro --device "$DEVICE_UDID" test .maestro/flows/ci --format junit --output .maestro/output/report.xml --debug-output .maestro/debug
+          TEST_EXIT=$?
+          set -e
+          if kill -0 "$REC_PID" 2>/dev/null; then
+            kill -INT "$REC_PID" 2>/dev/null || true
+            wait "$REC_PID" 2>/dev/null || true
+          fi
+          if [ ! -f "$VIDEO_FILE" ]; then
+            echo "::warning::Simulator recording file was not created."
+          else
+            echo "Simulator recording saved at $VIDEO_FILE"
+          fi
+          exit $TEST_EXIT
 
       - name: Prepare Maestro artifacts for upload
         if: failure() || success()
@@ -213,6 +213,7 @@ jobs:
           mkdir -p maestro-e2e-logs
           cp -r .maestro/output maestro-e2e-logs/ 2>/dev/null || true
           cp -r .maestro/debug maestro-e2e-logs/ 2>/dev/null || true
+          cp -r .maestro/recordings maestro-e2e-logs/ 2>/dev/null || true
           cp -r .maestro/flows maestro-e2e-logs/ 2>/dev/null || true
           cp .maestro/config.yaml maestro-e2e-logs/ 2>/dev/null || true
           # Maestro may write screenshots/logs under .maestro (e.g. tests subdir)

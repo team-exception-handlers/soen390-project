@@ -542,7 +542,6 @@ export default function MapScreen() {
     `;
   }, [
     buildingsWithPolygons,
-    campus,
     campusPolygons,
     currentBuildingForHTML,
     region,
