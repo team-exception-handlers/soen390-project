@@ -160,6 +160,8 @@ jobs:
         run: |
           for i in $(seq 1 25); do
             if xcrun simctl list devices | grep "$DEVICE_UDID" | grep -q Booted; then
+              echo "Simulator reported Booted. Waiting for full boot status..."
+              xcrun simctl bootstatus "$DEVICE_UDID" -b || true
               echo "Simulator ready."
               exit 0
             fi
@@ -183,28 +185,56 @@ jobs:
       - name: Run Maestro CI flows
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
+          export MAESTRO_DRIVER_STARTUP_TIMEOUT=240000
+          echo "MAESTRO_DRIVER_STARTUP_TIMEOUT=$MAESTRO_DRIVER_STARTUP_TIMEOUT"
           mkdir -p .maestro/output .maestro/debug
           mkdir -p .maestro/recordings
-          VIDEO_FILE=".maestro/recordings/ios-simulator-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.mp4"
-          xcrun simctl io "$DEVICE_UDID" recordVideo --codec=h264 "$VIDEO_FILE" >/tmp/simctl-record-video.log 2>&1 &
-          REC_PID=$!
-          sleep 2
-          if ! kill -0 "$REC_PID" 2>/dev/null; then
-            echo "::warning::Failed to start simulator video recording. Check /tmp/simctl-record-video.log"
+          TEST_EXIT=0
+          FLOW_FILES=$(find .maestro/flows/ci -maxdepth 1 -type f \( -name "*.yml" -o -name "*.yaml" \) ! -name "_*" | sort)
+          if [ -z "$FLOW_FILES" ]; then
+            echo "::error::No CI Maestro flow files found under .maestro/flows/ci"
+            exit 1
           fi
-          set +e
-          maestro --device "$DEVICE_UDID" test .maestro/flows/ci --format junit --output .maestro/output/report.xml --debug-output .maestro/debug
-          TEST_EXIT=$?
-          set -e
-          if kill -0 "$REC_PID" 2>/dev/null; then
-            kill -INT "$REC_PID" 2>/dev/null || true
-            wait "$REC_PID" 2>/dev/null || true
-          fi
-          if [ ! -f "$VIDEO_FILE" ]; then
-            echo "::warning::Simulator recording file was not created."
-          else
-            echo "Simulator recording saved at $VIDEO_FILE"
-          fi
+
+          for FLOW in $FLOW_FILES; do
+            FLOW_NAME=$(basename "$FLOW")
+            FLOW_BASE="${FLOW_NAME%.*}"
+            VIDEO_FILE=".maestro/recordings/${FLOW_BASE}-ios-simulator-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.mp4"
+            JUNIT_FILE=".maestro/output/${FLOW_BASE}.xml"
+            DEBUG_DIR=".maestro/debug/${FLOW_BASE}"
+
+            echo "Running flow: $FLOW"
+            mkdir -p "$DEBUG_DIR"
+
+            xcrun simctl io "$DEVICE_UDID" recordVideo --codec=h264 "$VIDEO_FILE" >/tmp/simctl-record-video-${FLOW_BASE}.log 2>&1 &
+            REC_PID=$!
+            sleep 2
+            if ! kill -0 "$REC_PID" 2>/dev/null; then
+              echo "::warning::Failed to start simulator recording for $FLOW_NAME. Check /tmp/simctl-record-video-${FLOW_BASE}.log"
+            fi
+
+            set +e
+            maestro --device "$DEVICE_UDID" test "$FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR"
+            FLOW_EXIT=$?
+            set -e
+
+            if kill -0 "$REC_PID" 2>/dev/null; then
+              kill -INT "$REC_PID" 2>/dev/null || true
+              wait "$REC_PID" 2>/dev/null || true
+            fi
+
+            if [ ! -f "$VIDEO_FILE" ]; then
+              echo "::warning::Recording file was not created for $FLOW_NAME"
+            else
+              echo "Recording saved for $FLOW_NAME at $VIDEO_FILE"
+            fi
+
+            if [ $FLOW_EXIT -ne 0 ]; then
+              TEST_EXIT=1
+              echo "::error::Flow failed: $FLOW_NAME"
+            fi
+          done
+
           exit $TEST_EXIT
 
       - name: Prepare Maestro artifacts for upload
