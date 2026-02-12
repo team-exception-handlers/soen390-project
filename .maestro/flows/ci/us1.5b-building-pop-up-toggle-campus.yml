@@ -25,10 +25,10 @@ appId: com.anonymous.concordiaclassfinder
     timeout: 30000
 - extendedWaitUntil:
     visible:
-      id: "marker-H"
+      id: "e2e-select-H"
     timeout: 30000
 - tapOn:
-    id: "marker-H"
+    id: "e2e-select-H"
 
 - extendedWaitUntil:
     visible:
@@ -52,7 +52,7 @@ appId: com.anonymous.concordiaclassfinder
     timeout: 5000
 - extendedWaitUntil:
     visible:
-      id: "marker-SP"
+      id: "e2e-select-SP"
     timeout: 30000
 
 - tapOn:
@@ -63,7 +63,7 @@ appId: com.anonymous.concordiaclassfinder
     timeout: 5000
 - extendedWaitUntil:
     visible:
-      id: "marker-H"
+      id: "e2e-select-H"
     timeout: 30000
 
 - tapOn:
@@ -74,10 +74,10 @@ appId: com.anonymous.concordiaclassfinder
     timeout: 5000
 - extendedWaitUntil:
     visible:
-      id: "marker-SP"
+      id: "e2e-select-SP"
     timeout: 30000
 - tapOn:
-    id: "marker-SP"
+    id: "e2e-select-SP"
 
 - extendedWaitUntil:
     visible:

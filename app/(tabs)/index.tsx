@@ -53,113 +53,13 @@ export default function MapScreen() {
 
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
-  const isWeb = Platform.OS === "web";
-  const userLat = isWeb ? userLocation?.coords.latitude || null : null;
-  const userLng = isWeb ? userLocation?.coords.longitude || null : null;
-  const currentBuildingForHTML = isWeb ? currentBuilding : null;
-
-  // Styles defined inside component 
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-    },
-    map: {
-      flex: 1,
-    },
-    markerContainer: {
-      alignItems: "center",
-    },
-    markerBadge: {
-      minWidth: 30,
-      height: 28,
-      paddingHorizontal: 8,
-      borderRadius: 14,
-      backgroundColor: "#A32638",
-      borderWidth: 2,
-      borderColor: "white",
-      alignItems: "center",
-      justifyContent: "center",
-      shadowColor: "#000",
-      shadowOpacity: 0.2,
-      shadowRadius: 4,
-      shadowOffset: { width: 0, height: 2 },
-      elevation: 3,
-    },
-    markerText: {
-      fontSize: 12,
-      fontWeight: "700",
-      color: "white",
-    },
-    markerStem: {
-      marginTop: -2,
-      width: 0,
-      height: 0,
-      borderLeftWidth: 6,
-      borderRightWidth: 6,
-      borderTopWidth: 8,
-      borderLeftColor: "transparent",
-      borderRightColor: "transparent",
-      borderTopColor: "#A32638",
-    },
-    webFallback: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      paddingHorizontal: 24,
-    },
-    webFallbackText: {
-      color: "#2C2C2C",
-      fontSize: 16,
-      textAlign: "center",
-    },
-    permissionBanner: {
-      position: "absolute",
-      alignSelf: "center",
-      backgroundColor: "#ff3700",
-      opacity: 0.9,
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      borderRadius: 20,
-      shadowColor: "#000",
-      shadowOpacity: 0.2,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 5,
-      zIndex: 1000,
-      maxWidth: "90%",
-    },
-    permissionText: {
-      fontSize: 13,
-      fontWeight: "600",
-      color: "white",
-      textAlign: "center",
-    },
-    buildingInfo: {
-      position: "absolute",
-      top: isWeb ? 53 : insets.top + 44,
-      alignSelf: "center",
-      backgroundColor: "rgba(0,0,0,0.7)",
-      paddingVertical: isWeb ? 8 : 4,
-      paddingHorizontal: isWeb ? 16 : 8,
-      borderRadius: isWeb ? 10 : 8,
-      zIndex: 1000,
-      maxWidth: isWeb ? undefined : "90%",
-    },
-    buildingInfoText: {
-      color: "white",
-      fontSize: isWeb ? 14 : 12,
-      fontWeight: "700",
-      textAlign: "center",
-    },
-    buildingInfoTitle: {
-      color: "#FFA500",
-      fontSize: isWeb ? 14 : 12,
-      fontWeight: "600",
-      marginBottom: 2,
-      textAlign: "center",
-      opacity: 0.9,
-    },
-  });
+  const isWebPlatform = Platform.OS === "web";
+  const showE2EHooks =
+    Platform.OS !== "web" &&
+    process.env.EXPO_PUBLIC_ENABLE_E2E_HOOKS === "1";
+  const userLat = isWebPlatform ? userLocation?.coords.latitude || null : null;
+  const userLng = isWebPlatform ? userLocation?.coords.longitude || null : null;
+  const currentBuildingForHTML = isWebPlatform ? currentBuilding : null;
 
   let MapViewComponent: React.ComponentType<any> | null = null;
   let MapMarkerComponent: React.ComponentType<any> | null = null;
@@ -848,7 +748,13 @@ export default function MapScreen() {
         (() => {
           const building = BUILDINGS.find((b) => b.code === currentBuilding);
           return building ? (
-            <View style={styles.buildingInfo} testID="current-building-info">
+            <View
+              style={[
+                styles.buildingInfo,
+                !isWebPlatform && { top: insets.top + 44 },
+              ]}
+              testID="current-building-info"
+            >
               <Text style={styles.buildingInfoTitle}>Current Building:</Text>
               <Text
                 style={styles.buildingInfoText}
@@ -884,6 +790,28 @@ export default function MapScreen() {
         </TouchableOpacity>
       )}
       {shouldUseWebFallback ? webMapContent : nativeMapContent}
+      {showE2EHooks && (
+        <View style={styles.e2eControls} pointerEvents="box-none">
+          <TouchableOpacity
+            testID="e2e-select-H"
+            accessibilityLabel="e2e-select-H"
+            accessibilityRole="button"
+            style={styles.e2eButton}
+            onPress={() => setSelectedBuilding("H")}
+          >
+            <Text style={styles.e2eButtonText}>H</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="e2e-select-SP"
+            accessibilityLabel="e2e-select-SP"
+            accessibilityRole="button"
+            style={styles.e2eButton}
+            onPress={() => setSelectedBuilding("SP")}
+          >
+            <Text style={styles.e2eButtonText}>SP</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <BuildingInformation
         buildingCode={selectedBuilding}
@@ -895,3 +823,133 @@ export default function MapScreen() {
     </View>
   );
 }
+
+const isWeb = Platform.OS === "web";
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  map: {
+    flex: 1,
+  },
+  e2eControls: {
+    position: "absolute",
+    right: 10,
+    bottom: 140,
+    zIndex: 12000,
+    elevation: 12000,
+    gap: 8,
+  },
+  e2eButton: {
+    width: 38,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+  },
+  e2eButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  markerContainer: {
+    alignItems: "center",
+  },
+  markerBadge: {
+    minWidth: 30,
+    height: 28,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    backgroundColor: "#A32638",
+    borderWidth: 2,
+    borderColor: "white",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  markerText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "white",
+  },
+  markerStem: {
+    marginTop: -2,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 8,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderTopColor: "#A32638",
+  },
+  webFallback: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  webFallbackText: {
+    color: "#2C2C2C",
+    fontSize: 16,
+    textAlign: "center",
+  },
+
+  permissionBanner: {
+    position: "absolute",
+    alignSelf: "center",
+    backgroundColor: "#ff3700",
+    opacity: 0.9,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+    zIndex: 1000,
+    maxWidth: "90%",
+  },
+
+  permissionText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "white",
+    textAlign: "center",
+  },
+
+  buildingInfo: {
+    position: "absolute",
+    top: isWeb ? 53 : 80,
+    alignSelf: "center",
+    backgroundColor: "rgba(0,0,0,0.7)",
+    paddingVertical: isWeb ? 8 : 4,
+    paddingHorizontal: isWeb ? 16 : 8,
+    borderRadius: isWeb ? 10 : 8,
+    zIndex: 1000,
+    maxWidth: isWeb ? undefined : "90%",
+  },
+
+  buildingInfoText: {
+    color: "white",
+    fontSize: isWeb ? 14 : 12,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  buildingInfoTitle: {
+    color: "#FFA500",
+    fontSize: isWeb ? 14 : 12,
+    fontWeight: "600",
+    marginBottom: 2,
+    textAlign: "center",
+    opacity: 0.9,
+  },
+});

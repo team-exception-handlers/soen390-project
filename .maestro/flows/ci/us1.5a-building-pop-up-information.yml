@@ -25,10 +25,10 @@ appId: com.anonymous.concordiaclassfinder
     timeout: 30000
 - extendedWaitUntil:
     visible:
-      id: "marker-H"
+      id: "e2e-select-H"
     timeout: 30000
 - tapOn:
-    id: "marker-H"
+    id: "e2e-select-H"
 
 - extendedWaitUntil:
     visible:
