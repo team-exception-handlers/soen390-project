@@ -53,10 +53,113 @@ export default function MapScreen() {
 
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
-  const isWebPlatform = Platform.OS === "web";
-  const userLat = isWebPlatform ? userLocation?.coords.latitude || null : null;
-  const userLng = isWebPlatform ? userLocation?.coords.longitude || null : null;
-  const currentBuildingForHTML = isWebPlatform ? currentBuilding : null;
+  const isWeb = Platform.OS === "web";
+  const userLat = isWeb ? userLocation?.coords.latitude || null : null;
+  const userLng = isWeb ? userLocation?.coords.longitude || null : null;
+  const currentBuildingForHTML = isWeb ? currentBuilding : null;
+
+  // Styles defined inside component 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    map: {
+      flex: 1,
+    },
+    markerContainer: {
+      alignItems: "center",
+    },
+    markerBadge: {
+      minWidth: 30,
+      height: 28,
+      paddingHorizontal: 8,
+      borderRadius: 14,
+      backgroundColor: "#A32638",
+      borderWidth: 2,
+      borderColor: "white",
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 3,
+    },
+    markerText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: "white",
+    },
+    markerStem: {
+      marginTop: -2,
+      width: 0,
+      height: 0,
+      borderLeftWidth: 6,
+      borderRightWidth: 6,
+      borderTopWidth: 8,
+      borderLeftColor: "transparent",
+      borderRightColor: "transparent",
+      borderTopColor: "#A32638",
+    },
+    webFallback: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 24,
+    },
+    webFallbackText: {
+      color: "#2C2C2C",
+      fontSize: 16,
+      textAlign: "center",
+    },
+    permissionBanner: {
+      position: "absolute",
+      alignSelf: "center",
+      backgroundColor: "#ff3700",
+      opacity: 0.9,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      borderRadius: 20,
+      shadowColor: "#000",
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 5,
+      zIndex: 1000,
+      maxWidth: "90%",
+    },
+    permissionText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: "white",
+      textAlign: "center",
+    },
+    buildingInfo: {
+      position: "absolute",
+      top: isWeb ? 53 : insets.top + 44,
+      alignSelf: "center",
+      backgroundColor: "rgba(0,0,0,0.7)",
+      paddingVertical: isWeb ? 8 : 4,
+      paddingHorizontal: isWeb ? 16 : 8,
+      borderRadius: isWeb ? 10 : 8,
+      zIndex: 1000,
+      maxWidth: isWeb ? undefined : "90%",
+    },
+    buildingInfoText: {
+      color: "white",
+      fontSize: isWeb ? 14 : 12,
+      fontWeight: "700",
+      textAlign: "center",
+    },
+    buildingInfoTitle: {
+      color: "#FFA500",
+      fontSize: isWeb ? 14 : 12,
+      fontWeight: "600",
+      marginBottom: 2,
+      textAlign: "center",
+      opacity: 0.9,
+    },
+  });
 
   let MapViewComponent: React.ComponentType<any> | null = null;
   let MapMarkerComponent: React.ComponentType<any> | null = null;
@@ -116,10 +219,20 @@ export default function MapScreen() {
 
       const subscription = await startWatchingLocation(
         (location: Location.LocationObject) => {
-          setUserLocation(location);
-          setLocationPermissionDenied(false);
-          const { latitude, longitude } = location.coords;
+          const latitude = 45.497092;
+          const longitude = -73.5788;
 
+          const fakeLocation = {
+            ...location,
+            coords: {
+              ...location.coords,
+              latitude,
+              longitude,
+            }
+          };
+
+          setUserLocation(fakeLocation);
+          setLocationPermissionDenied(false);
           const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
           const building = findUserBuilding(
             latitude,
@@ -211,7 +324,6 @@ export default function MapScreen() {
         try {
             if (typeof L !== 'undefined' && window.map) {
             if (window.userMarker) {
-              // Just update position
               window.userMarker.setLatLng([${latitude}, ${longitude}]);
               if (window.followUser !== false && !window.hasCenteredOnUser) {
                 window.map.panTo([${latitude}, ${longitude}], { animate: true, duration: 0.5 });
@@ -219,7 +331,6 @@ export default function MapScreen() {
               }
               console.log('User marker updated to:', ${latitude}, ${longitude});
             } else {
-              // Create marker if it doesn't exist
               const userIcon = L.divIcon({
                 className: 'user-marker',
                 html: '<div style="width: 14px; height: 14px; background: #007AFF; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
@@ -360,7 +471,7 @@ export default function MapScreen() {
           <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
           <script>
               const map = L.map('map', {
-                maxZoom: 22  // Allow super close zoom
+                maxZoom: 22
               }).setView([${latitude}, ${longitude}], 20);
               window.map = map; 
               const buildings = ${JSON.stringify(buildingData)};
@@ -424,7 +535,6 @@ export default function MapScreen() {
               map.on('zoomstart', disableFollow);
               map.on('movestart', disableFollow);
 
-              // Render building polygons
               polygonData.features.forEach((feature) => {
                   const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
                   const buildingCode = feature.properties.code;
@@ -460,7 +570,6 @@ export default function MapScreen() {
                   });
               });
 
-              // Highlight current building if available
               if (currentBuilding && window.polygonMap[currentBuilding]) {
                   window.currentBuildingPolygon = window.polygonMap[currentBuilding];
                   window.currentBuildingCode = currentBuilding;
@@ -777,112 +886,3 @@ export default function MapScreen() {
     </View>
   );
 }
-
-const isWeb = Platform.OS === "web";
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  map: {
-    flex: 1,
-  },
-  markerContainer: {
-    alignItems: "center",
-  },
-  markerBadge: {
-    minWidth: 30,
-    height: 28,
-    paddingHorizontal: 8,
-    borderRadius: 14,
-    backgroundColor: "#A32638",
-    borderWidth: 2,
-    borderColor: "white",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  markerText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "white",
-  },
-  markerStem: {
-    marginTop: -2,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 6,
-    borderRightWidth: 6,
-    borderTopWidth: 8,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    borderTopColor: "#A32638",
-  },
-  webFallback: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  webFallbackText: {
-    color: "#2C2C2C",
-    fontSize: 16,
-    textAlign: "center",
-  },
-
-  permissionBanner: {
-    position: "absolute",
-    alignSelf: "center",
-    backgroundColor: "#ff3700",
-    opacity: 0.9,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-    zIndex: 1000,
-    maxWidth: "90%",
-  },
-
-  permissionText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "white",
-    textAlign: "center",
-  },
-
-  buildingInfo: {
-    position: "absolute",
-    top: isWeb ? 53 : 80,
-    alignSelf: "center",
-    backgroundColor: "rgba(0,0,0,0.7)",
-    paddingVertical: isWeb ? 8 : 4,
-    paddingHorizontal: isWeb ? 16 : 8,
-    borderRadius: isWeb ? 10 : 8,
-    zIndex: 1000,
-    maxWidth: isWeb ? undefined : "90%",
-  },
-
-  buildingInfoText: {
-    color: "white",
-    fontSize: isWeb ? 14 : 12,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-
-  buildingInfoTitle: {
-    color: "#FFA500",
-    fontSize: isWeb ? 14 : 12,
-    fontWeight: "600",
-    marginBottom: 2,
-    textAlign: "center",
-    opacity: 0.9,
-  },
-});
