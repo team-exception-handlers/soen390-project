@@ -54,6 +54,9 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
   const isWebPlatform = Platform.OS === "web";
+  const showE2EHooks =
+    Platform.OS !== "web" &&
+    process.env.EXPO_PUBLIC_ENABLE_E2E_HOOKS === "1";
   const userLat = isWebPlatform ? userLocation?.coords.latitude || null : null;
   const userLng = isWebPlatform ? userLocation?.coords.longitude || null : null;
   const currentBuildingForHTML = isWebPlatform ? currentBuilding : null;
@@ -769,6 +772,28 @@ export default function MapScreen() {
         </TouchableOpacity>
       )}
       {shouldUseWebFallback ? webMapContent : nativeMapContent}
+      {showE2EHooks && (
+        <View style={styles.e2eControls} pointerEvents="box-none">
+          <TouchableOpacity
+            testID="e2e-select-H"
+            accessibilityLabel="e2e-select-H"
+            accessibilityRole="button"
+            style={styles.e2eButton}
+            onPress={() => setSelectedBuilding("H")}
+          >
+            <Text style={styles.e2eButtonText}>H</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="e2e-select-SP"
+            accessibilityLabel="e2e-select-SP"
+            accessibilityRole="button"
+            style={styles.e2eButton}
+            onPress={() => setSelectedBuilding("SP")}
+          >
+            <Text style={styles.e2eButtonText}>SP</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <BuildingInformation
         buildingCode={selectedBuilding}
@@ -789,6 +814,27 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  e2eControls: {
+    position: "absolute",
+    right: 10,
+    bottom: 140,
+    zIndex: 12000,
+    elevation: 12000,
+    gap: 8,
+  },
+  e2eButton: {
+    width: 38,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+  },
+  e2eButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
   },
   markerContainer: {
     alignItems: "center",

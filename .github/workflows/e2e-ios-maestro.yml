@@ -105,6 +105,7 @@ jobs:
 
       - name: Build iOS app for Simulator
         run: |
+          export EXPO_PUBLIC_ENABLE_E2E_HOOKS=1
           cd ios
           DD="$GITHUB_WORKSPACE/build/ios/DerivedData"
           mkdir -p "$DD"
