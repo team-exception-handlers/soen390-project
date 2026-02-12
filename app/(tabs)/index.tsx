@@ -682,6 +682,10 @@ export default function MapScreen() {
             <MapMarkerComponent
               key={building.code}
               testID={`marker-${building.code}`}
+              identifier={`marker-${building.code}`}
+              accessible
+              accessibilityLabel={`marker-${building.code}`}
+              accessibilityRole="button"
               coordinate={{
                 latitude: building.latitude,
                 longitude: building.longitude,
@@ -692,7 +696,13 @@ export default function MapScreen() {
                 )
               }
             >
-              <View style={styles.markerContainer}>
+              <View
+                style={styles.markerContainer}
+                testID={`marker-view-${building.code}`}
+                accessible
+                accessibilityLabel={`marker-${building.code}`}
+                accessibilityRole="button"
+              >
                 <View style={styles.markerBadge}>
                   <Text style={styles.markerText}>{building.code}</Text>
                 </View>
