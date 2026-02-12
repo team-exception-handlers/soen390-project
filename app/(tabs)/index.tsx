@@ -550,7 +550,7 @@ export default function MapScreen() {
     userLng,
   ]);
 
-  const webViewSource = useMemo(() => ({ html: mapHTML, baseUrl: 'https://localhost' }), [mapHTML]);
+  const webViewSource = useMemo(() => ({ html: mapHTML }), [mapHTML]);
 
   const shouldUseWebFallback = Platform.OS === "web" || !MapViewComponent;
 
