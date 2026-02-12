@@ -19,16 +19,24 @@ appId: com.anonymous.concordiaclassfinder
 - assertVisible:
     id: "campus-toggle-sgw"
 
+- extendedWaitUntil:
+    visible:
+      id: "map-native"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "marker-H"
+    timeout: 30000
 - tapOn:
-    point: "45%,50%"
+    id: "marker-H"
 
 - extendedWaitUntil:
     visible:
       id: "building-info-close"
-    timeout: 10000
+    timeout: 20000
 - extendedWaitUntil:
     visible: "Henry F. Hall Building"
-    timeout: 3000
+    timeout: 10000
 
 - tapOn:
     id: "building-info-close"
