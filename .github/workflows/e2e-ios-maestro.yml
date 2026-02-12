@@ -67,14 +67,17 @@ jobs:
         id: cache-pods
         with:
           path: ios/Pods
-          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
+          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile', 'ios/Podfile.lock') }}
           restore-keys: |
             pods-${{ runner.os }}-
 
       - name: Install CocoaPods
-        if: steps.cache-pods.outputs.cache-hit != 'true'
         run: |
-          cd ios && pod install && cd ..
+          if [ "${{ steps.cache-pods.outputs.cache-hit }}" != "true" ] || [ ! -f ios/Podfile.lock ]; then
+            cd ios && pod install && cd ..
+          else
+            echo "CocoaPods cache hit and Podfile.lock exists; skipping pod install."
+          fi
 
       - name: Resolve Xcode project and scheme
         id: xcode
