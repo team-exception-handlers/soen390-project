@@ -585,20 +585,26 @@ export default function MapScreen() {
           domStorageEnabled
           startInLoadingState
           scalesPageToFit
+          originWhitelist={['*']}
+          injectedJavaScriptBeforeContentLoaded={`
+            window.ReactNativeWebView = {
+              postMessage: function(data) {
+                window.location.href = 'rnmsg://' + encodeURIComponent(data);
+              }
+            };
+            true;
+          `}
           onLoadEnd={() => setWebMapReady(true)}
-          onMessage={(event: any) => {
-            try {
-              const data = JSON.parse(event.nativeEvent.data);
-              if (data?.type === "buildingSelected") {
-                setSelectedBuilding(data.buildingCode);
-              }
-
-              if (data?.type === "buildingDeselected") {
-                setSelectedBuilding(null);
-              }
-            } catch {
-              // ignore non-JSON messages
+          onShouldStartLoadWithRequest={(request: { url: string }) => {
+            if (request.url.startsWith('rnmsg://')) {
+              try {
+                const data = JSON.parse(decodeURIComponent(request.url.replace('rnmsg://', '')));
+                if (data?.type === 'buildingSelected') setSelectedBuilding(data.buildingCode);
+                if (data?.type === 'buildingDeselected') setSelectedBuilding(null);
+              } catch { }
+              return false;
             }
+            return true;
           }}
         />
       );
