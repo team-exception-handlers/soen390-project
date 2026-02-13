@@ -103,18 +103,6 @@ const buildStepInstruction = (step: {
     return `${forkDirection} onto ${roadName}, ${formatStepDistance(step.distance)}.`;
   }
 
-  if (type === "merge") {
-    const mergeDirection = modifier ? `Merge ${modifier}` : "Merge";
-    return `${mergeDirection} onto ${roadName}, ${formatStepDistance(step.distance)}.`;
-  }
-
-  if (type === "roundabout" || type === "rotary") {
-    const exitPart =
-      typeof step.maneuver?.exit === "number"
-        ? `take exit ${step.maneuver.exit}`
-        : "continue through";
-    return `Enter the roundabout and ${exitPart} to ${roadName}, ${formatStepDistance(step.distance)}.`;
-  }
 
   return `Continue on ${roadName}, ${formatStepDistance(step.distance)}.`;
 };
