@@ -27,7 +27,37 @@ jobs:
           cache: "npm"
 
       - name: Install JS dependencies
-        run: npm ci --prefer-offline --no-audit
+        run: npm ci --ignore-scripts --prefer-offline --no-audit
+
+      - name: Compute cache keys
+        id: cache-keys
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PREBUILD_HASH=$(shasum app.json package.json package-lock.json | shasum | awk '{print $1}')
+
+          if [ -f ios/Podfile ] || [ -f ios/Podfile.lock ]; then
+            PODS_HASH=$(shasum ios/Podfile ios/Podfile.lock 2>/dev/null | shasum | awk '{print $1}')
+          else
+            PODS_HASH="no-pods-files"
+          fi
+
+          DD_INPUTS=$(
+            {
+              [ -f ios/Podfile.lock ] && echo "ios/Podfile.lock"
+              find ios -type f \( -path "*/.xcodeproj/project.pbxproj" -o -path "*/.xcworkspace/contents.xcworkspacedata" \) 2>/dev/null | sort
+            } | sed '/^$/d'
+          )
+          if [ -n "$DD_INPUTS" ]; then
+            DD_HASH=$(echo "$DD_INPUTS" | xargs shasum | shasum | awk '{print $1}')
+          else
+            DD_HASH="no-deriveddata-inputs"
+          fi
+
+          echo "prebuild=$PREBUILD_HASH" >> "$GITHUB_OUTPUT"
+          echo "pods=$PODS_HASH" >> "$GITHUB_OUTPUT"
+          echo "derived_data=$DD_HASH" >> "$GITHUB_OUTPUT"
 
       - name: Boot iOS Simulator (early, in parallel with later steps)
         run: |
@@ -52,7 +82,7 @@ jobs:
         id: cache-ios
         with:
           path: ios
-          key: ios-prebuild-${{ runner.os }}-${{ hashFiles('app.json', 'package.json', 'package-lock.json') }}
+          key: ios-prebuild-${{ runner.os }}-${{ steps.cache-keys.outputs.prebuild }}
           restore-keys: |
             ios-prebuild-${{ runner.os }}-
 
@@ -67,7 +97,7 @@ jobs:
         id: cache-pods
         with:
           path: ios/Pods
-          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile', 'ios/Podfile.lock') }}
+          key: pods-${{ runner.os }}-${{ steps.cache-keys.outputs.pods }}
           restore-keys: |
             pods-${{ runner.os }}-
 
@@ -102,7 +132,7 @@ jobs:
         id: cache-dd
         with:
           path: build/ios/DerivedData
-          key: ios-dd-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'ios/**/*.xcodeproj/project.pbxproj', 'ios/**/*.xcworkspace/contents.xcworkspacedata') }}
+          key: ios-dd-${{ runner.os }}-${{ steps.cache-keys.outputs.derived_data }}
           restore-keys: |
             ios-dd-${{ runner.os }}-
 
@@ -177,7 +207,7 @@ jobs:
 
       - name: Install Maestro CLI
         run: |
-          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          curl --proto '=https' --tlsv1.2 -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
           export PATH="$HOME/.maestro/bin:$PATH"
           maestro --version
