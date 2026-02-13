@@ -42,6 +42,7 @@ const TRAVEL_MODES: { value: RouteProfile; label: string }[] = [
   { value: "driving", label: "Drive" },
   { value: "cycling", label: "Bike" },
 ];
+const HALL_BUILDING_CODE = "H";
 
 const formatDuration = (minutes: number) => {
   if (minutes < 60) return `${minutes} min`;
@@ -70,9 +71,7 @@ export default function MapScreen() {
   const [campus, setCampus] = useState<Campus>("SGW");
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
-  const [destinationBuildingCode, setDestinationBuildingCode] = useState<
-    string | null
-  >(null);
+  const destinationBuildingCode = HALL_BUILDING_CODE;
   const routeMode: RouteProfile = "walking";
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
@@ -472,8 +471,8 @@ export default function MapScreen() {
   );
 
   const destinationBuilding = useMemo(
-    () => resolveBuildingByCode(destinationBuildingCode, campusBuildings),
-    [campusBuildings, destinationBuildingCode],
+    () => resolveBuildingByCode(destinationBuildingCode, BUILDINGS),
+    [destinationBuildingCode],
   );
 
   const routeStatusText = useMemo(() => {
@@ -482,7 +481,7 @@ export default function MapScreen() {
     }
     if (!originPoint) return "Finding your current location...";
     if (!destinationBuilding) {
-      return "Select a destination building from search or map.";
+      return "Hall building destination is unavailable.";
     }
     if (routeLoading) return "Loading route...";
     if (routeError) return routeError;
@@ -504,12 +503,6 @@ export default function MapScreen() {
   ]);
 
   const clearDirections = () => {
-    setDestinationBuildingCode(null);
-    setRouteCoordinates([]);
-    setRouteDurationMinutes(null);
-    setRouteDistanceMeters(null);
-    setRouteError(null);
-    setRouteLoading(false);
     setSearchText("");
     setSelectedBuilding(null);
   };
@@ -533,20 +526,11 @@ export default function MapScreen() {
   }, [campusBuildings, searchText]);
 
   const handleSearchResultPress = (building: BuildingRecord) => {
-    setDestinationBuildingCode(building.code);
     setSelectedBuilding(building.code);
     setSearchText("");
   };
 
   useEffect(() => {
-    setDestinationBuildingCode((code) =>
-      resolveBuildingByCode(code, campusBuildings)?.code ?? null,
-    );
-    setRouteCoordinates([]);
-    setRouteDurationMinutes(null);
-    setRouteDistanceMeters(null);
-    setRouteError(null);
-    setRouteLoading(false);
     setSearchText("");
     setSelectedBuilding(null);
   }, [campusBuildings]);
@@ -566,6 +550,9 @@ export default function MapScreen() {
     }
 
     let cancelled = false;
+
+    // log route mode
+    console.log("Calculating route with mode:", routeMode);
 
     const loadRoute = async () => {
       try {
@@ -1263,7 +1250,7 @@ export default function MapScreen() {
             <Text style={styles.directionFieldValue} numberOfLines={1}>
               {destinationBuilding
                 ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
-                : "Select a building (search or map)"}
+                : "H - Hall Building"}
             </Text>
           </View>
 
