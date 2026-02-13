@@ -668,7 +668,7 @@ export default function MapScreen() {
         const route = await fetchOsrmRoute(
           routeOrigin,
           destinationBuilding,
-          "walking",
+          routeMode,
         );
 
         if (cancelled) return;
