@@ -81,7 +81,7 @@ const buildStepInstruction = (step: {
   };
 }): string => {
   const type = step.maneuver?.type ?? "continue";
-  const modifier = step.maneuver?.modifier?.replace(/_/g, " ");
+  const modifier = step.maneuver?.modifier?.replaceAll("_", " ");
   const roadName = getStepRoadName(step.name, step.ref);
 
   if (type === "arrive") {
@@ -137,6 +137,10 @@ export const fetchOsrmRoute = async (
   if (data.code !== "Ok" || !route?.geometry?.coordinates?.length) {
     throw new Error("No route available for the selected buildings.");
   }
+
+  // just for testing, want to see the steps given from the api
+  // some steps seem unnecessary, should look into a fix for that
+  console.log("Raw route steps", route.legs?.flatMap((leg) => leg.steps ?? []));
 
   const instructions: RouteInstruction[] = (route.legs ?? []).flatMap((leg) =>
     (leg.steps ?? []).map((step) => ({

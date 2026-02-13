@@ -3,13 +3,16 @@ import * as Location from "expo-location";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Linking,
+  PanResponder,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { ChevronDown, ChevronUp, X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
@@ -21,7 +24,11 @@ import {
   requestLocationPermission,
   startWatchingLocation,
 } from "../../utils/locationUtils";
-import { fetchOsrmRoute, type RouteProfile } from "../../utils/osrmDirections";
+import {
+  fetchOsrmRoute,
+  type RouteInstruction,
+  type RouteProfile,
+} from "../../utils/osrmDirections";
 
 import BuildingInformation from "@/components/BuildingInformation";
 import { getCampusRegion } from "../../utils/mapRegions";
@@ -42,7 +49,7 @@ const TRAVEL_MODES: { value: RouteProfile; label: string }[] = [
   { value: "driving", label: "Drive" },
   { value: "cycling", label: "Bike" },
 ];
-const HALL_BUILDING_CODE = "H";
+const HALL_BUILDING_CODE = "EV";
 
 const formatDuration = (minutes: number) => {
   if (minutes < 60) return `${minutes} min`;
@@ -84,6 +91,28 @@ export default function MapScreen() {
   );
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeInstructions, setRouteInstructions] = useState<
+    RouteInstruction[]
+  >([]);
+  const [showRouteInstructions, setShowRouteInstructions] = useState(false);
+  const routeInstructionsDismissedRef = useRef(false);
+  const routeSheetPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        Math.abs(gestureState.dy) > 6,
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 24) {
+          routeInstructionsDismissedRef.current = true;
+          setShowRouteInstructions(false);
+          return;
+        }
+        if (gestureState.dy < -24) {
+          routeInstructionsDismissedRef.current = false;
+          setShowRouteInstructions(true);
+        }
+      },
+    }),
+  ).current;
   const webViewRef = useRef<any>(null);
   const [userLocation, setUserLocation] = useState<any>(null);
   const [currentBuilding, setCurrentBuilding] = useState<
@@ -333,6 +362,77 @@ export default function MapScreen() {
       fontSize: 12,
       fontWeight: "600",
     },
+    routeStepsPopup: {
+      position: "absolute",
+      left: 12,
+      right: 12,
+      bottom: insets.bottom + TAB_BAR_HEIGHT + 10,
+      backgroundColor: "#F5F5F6",
+      borderRadius: 28,
+      paddingHorizontal: 14,
+      paddingTop: 6,
+      paddingBottom: 14,
+      zIndex: 1100,
+      maxHeight: isWeb ? 360 : 300,
+      shadowColor: "#000",
+      shadowOpacity: 0.16,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 10,
+    },
+    routeStepsHandle: {
+      alignSelf: "center",
+      width: 44,
+      height: 28,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: -2,
+      marginBottom: 4,
+    },
+    routeStepsCloseButton: {
+      position: "absolute",
+      top: 14,
+      right: 12,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      borderWidth: 2.5,
+      borderColor: "#1F1F24",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "#F5F5F6",
+    },
+    routeStepsCollapsedTab: {
+      position: "absolute",
+      alignSelf: "center",
+      bottom: insets.bottom + TAB_BAR_HEIGHT + 10,
+      width: 58,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: "#F5F5F6",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 1100,
+      shadowColor: "#000",
+      shadowOpacity: 0.14,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 8,
+    },
+    routeStepsList: {
+      marginTop: 10,
+    },
+    routeStepsListContent: {
+      paddingRight: 54,
+      paddingBottom: 8,
+    },
+    routeStepText: {
+      fontSize: 18,
+      lineHeight: 24,
+      color: "#111111",
+      fontWeight: "700",
+      marginBottom: 18,
+    },
   });
 
   let MapViewComponent: React.ComponentType<any> | null = null;
@@ -546,6 +646,9 @@ export default function MapScreen() {
       setRouteDistanceMeters(null);
       setRouteError(null);
       setRouteLoading(false);
+      setRouteInstructions([]);
+      setShowRouteInstructions(false);
+      routeInstructionsDismissedRef.current = false;
       return;
     }
 
@@ -565,19 +668,29 @@ export default function MapScreen() {
         const route = await fetchOsrmRoute(
           routeOrigin,
           destinationBuilding,
-          routeMode,
+          "walking",
         );
 
         if (cancelled) return;
         setRouteCoordinates(route.coordinates);
         setRouteDurationMinutes(Math.round(route.durationSeconds / 60));
         setRouteDistanceMeters(route.distanceMeters);
+        setRouteInstructions(route.instructions);
+        if (
+          route.instructions.length > 0 &&
+          !routeInstructionsDismissedRef.current
+        ) {
+          setShowRouteInstructions(true);
+        }
       } catch {
         if (cancelled) return;
         setRouteCoordinates([]);
         setRouteDurationMinutes(null);
         setRouteDistanceMeters(null);
         setRouteError("Could not load route for this selection.");
+        setRouteInstructions([]);
+        setShowRouteInstructions(false);
+        routeInstructionsDismissedRef.current = false;
       } finally {
         if (!cancelled) {
           setRouteLoading(false);
@@ -1302,6 +1415,58 @@ export default function MapScreen() {
         </TouchableOpacity>
       )}
       {shouldUseWebFallback ? webMapContent : nativeMapContent}
+
+      {showRouteInstructions && routeInstructions.length > 0 && (
+        <View style={styles.routeStepsPopup} testID="route-steps-popup">
+          <Pressable
+            {...routeSheetPanResponder.panHandlers}
+            style={styles.routeStepsHandle}
+            onPress={() => {
+              routeInstructionsDismissedRef.current = true;
+              setShowRouteInstructions(false);
+            }}
+          >
+            <ChevronDown size={24} color="#1F1F24" strokeWidth={2.5} />
+          </Pressable>
+          <Pressable
+            style={styles.routeStepsCloseButton}
+            onPress={() => {
+              routeInstructionsDismissedRef.current = true;
+              setShowRouteInstructions(false);
+            }}
+          >
+            <X size={26} color="#1F1F24" strokeWidth={2.5} />
+          </Pressable>
+
+          <ScrollView
+            style={styles.routeStepsList}
+            contentContainerStyle={styles.routeStepsListContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {routeInstructions.map((instruction, index) => (
+              <Text
+                key={`${index}-${instruction.text}`}
+                style={styles.routeStepText}
+              >
+                {`${index + 1}. ${instruction.text}`}
+              </Text>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+      {!showRouteInstructions && routeInstructions.length > 0 && (
+        <Pressable
+          {...routeSheetPanResponder.panHandlers}
+          style={styles.routeStepsCollapsedTab}
+          testID="route-steps-collapsed-tab"
+          onPress={() => {
+            routeInstructionsDismissedRef.current = false;
+            setShowRouteInstructions(true);
+          }}
+        >
+          <ChevronUp size={24} color="#1F1F24" strokeWidth={2.5} />
+        </Pressable>
+      )}
 
       <BuildingInformation
         buildingCode={selectedBuilding}
