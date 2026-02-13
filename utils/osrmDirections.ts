@@ -13,29 +13,19 @@ export type OsrmRoute = {
 
 type OsrmResponse = {
   code: string;
-  routes?: Array<{
+  routes?: {
     distance: number;
     duration: number;
     geometry?: {
       coordinates: [number, number][];
     };
-  }>;
+  }[];
 };
 
-const OSRM_BASE_URL = "https://router.project-osrm.org/route/v1";
-const MODE_SPEEDS_KMH: Record<RouteProfile, number> = {
-  walking: 5,
-  cycling: 15,
-  driving: 35,
-};
-
-const estimateDurationSeconds = (
-  distanceMeters: number,
-  profile: RouteProfile,
-) => {
-  const speedKmh = MODE_SPEEDS_KMH[profile];
-  const durationHours = distanceMeters / 1000 / speedKmh;
-  return Math.round(durationHours * 3600);
+const OSRM_BASE_URLS: Record<RouteProfile, string> = {
+  walking: "https://routing.openstreetmap.de/routed-foot/route/v1",
+  cycling: "https://routing.openstreetmap.de/routed-bike/route/v1",
+  driving: "https://routing.openstreetmap.de/routed-car/route/v1",
 };
 
 export const buildOsrmRouteUrl = (
@@ -43,9 +33,10 @@ export const buildOsrmRouteUrl = (
   destination: RoutePoint,
   profile: RouteProfile = "walking",
 ) => {
+  const baseUrl = OSRM_BASE_URLS[profile];
   const start = `${origin.longitude},${origin.latitude}`;
   const end = `${destination.longitude},${destination.latitude}`;
-  return `${OSRM_BASE_URL}/${profile}/${start};${end}?overview=full&geometries=geojson&steps=false`;
+  return `${baseUrl}/${profile}/${start};${end}?overview=full&geometries=geojson&steps=false`;
 };
 
 export const fetchOsrmRoute = async (
@@ -67,14 +58,9 @@ export const fetchOsrmRoute = async (
     throw new Error("No route available for the selected buildings.");
   }
 
-  const durationSeconds =
-    profile === "driving"
-      ? Math.round(route.duration)
-      : estimateDurationSeconds(route.distance, profile);
-
   return {
     distanceMeters: route.distance,
-    durationSeconds,
+    durationSeconds: Math.round(route.duration),
     coordinates: route.geometry.coordinates.map(([longitude, latitude]) => ({
       latitude,
       longitude,
