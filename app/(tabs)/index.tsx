@@ -377,7 +377,7 @@ export default function MapScreen() {
       paddingTop: 6,
       paddingBottom: 14,
       zIndex: 1100,
-      maxHeight: isWeb ? 360 : 300,
+      maxHeight: isWebPlatform ? 360 : 300,
       shadowColor: "#000",
       shadowOpacity: 0.16,
       shadowRadius: 12,
