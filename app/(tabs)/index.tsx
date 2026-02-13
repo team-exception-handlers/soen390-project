@@ -338,6 +338,28 @@ export default function MapScreen() {
       fontSize: 12,
       fontWeight: "600",
     },
+    e2eControls: {
+      position: "absolute",
+      right: 12,
+      bottom: 110,
+      gap: 8,
+      zIndex: 1100,
+    },
+    e2eButton: {
+      backgroundColor: "rgba(0,0,0,0.72)",
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.25)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    e2eButtonText: {
+      color: "white",
+      fontSize: 12,
+      fontWeight: "700",
+    },
   });
 
   let MapViewComponent: React.ComponentType<any> | null = null;
