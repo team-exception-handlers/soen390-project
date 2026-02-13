@@ -100,10 +100,14 @@ export default function MapScreen() {
 
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
-  const isWeb = Platform.OS === "web";
-  const userLat = isWeb ? userLocation?.coords.latitude || null : null;
-  const userLng = isWeb ? userLocation?.coords.longitude || null : null;
-  const currentBuildingForHTML = isWeb ? currentBuilding : null;
+
+  const isWebPlatform = Platform.OS === "web";
+  const showE2EHooks =
+    Platform.OS !== "web" &&
+    process.env.EXPO_PUBLIC_ENABLE_E2E_HOOKS === "1";
+  const userLat = isWebPlatform ? userLocation?.coords.latitude || null : null;
+  const userLng = isWebPlatform ? userLocation?.coords.longitude || null : null;
+  const currentBuildingForHTML = isWebPlatform ? currentBuilding : null;
 
   // Styles defined inside component 
   const styles = StyleSheet.create({
@@ -183,24 +187,24 @@ export default function MapScreen() {
     },
     buildingInfo: {
       position: "absolute",
-      top: isWeb ? 53 : insets.top + 44,
+      top: isWebPlatform ? 53 : insets.top + 44,
       alignSelf: "center",
       backgroundColor: "rgba(0,0,0,0.7)",
-      paddingVertical: isWeb ? 8 : 4,
-      paddingHorizontal: isWeb ? 16 : 8,
-      borderRadius: isWeb ? 10 : 8,
+      paddingVertical: isWebPlatform ? 8 : 4,
+      paddingHorizontal: isWebPlatform ? 16 : 8,
+      borderRadius: isWebPlatform ? 10 : 8,
       zIndex: 1000,
-      maxWidth: isWeb ? undefined : "90%",
+      maxWidth: isWebPlatform ? undefined : "90%",
     },
     buildingInfoText: {
       color: "white",
-      fontSize: isWeb ? 14 : 12,
+      fontSize: isWebPlatform ? 14 : 12,
       fontWeight: "700",
       textAlign: "center",
     },
     buildingInfoTitle: {
       color: "#FFA500",
-      fontSize: isWeb ? 14 : 12,
+      fontSize: isWebPlatform ? 14 : 12,
       fontWeight: "600",
       marginBottom: 2,
       textAlign: "center",
@@ -333,6 +337,28 @@ export default function MapScreen() {
       color: "#E8E8EC",
       fontSize: 12,
       fontWeight: "600",
+    },
+    e2eControls: {
+      position: "absolute",
+      right: 12,
+      bottom: 110,
+      gap: 8,
+      zIndex: 1100,
+    },
+    e2eButton: {
+      backgroundColor: "rgba(0,0,0,0.72)",
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.25)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    e2eButtonText: {
+      color: "white",
+      fontSize: 12,
+      fontWeight: "700",
     },
   });
 
@@ -1178,6 +1204,10 @@ export default function MapScreen() {
             <MapMarkerComponent
               key={building.code}
               testID={`marker-${building.code}`}
+              identifier={`marker-${building.code}`}
+              accessible
+              accessibilityLabel={`marker-${building.code}`}
+              accessibilityRole="button"
               coordinate={{
                 latitude: building.latitude,
                 longitude: building.longitude,
@@ -1188,7 +1218,13 @@ export default function MapScreen() {
                 )
               }
             >
-              <View style={styles.markerContainer}>
+              <View
+                style={styles.markerContainer}
+                testID={`marker-view-${building.code}`}
+                accessible
+                accessibilityLabel={`marker-${building.code}`}
+                accessibilityRole="button"
+              >
                 <View style={styles.markerBadge}>
                   <Text style={styles.markerText}>{building.code}</Text>
                 </View>
@@ -1279,7 +1315,13 @@ export default function MapScreen() {
         (() => {
           const building = BUILDINGS.find((b) => b.code === currentBuilding);
           return building ? (
-            <View style={styles.buildingInfo} testID="current-building-info">
+            <View
+              style={[
+                styles.buildingInfo,
+                !isWebPlatform && { top: insets.top + 44 },
+              ]}
+              testID="current-building-info"
+            >
               <Text style={styles.buildingInfoTitle}>Current Building:</Text>
               <Text
                 style={styles.buildingInfoText}
@@ -1315,6 +1357,28 @@ export default function MapScreen() {
         </TouchableOpacity>
       )}
       {shouldUseWebFallback ? webMapContent : nativeMapContent}
+      {showE2EHooks && (
+        <View style={styles.e2eControls} pointerEvents="box-none">
+          <TouchableOpacity
+            testID="e2e-select-H"
+            accessibilityLabel="e2e-select-H"
+            accessibilityRole="button"
+            style={styles.e2eButton}
+            onPress={() => setSelectedBuilding("H")}
+          >
+            <Text style={styles.e2eButtonText}>H</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="e2e-select-SP"
+            accessibilityLabel="e2e-select-SP"
+            accessibilityRole="button"
+            style={styles.e2eButton}
+            onPress={() => setSelectedBuilding("SP")}
+          >
+            <Text style={styles.e2eButtonText}>SP</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <BuildingInformation
         buildingCode={selectedBuilding}

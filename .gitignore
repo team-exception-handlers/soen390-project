@@ -22,6 +22,9 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Maestro E2E output
+.maestro/output/
+
 # Metro
 .metro-health-check*
 

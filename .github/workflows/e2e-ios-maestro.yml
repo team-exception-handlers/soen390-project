@@ -1,0 +1,316 @@
+# E2E tests: build iOS app for Simulator
+
+name: E2E iOS (Maestro)
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-ios:
+    name: Maestro E2E (iOS Simulator)
+    runs-on: macos-latest
+    timeout-minutes: 75
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install JS dependencies
+        run: npm ci --ignore-scripts --prefer-offline --no-audit
+
+      - name: Compute cache keys
+        id: cache-keys
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PREBUILD_HASH=$(shasum app.json package.json package-lock.json | shasum | awk '{print $1}')
+
+          PODS_LIST=$(mktemp)
+          if [ -d ios ]; then
+            [ -f ios/Podfile ] && echo "ios/Podfile" >> "$PODS_LIST"
+            [ -f ios/Podfile.lock ] && echo "ios/Podfile.lock" >> "$PODS_LIST"
+          fi
+          if [ -s "$PODS_LIST" ]; then
+            PODS_HASH=$(
+              while IFS= read -r file; do
+                shasum "$file"
+              done < "$PODS_LIST" | shasum | awk '{print $1}'
+            )
+          else
+            PODS_HASH="no-pods-files"
+          fi
+          rm -f "$PODS_LIST"
+
+          DD_LIST=$(mktemp)
+          if [ -d ios ]; then
+            [ -f ios/Podfile.lock ] && echo "ios/Podfile.lock" >> "$DD_LIST"
+            find ios -type f \( -path "*/.xcodeproj/project.pbxproj" -o -path "*/.xcworkspace/contents.xcworkspacedata" \) >> "$DD_LIST" || true
+            sort -u -o "$DD_LIST" "$DD_LIST"
+          fi
+
+          if [ -s "$DD_LIST" ]; then
+            DD_HASH=$(
+              while IFS= read -r file; do
+                if [ -n "$file" ] && [ -f "$file" ]; then
+                  shasum "$file"
+                fi
+              done < "$DD_LIST" | shasum | awk '{print $1}'
+            )
+          else
+            DD_HASH="no-deriveddata-inputs"
+          fi
+          rm -f "$DD_LIST"
+
+          echo "prebuild=$PREBUILD_HASH" >> "$GITHUB_OUTPUT"
+          echo "pods=$PODS_HASH" >> "$GITHUB_OUTPUT"
+          echo "derived_data=$DD_HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Boot iOS Simulator (early, in parallel with later steps)
+        run: |
+          LINE=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro\s*\(" | head -1)
+          if [ -z "$LINE" ]; then
+            LINE=$(xcrun simctl list devices available | grep -E "iPhone 17\s*\(" | head -1)
+          fi
+          if [ -z "$LINE" ]; then
+            LINE=$(xcrun simctl list devices available | grep "iPhone" | head -1)
+          fi
+          DEVICE=$(echo "$LINE" | sed -nE 's/.*\(([0-9A-F-]{36})\).*/\1/p')
+          if [ -z "$DEVICE" ]; then
+            echo "::error::No iPhone simulator found"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          xcrun simctl boot "$DEVICE" 2>/dev/null || true
+          echo "DEVICE_UDID=$DEVICE" >> $GITHUB_ENV
+
+      - name: Restore prebuilt ios folder
+        uses: actions/cache@v4
+        id: cache-ios
+        with:
+          path: ios
+          key: ios-prebuild-${{ runner.os }}-${{ steps.cache-keys.outputs.prebuild }}
+          restore-keys: |
+            ios-prebuild-${{ runner.os }}-
+
+      - name: Ensure iOS native project
+        run: |
+          if [ ! -d ios ] || [ -z "$(ls -A ios 2>/dev/null)" ]; then
+            npx expo prebuild -p ios --no-install --non-interactive
+          fi
+
+      - name: Restore CocoaPods cache
+        uses: actions/cache@v4
+        id: cache-pods
+        with:
+          path: ios/Pods
+          key: pods-${{ runner.os }}-${{ steps.cache-keys.outputs.pods }}
+          restore-keys: |
+            pods-${{ runner.os }}-
+
+      - name: Install CocoaPods
+        run: |
+          if [ "${{ steps.cache-pods.outputs.cache-hit }}" != "true" ] || [ ! -f ios/Podfile.lock ]; then
+            cd ios && pod install && cd ..
+          else
+            echo "CocoaPods cache hit and Podfile.lock exists; skipping pod install."
+          fi
+
+      - name: Resolve Xcode project and scheme
+        id: xcode
+        run: |
+          cd ios
+          WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' 2>/dev/null | head -1)
+          if [ -n "$WORKSPACE" ]; then
+            echo "workspace=$(basename "$WORKSPACE")" >> $GITHUB_OUTPUT
+            echo "using=workspace" >> $GITHUB_OUTPUT
+          else
+            PROJ=$(find . -maxdepth 1 -name '*.xcodeproj' 2>/dev/null | head -1)
+            echo "project=$(basename "$PROJ")" >> $GITHUB_OUTPUT
+            echo "using=project" >> $GITHUB_OUTPUT
+          fi
+          SCHEME=$(xcodebuild -list 2>/dev/null | sed -n '1,/Schemes:/d;/^$/q;p' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v -E 'Tests|UITests' | head -1)
+          [ -z "$SCHEME" ] && SCHEME=$(xcodebuild -list 2>/dev/null | sed -n '1,/Schemes:/d;/^$/q;p' | head -1 | xargs)
+          echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
+          cd ..
+
+      - name: Restore DerivedData cache
+        uses: actions/cache@v4
+        id: cache-dd
+        with:
+          path: build/ios/DerivedData
+          key: ios-dd-${{ runner.os }}-${{ steps.cache-keys.outputs.derived_data }}
+          restore-keys: |
+            ios-dd-${{ runner.os }}-
+
+      - name: Build iOS app for Simulator
+        run: |
+          export EXPO_PUBLIC_ENABLE_E2E_HOOKS=1
+          cd ios
+          DD="$GITHUB_WORKSPACE/build/ios/DerivedData"
+          mkdir -p "$DD"
+          if [ "${{ steps.xcode.outputs.using }}" = "workspace" ]; then
+            xcodebuild -workspace "${{ steps.xcode.outputs.workspace }}" \
+              -scheme "${{ steps.xcode.outputs.scheme }}" \
+              -configuration Release -sdk iphonesimulator \
+              -derivedDataPath "$DD" \
+              -destination 'generic/platform=iOS Simulator' \
+              ONLY_ACTIVE_ARCH=YES \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              -parallelizeTargets \
+              -quiet build
+          else
+            xcodebuild -project "${{ steps.xcode.outputs.project }}" \
+              -scheme "${{ steps.xcode.outputs.scheme }}" \
+              -configuration Release -sdk iphonesimulator \
+              -derivedDataPath "$DD" \
+              -destination 'generic/platform=iOS Simulator' \
+              ONLY_ACTIVE_ARCH=YES \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              -parallelizeTargets \
+              -quiet build
+          fi
+          cd ..
+
+      - name: Locate built .app
+        id: app
+        run: |
+          DD="$GITHUB_WORKSPACE/build/ios/DerivedData"
+          EXPECTED_BUNDLE_ID="com.anonymous.concordiaclassfinder"
+          # DerivedData/Build/Products/Release-iphonesimulator/AppName.app is 5 levels deep
+          APP=$(find "$DD" -type d -name "*.app" -path "*Release*iphonesimulator*" 2>/dev/null | head -1)
+          if [ -z "$APP" ]; then
+            APP=$(find "$DD" -type d -name "*.app" 2>/dev/null | head -1)
+          fi
+          # If multiple apps exist, prefer the one that matches our bundle id.
+          while IFS= read -r CANDIDATE; do
+            [ -z "$CANDIDATE" ] && continue
+            PLIST="$CANDIDATE/Info.plist"
+            [ ! -f "$PLIST" ] && continue
+            BID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$PLIST" 2>/dev/null || true)
+            if [ "$BID" = "$EXPECTED_BUNDLE_ID" ]; then
+              APP="$CANDIDATE"
+              break
+            fi
+          done < <(find "$DD" -type d -name "*.app" 2>/dev/null)
+          echo "path=$APP" >> $GITHUB_OUTPUT
+          echo "Resolved .app: $APP"
+          if [ ! -d "$APP" ]; then echo "::error::Built .app not found"; exit 1; fi
+
+      - name: Wait for Simulator ready
+        run: |
+          for i in $(seq 1 25); do
+            if xcrun simctl list devices | grep "$DEVICE_UDID" | grep -q Booted; then
+              echo "Simulator reported Booted. Waiting for full boot status..."
+              xcrun simctl bootstatus "$DEVICE_UDID" -b || true
+              echo "Simulator ready."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Simulator did not reach Booted state"
+          xcrun simctl list devices
+          exit 1
+
+      - name: Install Maestro CLI
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro --version
+
+      - name: Install app on Simulator
+        run: |
+          xcrun simctl install "$DEVICE_UDID" "${{ steps.app.outputs.path }}"
+
+      - name: Run Maestro CI flows
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          export MAESTRO_DRIVER_STARTUP_TIMEOUT=600000
+          echo "MAESTRO_DRIVER_STARTUP_TIMEOUT=$MAESTRO_DRIVER_STARTUP_TIMEOUT"
+          mkdir -p .maestro/output .maestro/debug
+          mkdir -p .maestro/recordings
+          SUITE_FLOW=".maestro/flows/ci/_suite.yml"
+          if [ ! -f "$SUITE_FLOW" ]; then
+            echo "::error::Suite flow not found: $SUITE_FLOW"
+            exit 1
+          fi
+
+          FLOW_BASE="ci-suite"
+          VIDEO_FILE=".maestro/recordings/${FLOW_BASE}-ios-simulator-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.mp4"
+          JUNIT_FILE=".maestro/output/${FLOW_BASE}.xml"
+          DEBUG_DIR=".maestro/debug/${FLOW_BASE}"
+          LOG_FILE=".maestro/output/${FLOW_BASE}.log"
+          mkdir -p "$DEBUG_DIR"
+
+          xcrun simctl io "$DEVICE_UDID" recordVideo --codec=h264 "$VIDEO_FILE" >/tmp/simctl-record-video-${FLOW_BASE}.log 2>&1 &
+          REC_PID=$!
+          sleep 2
+          if ! kill -0 "$REC_PID" 2>/dev/null; then
+            echo "::warning::Failed to start simulator recording for suite run. Check /tmp/simctl-record-video-${FLOW_BASE}.log"
+          fi
+
+          set +e
+          maestro --device "$DEVICE_UDID" test "$SUITE_FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >"$LOG_FILE" 2>&1
+          FLOW_EXIT=$?
+          set -e
+          cat "$LOG_FILE"
+
+          if [ $FLOW_EXIT -ne 0 ] && grep -q "iOS driver not ready in time" "$LOG_FILE"; then
+            echo "::warning::Driver startup timeout for suite run. Retrying once..."
+            xcrun simctl bootstatus "$DEVICE_UDID" -b || true
+            sleep 5
+            set +e
+            maestro --device "$DEVICE_UDID" test "$SUITE_FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >>"$LOG_FILE" 2>&1
+            FLOW_EXIT=$?
+            set -e
+            cat "$LOG_FILE"
+          fi
+
+          if kill -0 "$REC_PID" 2>/dev/null; then
+            kill -INT "$REC_PID" 2>/dev/null || true
+            wait "$REC_PID" 2>/dev/null || true
+          fi
+
+          if [ ! -f "$VIDEO_FILE" ]; then
+            echo "::warning::Recording file was not created for suite run"
+          else
+            echo "Recording saved for suite run at $VIDEO_FILE"
+          fi
+
+          exit $FLOW_EXIT
+
+      - name: Prepare Maestro artifacts for upload
+        if: failure() || success()
+        run: |
+          mkdir -p maestro-e2e-logs
+          cp -r .maestro/output maestro-e2e-logs/ 2>/dev/null || true
+          cp -r .maestro/debug maestro-e2e-logs/ 2>/dev/null || true
+          cp -r .maestro/recordings maestro-e2e-logs/ 2>/dev/null || true
+          cp -r .maestro/flows maestro-e2e-logs/ 2>/dev/null || true
+          cp .maestro/config.yaml maestro-e2e-logs/ 2>/dev/null || true
+          # Maestro may write screenshots/logs under .maestro (e.g. tests subdir)
+          for dir in .maestro/tests .maestro/.maestro; do
+            [ -d "$dir" ] && cp -r "$dir" maestro-e2e-logs/ 2>/dev/null || true
+          done
+          echo "Contents for artifact:"
+          find maestro-e2e-logs -type f 2>/dev/null || true
+
+      - name: Upload Maestro artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-e2e-logs
+          path: maestro-e2e-logs/
+          if-no-files-found: ignore
