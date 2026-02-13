@@ -79,6 +79,7 @@ export default function MapScreen() {
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const destinationBuildingCode = HALL_BUILDING_CODE;
+  const [isDirectionsMode, setIsDirectionsMode] = useState(false);
   const routeMode: RouteProfile = "walking";
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
@@ -113,6 +114,7 @@ export default function MapScreen() {
       },
     }),
   ).current;
+  const mapRef = useRef<any>(null);
   const webViewRef = useRef<any>(null);
   const [userLocation, setUserLocation] = useState<any>(null);
   const [currentBuilding, setCurrentBuilding] = useState<
@@ -575,6 +577,10 @@ export default function MapScreen() {
     () => BUILDINGS.filter((building) => building.campus === campus),
     [campus],
   );
+  const defaultSgwRegion = useMemo(
+    () => getCampusRegion("SGW", SGW_POLYGONS.features),
+    [],
+  );
 
   const originLatitude = useMemo(() => {
     const latitude = userLocation?.coords?.latitude;
@@ -602,6 +608,7 @@ export default function MapScreen() {
   );
 
   const routeStatusText = useMemo(() => {
+    if (!isDirectionsMode) return "";
     if (locationPermissionDenied) {
       return "Enable location permission to route from your current location.";
     }
@@ -619,6 +626,7 @@ export default function MapScreen() {
     return "Route unavailable for the selected destination.";
   }, [
     destinationBuilding,
+    isDirectionsMode,
     locationPermissionDenied,
     originPoint,
     routeDistanceMeters,
@@ -631,6 +639,27 @@ export default function MapScreen() {
   const clearDirections = () => {
     setSearchText("");
     setSelectedBuilding(null);
+
+    if (!isDirectionsMode) {
+      routeInstructionsDismissedRef.current = false;
+      setIsDirectionsMode(true);
+      return;
+    }
+
+    setIsDirectionsMode(false);
+    setRouteCoordinates([]);
+    setRouteDurationMinutes(null);
+    setRouteDistanceMeters(null);
+    setRouteError(null);
+    setRouteLoading(false);
+    setRouteInstructions([]);
+    setShowRouteInstructions(false);
+    routeInstructionsDismissedRef.current = false;
+    setCampus("SGW");
+
+    if (!isWebPlatform && campus === "SGW") {
+      mapRef.current?.animateToRegion?.(defaultSgwRegion, 450);
+    }
   };
 
   const searchResults = useMemo(() => {
@@ -663,6 +692,7 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (
+      !isDirectionsMode ||
       !destinationBuilding ||
       originLatitude === null ||
       originLongitude === null
@@ -730,6 +760,7 @@ export default function MapScreen() {
       cancelled = true;
     };
   }, [
+    isDirectionsMode,
     destinationBuilding,
     originLatitude,
     originLongitude,
@@ -778,10 +809,6 @@ export default function MapScreen() {
             if (typeof L !== 'undefined' && window.map) {
             if (window.userMarker) {
               window.userMarker.setLatLng([${latitude}, ${longitude}]);
-              if (window.followUser !== false && !window.hasCenteredOnUser) {
-                window.map.panTo([${latitude}, ${longitude}], { animate: true, duration: 0.5 });
-                window.hasCenteredOnUser = true;
-              }
               console.log('User marker updated to:', ${latitude}, ${longitude});
             } else {
               const userIcon = L.divIcon({
@@ -791,10 +818,6 @@ export default function MapScreen() {
                 iconAnchor: [10, 10]
               });
               window.userMarker = L.marker([${latitude}, ${longitude}], { icon: userIcon }).addTo(window.map);
-              if (window.followUser !== false) {
-                window.map.panTo([${latitude}, ${longitude}], { animate: true, duration: 0.5 });
-                window.hasCenteredOnUser = true;
-              }
               console.log('User marker created at:', ${latitude}, ${longitude});
             }
           }
@@ -941,7 +964,7 @@ export default function MapScreen() {
               window.selectedBuildingCode = null;
               window.selectedPolygon = null;
               window.userMarker = null;  
-              window.followUser = true;
+              window.followUser = false;
               window.hasCenteredOnUser = false;
 
               L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1226,6 +1249,7 @@ export default function MapScreen() {
       MapPolygonComponent ? (
       <MapViewComponent
         key={campus}
+        ref={mapRef}
         testID="map-native"
         style={styles.map}
         initialRegion={region}
@@ -1233,7 +1257,7 @@ export default function MapScreen() {
         showsMyLocationButton
         onPress={() => setSelectedBuilding(null)}
       >
-        {MapPolylineComponent && routeCoordinates.length > 1 && (
+        {isDirectionsMode && MapPolylineComponent && routeCoordinates.length > 1 && (
           <MapPolylineComponent
             testID="route-polyline"
             coordinates={routeCoordinates}
@@ -1404,11 +1428,15 @@ export default function MapScreen() {
           </View>
 
           <Pressable onPress={clearDirections} style={styles.clearRouteButton}>
-            <Text style={styles.clearRouteText}>Clear</Text>
+            <Text style={styles.clearRouteText}>
+              {isDirectionsMode ? "Cancel" : "Go"}
+            </Text>
           </Pressable>
         </View>
 
-        <Text style={styles.routeStatusText}>{routeStatusText}</Text>
+        {isDirectionsMode && (
+          <Text style={styles.routeStatusText}>{routeStatusText}</Text>
+        )}
       </View>
 
       {currentBuilding &&
@@ -1480,7 +1508,7 @@ export default function MapScreen() {
         </View>
       )}
 
-      {showRouteInstructions && routeInstructions.length > 0 && (
+      {isDirectionsMode && showRouteInstructions && routeInstructions.length > 0 && (
         <View style={styles.routeStepsPopup} testID="route-steps-popup">
           <Pressable
             {...routeSheetPanResponder.panHandlers}
@@ -1518,7 +1546,7 @@ export default function MapScreen() {
           </ScrollView>
         </View>
       )}
-      {!showRouteInstructions && routeInstructions.length > 0 && (
+      {isDirectionsMode && !showRouteInstructions && routeInstructions.length > 0 && (
         <Pressable
           {...routeSheetPanResponder.panHandlers}
           style={styles.routeStepsCollapsedTab}
