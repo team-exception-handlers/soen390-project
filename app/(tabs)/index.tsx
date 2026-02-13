@@ -636,6 +636,25 @@ export default function MapScreen() {
     routeMode,
   ]);
 
+  const exitDirectionsMode = () => {
+    setIsDirectionsMode(false);
+    setRouteCoordinates([]);
+    setRouteDurationMinutes(null);
+    setRouteDistanceMeters(null);
+    setRouteError(null);
+    setRouteLoading(false);
+    setRouteInstructions([]);
+    setShowRouteInstructions(false);
+    routeInstructionsDismissedRef.current = false;
+  };
+
+  const handleCampusChange = (nextCampus: Campus) => {
+    if (isDirectionsMode) {
+      exitDirectionsMode();
+    }
+    setCampus(nextCampus);
+  };
+
   const clearDirections = () => {
     setSearchText("");
     setSelectedBuilding(null);
@@ -646,15 +665,7 @@ export default function MapScreen() {
       return;
     }
 
-    setIsDirectionsMode(false);
-    setRouteCoordinates([]);
-    setRouteDurationMinutes(null);
-    setRouteDistanceMeters(null);
-    setRouteError(null);
-    setRouteLoading(false);
-    setRouteInstructions([]);
-    setShowRouteInstructions(false);
-    routeInstructionsDismissedRef.current = false;
+    exitDirectionsMode();
     setCampus("SGW");
 
     if (!isWebPlatform && campus === "SGW") {
@@ -1370,7 +1381,7 @@ export default function MapScreen() {
     <View style={styles.container}>
       <AppHeader
         campus={campus}
-        onCampusChange={setCampus}
+        onCampusChange={handleCampusChange}
         searchText={searchText}
         onSearchTextChange={setSearchText}
       />
