@@ -8,7 +8,6 @@ on:
     branches:
       - main
 
-
 jobs:
   test:
     name: Test
@@ -23,10 +22,10 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 25.3.0
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts --prefer-offline --no-audit
 
       - name: Run ESLint
         run: npm run lint
@@ -42,8 +41,12 @@ jobs:
           flags: unittests
           name: codecov-umbrella
           verbose: true
-          
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  e2e-maestro:
+    name: Maestro E2E (iOS)
+    uses: ./.github/workflows/e2e-ios-maestro.yml

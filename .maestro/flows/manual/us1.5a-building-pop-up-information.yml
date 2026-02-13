@@ -1,0 +1,37 @@
+# US-1.5a: Show additional information for each building (manual – Expo Go)
+
+appId: host.exp.Exponent
+
+---
+- setPermissions:
+    permissions:
+      location: inuse
+- setLocation:
+    latitude: 45.495376
+    longitude: -73.577997
+- runFlow:
+    file: _launch-expo-go.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+- assertVisible:
+    id: "campus-toggle-sgw"
+
+- tapOn:
+    point: "45%,50%"
+
+- extendedWaitUntil:
+    visible:
+      id: "building-info-close"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Henry F. Hall Building"
+    timeout: 3000
+
+- tapOn:
+    id: "building-info-close"
+
+- assertNotVisible:
+    id: "building-info-drawer"

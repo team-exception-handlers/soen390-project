@@ -1,5 +1,4 @@
-# US-1.1: Support both SGW and Loyola campus maps
-# Verifies that both campus maps load and display correctly
+# US-1.1: Support both SGW and Loyola campus maps (manual – Expo Go)
 
 appId: host.exp.Exponent
 

@@ -1,0 +1,36 @@
+# US-1.1: Support both SGW and Loyola campus maps (CI – deterministic)
+
+appId: com.anonymous.concordiaclassfinder
+
+---
+- setPermissions:
+    permissions:
+      location: inuse
+- setLocation:
+    latitude: 45.495376
+    longitude: -73.577997
+- runFlow:
+    file: _launch-app.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+- assertVisible:
+    id: "campus-toggle-sgw"
+- assertVisible:
+    id: "campus-toggle-loyola"
+
+- tapOn:
+    id: "campus-toggle-loyola"
+- extendedWaitUntil:
+    visible:
+      id: "campus-toggle-loyola"
+    timeout: 5000
+
+- tapOn:
+    id: "campus-toggle-sgw"
+- extendedWaitUntil:
+    visible:
+      id: "campus-toggle-sgw"
+    timeout: 5000
