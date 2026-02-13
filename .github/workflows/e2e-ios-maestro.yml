@@ -37,25 +37,35 @@ jobs:
 
           PREBUILD_HASH=$(shasum app.json package.json package-lock.json | shasum | awk '{print $1}')
 
-          PODS_FILES=""
-          [ -f ios/Podfile ] && PODS_FILES="$PODS_FILES ios/Podfile"
-          [ -f ios/Podfile.lock ] && PODS_FILES="$PODS_FILES ios/Podfile.lock"
-          if [ -n "$PODS_FILES" ]; then
-            PODS_HASH=$(shasum $PODS_FILES | shasum | awk '{print $1}')
+          PODS_LIST=$(mktemp)
+          if [ -d ios ]; then
+            [ -f ios/Podfile ] && echo "ios/Podfile" >> "$PODS_LIST"
+            [ -f ios/Podfile.lock ] && echo "ios/Podfile.lock" >> "$PODS_LIST"
+          fi
+          if [ -s "$PODS_LIST" ]; then
+            PODS_HASH=$(
+              while IFS= read -r file; do
+                shasum "$file"
+              done < "$PODS_LIST" | shasum | awk '{print $1}'
+            )
           else
             PODS_HASH="no-pods-files"
           fi
+          rm -f "$PODS_LIST"
 
           DD_LIST=$(mktemp)
-          {
-            [ -f ios/Podfile.lock ] && echo "ios/Podfile.lock"
-            find ios -type f \( -path "*/.xcodeproj/project.pbxproj" -o -path "*/.xcworkspace/contents.xcworkspacedata" \) 2>/dev/null
-          } | sort -u > "$DD_LIST"
+          if [ -d ios ]; then
+            [ -f ios/Podfile.lock ] && echo "ios/Podfile.lock" >> "$DD_LIST"
+            find ios -type f \( -path "*/.xcodeproj/project.pbxproj" -o -path "*/.xcworkspace/contents.xcworkspacedata" \) >> "$DD_LIST" || true
+            sort -u -o "$DD_LIST" "$DD_LIST"
+          fi
 
           if [ -s "$DD_LIST" ]; then
             DD_HASH=$(
               while IFS= read -r file; do
-                [ -n "$file" ] && shasum "$file"
+                if [ -n "$file" ] && [ -f "$file" ]; then
+                  shasum "$file"
+                fi
               done < "$DD_LIST" | shasum | awk '{print $1}'
             )
           else
