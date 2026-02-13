@@ -49,7 +49,7 @@ const TRAVEL_MODES: { value: RouteProfile; label: string }[] = [
   { value: "driving", label: "Drive" },
   { value: "cycling", label: "Bike" },
 ];
-const HALL_BUILDING_CODE = "EV";
+const HALL_BUILDING_CODE = "H";
 
 const formatDuration = (minutes: number) => {
   if (minutes < 60) return `${minutes} min`;
