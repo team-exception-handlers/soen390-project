@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Linking,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -11,7 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader, { Campus } from "../../components/AppHeader";
-import { BUILDINGS } from "../../constants/buildings";
+import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
 import {
@@ -20,6 +21,7 @@ import {
   requestLocationPermission,
   startWatchingLocation,
 } from "../../utils/locationUtils";
+import { fetchOsrmRoute, type RouteProfile } from "../../utils/osrmDirections";
 
 import BuildingInformation from "@/components/BuildingInformation";
 import { getCampusRegion } from "../../utils/mapRegions";
@@ -33,11 +35,56 @@ if (Platform.OS !== "web") {
   }
 }
 
+const roundCoord = (value: number) => Number(value.toFixed(4));
+
+const TRAVEL_MODES: { value: RouteProfile; label: string }[] = [
+  { value: "walking", label: "Walk" },
+  { value: "driving", label: "Drive" },
+  { value: "cycling", label: "Bike" },
+];
+
+const formatDuration = (minutes: number) => {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins === 0 ? `${hours} h` : `${hours} h ${mins} min`;
+};
+
+const formatDistance = (meters: number) => {
+  if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
+  return `${Math.round(meters)} m`;
+};
+
+const resolveBuildingByCode = (
+  code: string | null | undefined,
+  buildings: BuildingRecord[],
+) => {
+  if (!code) return null;
+  const exact = buildings.find((building) => building.code === code);
+  if (exact) return exact;
+  return buildings.find((building) => building.code.startsWith(code)) ?? null;
+};
+
 /* these make it so we can view selected campus and building from the map level */
 export default function MapScreen() {
   const [campus, setCampus] = useState<Campus>("SGW");
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
+  const [destinationBuildingCode, setDestinationBuildingCode] = useState<
+    string | null
+  >(null);
+  const routeMode: RouteProfile = "walking";
+  const [routeCoordinates, setRouteCoordinates] = useState<
+    { latitude: number; longitude: number }[]
+  >([]);
+  const [routeDurationMinutes, setRouteDurationMinutes] = useState<
+    number | null
+  >(null);
+  const [routeDistanceMeters, setRouteDistanceMeters] = useState<number | null>(
+    null,
+  );
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
   const webViewRef = useRef<any>(null);
   const [userLocation, setUserLocation] = useState<any>(null);
   const [currentBuilding, setCurrentBuilding] = useState<
@@ -53,6 +100,7 @@ export default function MapScreen() {
 
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
+
   const isWebPlatform = Platform.OS === "web";
   const showE2EHooks =
     Platform.OS !== "web" &&
@@ -61,10 +109,242 @@ export default function MapScreen() {
   const userLng = isWebPlatform ? userLocation?.coords.longitude || null : null;
   const currentBuildingForHTML = isWebPlatform ? currentBuilding : null;
 
+  // Styles defined inside component 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    map: {
+      flex: 1,
+    },
+    markerContainer: {
+      alignItems: "center",
+    },
+    markerBadge: {
+      minWidth: 30,
+      height: 28,
+      paddingHorizontal: 8,
+      borderRadius: 14,
+      backgroundColor: "#A32638",
+      borderWidth: 2,
+      borderColor: "white",
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 3,
+    },
+    markerText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: "white",
+    },
+    markerStem: {
+      marginTop: -2,
+      width: 0,
+      height: 0,
+      borderLeftWidth: 6,
+      borderRightWidth: 6,
+      borderTopWidth: 8,
+      borderLeftColor: "transparent",
+      borderRightColor: "transparent",
+      borderTopColor: "#A32638",
+    },
+    webFallback: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 24,
+    },
+    webFallbackText: {
+      color: "#2C2C2C",
+      fontSize: 16,
+      textAlign: "center",
+    },
+    permissionBanner: {
+      position: "absolute",
+      alignSelf: "center",
+      backgroundColor: "#ff3700",
+      opacity: 0.9,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      borderRadius: 20,
+      shadowColor: "#000",
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 5,
+      zIndex: 1000,
+      maxWidth: "90%",
+    },
+    permissionText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: "white",
+      textAlign: "center",
+    },
+    buildingInfo: {
+      position: "absolute",
+      top: isWeb ? 53 : insets.top + 44,
+      alignSelf: "center",
+      backgroundColor: "rgba(0,0,0,0.7)",
+      paddingVertical: isWeb ? 8 : 4,
+      paddingHorizontal: isWeb ? 16 : 8,
+      borderRadius: isWeb ? 10 : 8,
+      zIndex: 1000,
+      maxWidth: isWeb ? undefined : "90%",
+    },
+    buildingInfoText: {
+      color: "white",
+      fontSize: isWeb ? 14 : 12,
+      fontWeight: "700",
+      textAlign: "center",
+    },
+    buildingInfoTitle: {
+      color: "#FFA500",
+      fontSize: isWeb ? 14 : 12,
+      fontWeight: "600",
+      marginBottom: 2,
+      textAlign: "center",
+      opacity: 0.9,
+    },
+    searchResultsContainer: {
+      marginHorizontal: 16,
+      marginTop: 8,
+      backgroundColor: "rgba(255,255,255,0.98)",
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: "rgba(0,0,0,0.08)",
+      overflow: "hidden",
+    },
+    searchResultsHint: {
+      fontSize: 12,
+      color: "#5D5D66",
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: "#F6F7FA",
+      borderBottomWidth: 1,
+      borderBottomColor: "#ECECF1",
+      fontWeight: "600",
+    },
+    searchResultItem: {
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: "#F0F0F0",
+    },
+    searchResultCode: {
+      color: "#A32638",
+      fontWeight: "700",
+      fontSize: 13,
+    },
+    searchResultName: {
+      marginTop: 3,
+      color: "#202124",
+      fontSize: 13,
+      fontWeight: "500",
+    },
+    searchResultAddress: {
+      marginTop: 2,
+      color: "#6A6A75",
+      fontSize: 12,
+    },
+    directionsPanel: {
+      marginHorizontal: 16,
+      marginTop: 8,
+      marginBottom: 8,
+      padding: 10,
+      borderRadius: 14,
+      backgroundColor: "rgba(20,20,24,0.82)",
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.15)",
+    },
+    directionFieldRow: {
+      flexDirection: "row",
+      gap: 8,
+      alignItems: "center",
+    },
+    directionFieldButton: {
+      flex: 1,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.28)",
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      backgroundColor: "rgba(255,255,255,0.08)",
+    },
+    directionFieldButtonActive: {
+      borderColor: "#FFD08A",
+      backgroundColor: "rgba(255,208,138,0.2)",
+    },
+    directionFieldLabel: {
+      color: "#FFD08A",
+      fontSize: 11,
+      fontWeight: "700",
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    directionFieldValue: {
+      color: "white",
+      fontSize: 13,
+      marginTop: 3,
+      fontWeight: "600",
+    },
+    clearRouteButton: {
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.28)",
+      backgroundColor: "rgba(255,255,255,0.08)",
+    },
+    clearRouteText: {
+      color: "white",
+      fontSize: 12,
+      fontWeight: "700",
+    },
+    routeModeRow: {
+      flexDirection: "row",
+      gap: 8,
+      marginTop: 10,
+    },
+    routeModeButton: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.3)",
+      backgroundColor: "rgba(255,255,255,0.06)",
+      paddingVertical: 8,
+    },
+    routeModeButtonActive: {
+      backgroundColor: "#D2E9FF",
+      borderColor: "#95C6F3",
+    },
+    routeModeButtonText: {
+      color: "white",
+      fontSize: 13,
+      fontWeight: "700",
+    },
+    routeModeButtonTextActive: {
+      color: "#123B5D",
+    },
+    routeStatusText: {
+      marginTop: 10,
+      color: "#E8E8EC",
+      fontSize: 12,
+      fontWeight: "600",
+    },
+  });
+
   let MapViewComponent: React.ComponentType<any> | null = null;
   let MapMarkerComponent: React.ComponentType<any> | null = null;
   let MapCalloutComponent: React.ComponentType<any> | null = null;
   let MapPolygonComponent: React.ComponentType<any> | null = null;
+  let MapPolylineComponent: React.ComponentType<any> | null = null;
   useEffect(() => {
     if (Platform.OS !== "web") return;
 
@@ -96,11 +376,13 @@ export default function MapScreen() {
       MapMarkerComponent = maps.Marker;
       MapCalloutComponent = maps.Callout;
       MapPolygonComponent = maps.Polygon;
+      MapPolylineComponent = maps.Polyline;
     } catch {
       MapViewComponent = null;
       MapMarkerComponent = null;
       MapCalloutComponent = null;
       MapPolygonComponent = null;
+      MapPolylineComponent = null;
     }
   }
 
@@ -119,19 +401,9 @@ export default function MapScreen() {
 
       const subscription = await startWatchingLocation(
         (location: Location.LocationObject) => {
-          const latitude = 45.497092;
-          const longitude = -73.5788;
+          const { latitude, longitude } = location.coords;
 
-          const fakeLocation = {
-            ...location,
-            coords: {
-              ...location.coords,
-              latitude,
-              longitude,
-            }
-          };
-
-          setUserLocation(fakeLocation);
+          setUserLocation(location);
           setLocationPermissionDenied(false);
           const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
           const building = findUserBuilding(
@@ -182,6 +454,165 @@ export default function MapScreen() {
     () => BUILDINGS.filter((building) => building.campus === campus),
     [campus],
   );
+
+  const originLatitude = useMemo(() => {
+    const latitude = userLocation?.coords?.latitude;
+    return typeof latitude === "number" ? roundCoord(latitude) : null;
+  }, [userLocation?.coords?.latitude]);
+
+  const originLongitude = useMemo(() => {
+    const longitude = userLocation?.coords?.longitude;
+    return typeof longitude === "number" ? roundCoord(longitude) : null;
+  }, [userLocation?.coords?.longitude]);
+
+  const originPoint = useMemo(() => {
+    if (originLatitude === null || originLongitude === null) return null;
+    return { latitude: originLatitude, longitude: originLongitude };
+  }, [originLatitude, originLongitude]);
+
+  const currentBuildingRecord = useMemo(
+    () => resolveBuildingByCode(currentBuilding, campusBuildings),
+    [campusBuildings, currentBuilding],
+  );
+
+  const destinationBuilding = useMemo(
+    () => resolveBuildingByCode(destinationBuildingCode, campusBuildings),
+    [campusBuildings, destinationBuildingCode],
+  );
+
+  const routeStatusText = useMemo(() => {
+    if (locationPermissionDenied) {
+      return "Enable location permission to route from your current location.";
+    }
+    if (!originPoint) return "Finding your current location...";
+    if (!destinationBuilding) {
+      return "Select a destination building from search or map.";
+    }
+    if (routeLoading) return "Loading route...";
+    if (routeError) return routeError;
+    if (routeDurationMinutes !== null && routeDistanceMeters !== null) {
+      const modeLabel =
+        TRAVEL_MODES.find((mode) => mode.value === routeMode)?.label ?? routeMode;
+      return `${modeLabel}: ${formatDuration(routeDurationMinutes)} - ${formatDistance(routeDistanceMeters)}`;
+    }
+    return "Route unavailable for the selected destination.";
+  }, [
+    destinationBuilding,
+    locationPermissionDenied,
+    originPoint,
+    routeDistanceMeters,
+    routeDurationMinutes,
+    routeError,
+    routeLoading,
+    routeMode,
+  ]);
+
+  const clearDirections = () => {
+    setDestinationBuildingCode(null);
+    setRouteCoordinates([]);
+    setRouteDurationMinutes(null);
+    setRouteDistanceMeters(null);
+    setRouteError(null);
+    setRouteLoading(false);
+    setSearchText("");
+    setSelectedBuilding(null);
+  };
+
+  const searchResults = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+    if (!query) return [];
+    return campusBuildings
+      .filter((building) => {
+        const haystack = [
+          building.code,
+          building.shortName,
+          building.longName,
+          building.address,
+        ]
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(query);
+      })
+      .slice(0, 8);
+  }, [campusBuildings, searchText]);
+
+  const handleSearchResultPress = (building: BuildingRecord) => {
+    setDestinationBuildingCode(building.code);
+    setSelectedBuilding(building.code);
+    setSearchText("");
+  };
+
+  useEffect(() => {
+    setDestinationBuildingCode((code) =>
+      resolveBuildingByCode(code, campusBuildings)?.code ?? null,
+    );
+    setRouteCoordinates([]);
+    setRouteDurationMinutes(null);
+    setRouteDistanceMeters(null);
+    setRouteError(null);
+    setRouteLoading(false);
+    setSearchText("");
+    setSelectedBuilding(null);
+  }, [campusBuildings]);
+
+  useEffect(() => {
+    if (
+      !destinationBuilding ||
+      originLatitude === null ||
+      originLongitude === null
+    ) {
+      setRouteCoordinates([]);
+      setRouteDurationMinutes(null);
+      setRouteDistanceMeters(null);
+      setRouteError(null);
+      setRouteLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadRoute = async () => {
+      try {
+        setRouteLoading(true);
+        setRouteError(null);
+        const routeOrigin = {
+          latitude: originLatitude,
+          longitude: originLongitude,
+        };
+        const route = await fetchOsrmRoute(
+          routeOrigin,
+          destinationBuilding,
+          routeMode,
+        );
+
+        if (cancelled) return;
+        setRouteCoordinates(route.coordinates);
+        setRouteDurationMinutes(Math.round(route.durationSeconds / 60));
+        setRouteDistanceMeters(route.distanceMeters);
+      } catch {
+        if (cancelled) return;
+        setRouteCoordinates([]);
+        setRouteDurationMinutes(null);
+        setRouteDistanceMeters(null);
+        setRouteError("Could not load route for this selection.");
+      } finally {
+        if (!cancelled) {
+          setRouteLoading(false);
+        }
+      }
+    };
+
+    loadRoute();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    destinationBuilding,
+    originLatitude,
+    originLongitude,
+    routeMode,
+  ]);
 
   // Only show pins for buildings that have a polygon (exact or parent e.g. CJ for CJA)
   const buildingsWithPolygons = useMemo(() => {
@@ -377,6 +808,10 @@ export default function MapScreen() {
               const buildings = ${JSON.stringify(buildingData)};
               const polygonData = ${JSON.stringify(campusPolygons)};
               const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
+              const routeMode = ${JSON.stringify(routeMode)};
+              const routeCoordinates = ${JSON.stringify(
+                routeCoordinates.map((point) => [point.latitude, point.longitude]),
+              )};
               let selectedPolygon = null;
               window.polygonMap = {};
               window.currentBuildingPolygon = null;
@@ -425,7 +860,44 @@ export default function MapScreen() {
               };
 
               const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
-              map.fitBounds(bounds, { padding: [20, 20] });
+              let routePolyline = null;
+              if (routeCoordinates.length > 1) {
+                  const routeStyle = {
+                      color: '#1668C7',
+                      weight: routeMode === 'walking' ? 7 : 6,
+                      opacity: 0.88,
+                      lineCap: 'round',
+                      lineJoin: 'round'
+                  };
+
+                  if (routeMode === 'walking') {
+                      routeStyle.dashArray = '1 12';
+                  }
+
+                  routePolyline = L.polyline(routeCoordinates, routeStyle).addTo(map);
+
+                  L.circleMarker(routeCoordinates[0], {
+                      radius: 6,
+                      color: '#14532D',
+                      fillColor: '#22C55E',
+                      fillOpacity: 1,
+                      weight: 2
+                  }).addTo(map);
+
+                  L.circleMarker(routeCoordinates[routeCoordinates.length - 1], {
+                      radius: 6,
+                      color: '#7F1D1D',
+                      fillColor: '#EF4444',
+                      fillOpacity: 1,
+                      weight: 2
+                  }).addTo(map);
+              }
+
+              if (routePolyline) {
+                  map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
+              } else {
+                  map.fitBounds(bounds, { padding: [20, 20] });
+              }
 
               const disableFollow = () => {
                   window.followUser = false;
@@ -554,6 +1026,8 @@ export default function MapScreen() {
     campusPolygons,
     currentBuildingForHTML,
     region,
+    routeCoordinates,
+    routeMode,
     userLat,
     userLng,
   ]);
@@ -637,6 +1111,17 @@ export default function MapScreen() {
         showsMyLocationButton
         onPress={() => setSelectedBuilding(null)}
       >
+        {MapPolylineComponent && routeCoordinates.length > 1 && (
+          <MapPolylineComponent
+            testID="route-polyline"
+            coordinates={routeCoordinates}
+            strokeColor="#1668C7"
+            strokeWidth={routeMode === "walking" ? 6 : 5}
+            lineDashPattern={routeMode === "walking" ? [1, 12] : undefined}
+            lineCap="round"
+          />
+        )}
+
         {campusPolygons.features.map((feature: any) => {
           const coordinates = feature.geometry.coordinates[0].map(
             (coord: number[]) => ({
@@ -744,6 +1229,66 @@ export default function MapScreen() {
         onSearchTextChange={setSearchText}
       />
 
+      {searchResults.length > 0 && (
+        <View style={styles.searchResultsContainer} testID="search-results">
+          <Text style={styles.searchResultsHint}>
+            Tap a building to set destination (To).
+          </Text>
+          {searchResults.map((building) => (
+            <Pressable
+              key={building.code}
+              style={styles.searchResultItem}
+              onPress={() => handleSearchResultPress(building)}
+            >
+              <Text style={styles.searchResultCode}>{building.code}</Text>
+              <Text style={styles.searchResultName} numberOfLines={1}>
+                {building.longName}
+              </Text>
+              <Text style={styles.searchResultAddress} numberOfLines={1}>
+                {building.address}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      <View style={styles.directionsPanel} testID="directions-panel">
+        <View style={styles.directionFieldRow}>
+          <View style={[styles.directionFieldButton, styles.directionFieldButtonActive]}>
+            <Text style={styles.directionFieldLabel}>From</Text>
+            <Text style={styles.directionFieldValue} numberOfLines={1}>
+              {currentBuildingRecord
+                ? `Current location - ${currentBuildingRecord.code} ${currentBuildingRecord.shortName}`
+                : originPoint
+                  ? "Current location"
+                  : locationPermissionDenied
+                    ? "Location permission required"
+                    : "Finding location..."}
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.directionFieldButton,
+              destinationBuilding && styles.directionFieldButtonActive,
+            ]}
+          >
+            <Text style={styles.directionFieldLabel}>To</Text>
+            <Text style={styles.directionFieldValue} numberOfLines={1}>
+              {destinationBuilding
+                ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
+                : "Select a building (search or map)"}
+            </Text>
+          </View>
+
+          <Pressable onPress={clearDirections} style={styles.clearRouteButton}>
+            <Text style={styles.clearRouteText}>Clear</Text>
+          </Pressable>
+        </View>
+
+        <Text style={styles.routeStatusText}>{routeStatusText}</Text>
+      </View>
+
       {currentBuilding &&
         (() => {
           const building = BUILDINGS.find((b) => b.code === currentBuilding);
@@ -823,133 +1368,3 @@ export default function MapScreen() {
     </View>
   );
 }
-
-const isWeb = Platform.OS === "web";
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  map: {
-    flex: 1,
-  },
-  e2eControls: {
-    position: "absolute",
-    right: 10,
-    bottom: 140,
-    zIndex: 12000,
-    elevation: 12000,
-    gap: 8,
-  },
-  e2eButton: {
-    width: 38,
-    height: 32,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.55)",
-  },
-  e2eButtonText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  markerContainer: {
-    alignItems: "center",
-  },
-  markerBadge: {
-    minWidth: 30,
-    height: 28,
-    paddingHorizontal: 8,
-    borderRadius: 14,
-    backgroundColor: "#A32638",
-    borderWidth: 2,
-    borderColor: "white",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  markerText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "white",
-  },
-  markerStem: {
-    marginTop: -2,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 6,
-    borderRightWidth: 6,
-    borderTopWidth: 8,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    borderTopColor: "#A32638",
-  },
-  webFallback: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  webFallbackText: {
-    color: "#2C2C2C",
-    fontSize: 16,
-    textAlign: "center",
-  },
-
-  permissionBanner: {
-    position: "absolute",
-    alignSelf: "center",
-    backgroundColor: "#ff3700",
-    opacity: 0.9,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-    zIndex: 1000,
-    maxWidth: "90%",
-  },
-
-  permissionText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "white",
-    textAlign: "center",
-  },
-
-  buildingInfo: {
-    position: "absolute",
-    top: isWeb ? 53 : 80,
-    alignSelf: "center",
-    backgroundColor: "rgba(0,0,0,0.7)",
-    paddingVertical: isWeb ? 8 : 4,
-    paddingHorizontal: isWeb ? 16 : 8,
-    borderRadius: isWeb ? 10 : 8,
-    zIndex: 1000,
-    maxWidth: isWeb ? undefined : "90%",
-  },
-
-  buildingInfoText: {
-    color: "white",
-    fontSize: isWeb ? 14 : 12,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-
-  buildingInfoTitle: {
-    color: "#FFA500",
-    fontSize: isWeb ? 14 : 12,
-    fontWeight: "600",
-    marginBottom: 2,
-    textAlign: "center",
-    opacity: 0.9,
-  },
-});
