@@ -44,7 +44,8 @@ jest.mock("react", () => {
   };
 });
 
-import BuildingInformation from "../../components/BuildingInformation";
+const BuildingInformation =
+  require("../../components/BuildingInformation").default;
 
 describe("components/BuildingInformation", () => {
   beforeEach(() => {
