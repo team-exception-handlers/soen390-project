@@ -120,10 +120,11 @@ describe("components/BuildingInformation", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  // ===== Cover collapsed animation branch =====
   test("animates to collapsed height when buildingCode is null", () => {
     const onClose = jest.fn();
     const el = BuildingInformation({
-      buildingCode: null, // triggers collapsed branch (lines 54-55)
+      buildingCode: null,
       onClose,
       buildingName: "Collapsed Test",
       buildingInfo: "x",
@@ -135,6 +136,7 @@ describe("components/BuildingInformation", () => {
     expect(drawer).toBeTruthy();
   });
 
+  // ===== Cover 'from' editingField ("Start Here") =====
   test("renders 'Start Here' button when editingField is 'from'", () => {
     const onClose = jest.fn();
     const onSelectDestination = jest.fn();
@@ -144,18 +146,50 @@ describe("components/BuildingInformation", () => {
       buildingName: "Start Here Test",
       buildingInfo: "x",
       buildingPhotoLink: undefined,
-      editingField: "from", // triggers line 100
+      editingField: "from",
       onSelectDestination,
     });
 
     const directionsBtn = findByTestID(el, "building-info-directions");
     expect(directionsBtn).toBeTruthy();
-
-    const textNode = findByTestID(directionsBtn, undefined); // capture child text
     expect(directionsBtn.props.children.props.children).toBe("Start Here");
 
-    // simulate pressing the directions button
     directionsBtn.props.onPress();
     expect(onSelectDestination).toHaveBeenCalledWith("B1");
+  });
+
+  test("renders 'Go There' button when editingField is 'to' or undefined", () => {
+    const onClose = jest.fn();
+    const onSelectDestination = jest.fn();
+    const el = BuildingInformation({
+      buildingCode: "B1",
+      onClose,
+      buildingName: "Go There Test",
+      buildingInfo: "x",
+      buildingPhotoLink: undefined,
+      editingField: "to", // triggers "Go There"
+      onSelectDestination,
+    });
+
+    const directionsBtn = findByTestID(el, "building-info-directions");
+    expect(directionsBtn).toBeTruthy();
+    expect(directionsBtn.props.children.props.children).toBe("Go There");
+
+    directionsBtn.props.onPress();
+    expect(onSelectDestination).toHaveBeenCalledWith("B1");
+
+    // Also test with undefined editingField
+    const el2 = BuildingInformation({
+      buildingCode: "B1",
+      onClose,
+      buildingName: "Go There Test 2",
+      buildingInfo: "x",
+      buildingPhotoLink: undefined,
+      editingField: undefined, // triggers "Go There"
+      onSelectDestination,
+    });
+
+    const directionsBtn2 = findByTestID(el2, "building-info-directions");
+    expect(directionsBtn2.props.children.props.children).toBe("Go There");
   });
 });
