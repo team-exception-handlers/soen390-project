@@ -1,0 +1,187 @@
+[
+    {
+        "distance": 19.6,
+        "driving_side": "right",
+        "duration": 15.6,
+        "geometry": {
+            "coordinates": [],
+            "type": "LineString"
+        },
+        "intersections": [
+            []
+        ],
+        "maneuver": {
+            "bearing_after": 304,
+            "bearing_before": 0,
+            "location": [],
+            "type": "depart"
+        },
+        "mode": "walking",
+        "name": "Rue Crescent",
+        "weight": 2.17
+    },
+    {
+        "distance": 5.7,
+        "driving_side": "right",
+        "duration": 4.6,
+        "geometry": {
+            "coordinates": [],
+            "type": "LineString"
+        },
+        "intersections": [
+            []
+        ],
+        "maneuver": {
+            "bearing_after": 213,
+            "bearing_before": 303,
+            "location": [],
+            "modifier": "left",
+            "type": "turn"
+        },
+        "mode": "walking",
+        "name": "",
+        "weight": 0.57
+    },
+    {
+        "distance": 39.2,
+        "driving_side": "right",
+        "duration": 31.3,
+        "geometry": {
+            "coordinates": [],
+            "type": "LineString"
+        },
+        "intersections": [
+            []
+        ],
+        "maneuver": {
+            "bearing_after": 303,
+            "bearing_before": 213,
+            "location": [],
+            "modifier": "right",
+            "type": "turn"
+        },
+        "mode": "walking",
+        "name": "Rue Crescent",
+        "weight": 3.27
+    },
+    {
+        "distance": 70.2,
+        "driving_side": "right",
+        "duration": 56.2,
+        "geometry": {
+            "coordinates": [],
+            "type": "LineString"
+        },
+        "intersections": [
+            []
+        ],
+        "maneuver": {
+            "bearing_after": 213,
+            "bearing_before": 291,
+            "location": [],
+            "modifier": "left",
+            "type": "turn"
+        },
+        "mode": "walking",
+        "name": "Rue Sainte-Catherine Ouest",
+        "weight": 5.85
+    },
+    {
+        "distance": 21.7,
+        "driving_side": "right",
+        "duration": 21.3,
+        "geometry": {
+            "coordinates": [],
+            "type": "LineString"
+        },
+        "intersections": [
+            [],
+            [],
+            [],
+            []
+        ],
+        "maneuver": {
+            "bearing_after": 289,
+            "bearing_before": 213,
+            "location": [],
+            "modifier": "right",
+            "type": "turn"
+        },
+        "mode": "walking",
+        "name": "Rue Bishop",
+        "weight": 1.81
+    },
+    {
+        "distance": 166.1,
+        "driving_side": "right",
+        "duration": 136.9,
+        "geometry": {
+            "coordinates": [],
+            "type": "LineString"
+        },
+        "intersections": [
+            [],
+            [],
+            [],
+            [],
+            []
+        ],
+        "maneuver": {
+            "bearing_after": 303,
+            "bearing_before": 350,
+            "location": [],
+            "modifier": "left",
+            "type": "turn"
+        },
+        "mode": "walking",
+        "name": "Rue Bishop",
+        "weight": 13.85
+    },
+    {
+        "distance": 65.9,
+        "driving_side": "right",
+        "duration": 56.7,
+        "geometry": {
+            "coordinates": [],
+            "type": "LineString"
+        },
+        "intersections": [
+            [],
+            [],
+            [],
+            []
+        ],
+        "maneuver": {
+            "bearing_after": 215,
+            "bearing_before": 295,
+            "location": [],
+            "modifier": "left",
+            "type": "end of road"
+        },
+        "mode": "walking",
+        "name": "Boulevard De Maisonneuve Ouest",
+        "weight": 5.51
+    },
+    {
+        "distance": 0,
+        "driving_side": "right",
+        "duration": 0,
+        "geometry": {
+            "coordinates": [],
+            "type": "LineString"
+        },
+        "intersections": [
+            []
+        ],
+        "maneuver": {
+            "bearing_after": 0,
+            "bearing_before": 214,
+            "location": [],
+            "modifier": "right",
+            "type": "arrive"
+        },
+        "mode": "walking",
+        "name": "Boulevard De Maisonneuve Ouest",
+        "weight": 0
+    }
+]

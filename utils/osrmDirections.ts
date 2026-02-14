@@ -5,37 +5,45 @@ export type RoutePoint = {
   longitude: number;
 };
 
+export type RouteInstruction = {
+  text: string;
+  distanceMeters: number;
+};
+
 export type OsrmRoute = {
   coordinates: RoutePoint[];
   distanceMeters: number;
   durationSeconds: number;
+  instructions: RouteInstruction[];
 };
 
 type OsrmResponse = {
   code: string;
-  routes?: Array<{
+  routes?: {
     distance: number;
     duration: number;
     geometry?: {
       coordinates: [number, number][];
     };
-  }>;
+    legs?: {
+      steps?: {
+        distance: number;
+        name?: string;
+        ref?: string;
+        maneuver?: {
+          type?: string;
+          modifier?: string;
+          exit?: number;
+        };
+      }[];
+    }[];
+  }[];
 };
 
-const OSRM_BASE_URL = "https://router.project-osrm.org/route/v1";
-const MODE_SPEEDS_KMH: Record<RouteProfile, number> = {
-  walking: 5,
-  cycling: 15,
-  driving: 35,
-};
-
-const estimateDurationSeconds = (
-  distanceMeters: number,
-  profile: RouteProfile,
-) => {
-  const speedKmh = MODE_SPEEDS_KMH[profile];
-  const durationHours = distanceMeters / 1000 / speedKmh;
-  return Math.round(durationHours * 3600);
+const OSRM_BASE_URLS: Record<RouteProfile, string> = {
+  walking: "https://routing.openstreetmap.de/routed-foot/route/v1",
+  cycling: "https://routing.openstreetmap.de/routed-bike/route/v1",
+  driving: "https://routing.openstreetmap.de/routed-car/route/v1",
 };
 
 export const buildOsrmRouteUrl = (
@@ -43,9 +51,60 @@ export const buildOsrmRouteUrl = (
   destination: RoutePoint,
   profile: RouteProfile = "walking",
 ) => {
+  const baseUrl = OSRM_BASE_URLS[profile];
   const start = `${origin.longitude},${origin.latitude}`;
   const end = `${destination.longitude},${destination.latitude}`;
-  return `${OSRM_BASE_URL}/${profile}/${start};${end}?overview=full&geometries=geojson&steps=false`;
+  return `${baseUrl}/${profile}/${start};${end}?overview=full&geometries=geojson&steps=true`;
+};
+
+const formatStepDistance = (distanceMeters: number) => {
+  if (distanceMeters < 20) return "for a few meters";
+  if (distanceMeters >= 1000) {
+    return `for ${(distanceMeters / 1000).toFixed(1)} km`;
+  }
+  return `for ${Math.round(distanceMeters / 10) * 10} m`;
+};
+
+const getStepRoadName = (name?: string, ref?: string) => {
+  const candidate = name?.trim() || ref?.trim();
+  return candidate && candidate.length > 0 ? candidate : "the path";
+};
+
+const buildStepInstruction = (step: {
+  distance: number;
+  name?: string;
+  ref?: string;
+  maneuver?: {
+    type?: string;
+    modifier?: string;
+    exit?: number;
+  };
+}): string => {
+  const type = step.maneuver?.type ?? "continue";
+  const modifier = step.maneuver?.modifier?.replaceAll("_", " ");
+  const roadName = getStepRoadName(step.name, step.ref);
+
+  if (type === "arrive") {
+    return "Arrive at your destination.";
+  }
+
+  if (type === "depart") {
+    const heading = modifier ? `Head ${modifier}` : "Head forward";
+    return `${heading} on ${roadName}, ${formatStepDistance(step.distance)}.`;
+  }
+
+  if (type === "turn") {
+    const turnDirection = modifier ? `Turn ${modifier}` : "Turn";
+    return `${turnDirection} onto ${roadName}, ${formatStepDistance(step.distance)}.`;
+  }
+
+  if (type === "fork") {
+    const forkDirection = modifier ? `Keep ${modifier}` : "Keep going";
+    return `${forkDirection} onto ${roadName}, ${formatStepDistance(step.distance)}.`;
+  }
+
+
+  return `Continue on ${roadName}, ${formatStepDistance(step.distance)}.`;
 };
 
 export const fetchOsrmRoute = async (
@@ -67,17 +126,24 @@ export const fetchOsrmRoute = async (
     throw new Error("No route available for the selected buildings.");
   }
 
-  const durationSeconds =
-    profile === "driving"
-      ? Math.round(route.duration)
-      : estimateDurationSeconds(route.distance, profile);
+  // just for testing, want to see the steps given from the api
+  // some steps seem unnecessary, should look into a fix for that
+  console.log("Raw route steps", route.legs?.flatMap((leg) => leg.steps ?? []));
+
+  const instructions: RouteInstruction[] = (route.legs ?? []).flatMap((leg) =>
+    (leg.steps ?? []).map((step) => ({
+      text: buildStepInstruction(step),
+      distanceMeters: step.distance,
+    })),
+  );
 
   return {
     distanceMeters: route.distance,
-    durationSeconds,
+    durationSeconds: Math.round(route.duration),
     coordinates: route.geometry.coordinates.map(([longitude, latitude]) => ({
       latitude,
       longitude,
     })),
+    instructions,
   };
 };

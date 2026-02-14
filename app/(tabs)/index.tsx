@@ -3,13 +3,16 @@ import * as Location from "expo-location";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Linking,
+  PanResponder,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { ChevronDown, ChevronUp, X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
@@ -21,7 +24,11 @@ import {
   requestLocationPermission,
   startWatchingLocation,
 } from "../../utils/locationUtils";
-import { fetchOsrmRoute, type RouteProfile } from "../../utils/osrmDirections";
+import {
+  fetchOsrmRoute,
+  type RouteInstruction,
+  type RouteProfile,
+} from "../../utils/osrmDirections";
 
 import BuildingInformation from "@/components/BuildingInformation";
 import { getCampusRegion } from "../../utils/mapRegions";
@@ -42,6 +49,7 @@ const TRAVEL_MODES: { value: RouteProfile; label: string }[] = [
   { value: "driving", label: "Drive" },
   { value: "cycling", label: "Bike" },
 ];
+const HALL_BUILDING_CODE = "H";
 
 const formatDuration = (minutes: number) => {
   if (minutes < 60) return `${minutes} min`;
@@ -70,9 +78,8 @@ export default function MapScreen() {
   const [campus, setCampus] = useState<Campus>("SGW");
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
-  const [destinationBuildingCode, setDestinationBuildingCode] = useState<
-    string | null
-  >(null);
+  const destinationBuildingCode = HALL_BUILDING_CODE;
+  const [isDirectionsMode, setIsDirectionsMode] = useState(false);
   const routeMode: RouteProfile = "walking";
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
@@ -85,6 +92,29 @@ export default function MapScreen() {
   );
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeInstructions, setRouteInstructions] = useState<
+    RouteInstruction[]
+  >([]);
+  const [showRouteInstructions, setShowRouteInstructions] = useState(false);
+  const routeInstructionsDismissedRef = useRef(false);
+  const routeSheetPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        Math.abs(gestureState.dy) > 6,
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 24) {
+          routeInstructionsDismissedRef.current = true;
+          setShowRouteInstructions(false);
+          return;
+        }
+        if (gestureState.dy < -24) {
+          routeInstructionsDismissedRef.current = false;
+          setShowRouteInstructions(true);
+        }
+      },
+    }),
+  ).current;
+  const mapRef = useRef<any>(null);
   const webViewRef = useRef<any>(null);
   const [userLocation, setUserLocation] = useState<any>(null);
   const [currentBuilding, setCurrentBuilding] = useState<
@@ -338,6 +368,77 @@ export default function MapScreen() {
       fontSize: 12,
       fontWeight: "600",
     },
+    routeStepsPopup: {
+      position: "absolute",
+      left: 12,
+      right: 12,
+      bottom: insets.bottom + TAB_BAR_HEIGHT + 10,
+      backgroundColor: "#F5F5F6",
+      borderRadius: 28,
+      paddingHorizontal: 14,
+      paddingTop: 6,
+      paddingBottom: 14,
+      zIndex: 1100,
+      maxHeight: isWebPlatform ? 360 : 300,
+      shadowColor: "#000",
+      shadowOpacity: 0.16,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 10,
+    },
+    routeStepsHandle: {
+      alignSelf: "center",
+      width: 44,
+      height: 28,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: -2,
+      marginBottom: 4,
+    },
+    routeStepsCloseButton: {
+      position: "absolute",
+      top: 14,
+      right: 12,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      borderWidth: 2.5,
+      borderColor: "#1F1F24",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "#F5F5F6",
+    },
+    routeStepsCollapsedTab: {
+      position: "absolute",
+      alignSelf: "center",
+      bottom: insets.bottom + TAB_BAR_HEIGHT + 10,
+      width: 58,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: "#F5F5F6",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 1100,
+      shadowColor: "#000",
+      shadowOpacity: 0.14,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 8,
+    },
+    routeStepsList: {
+      marginTop: 10,
+    },
+    routeStepsListContent: {
+      paddingRight: 54,
+      paddingBottom: 8,
+    },
+    routeStepText: {
+      fontSize: 18,
+      lineHeight: 24,
+      color: "#111111",
+      fontWeight: "700",
+      marginBottom: 18,
+    },
     e2eControls: {
       position: "absolute",
       right: 12,
@@ -476,6 +577,10 @@ export default function MapScreen() {
     () => BUILDINGS.filter((building) => building.campus === campus),
     [campus],
   );
+  const defaultSgwRegion = useMemo(
+    () => getCampusRegion("SGW", SGW_POLYGONS.features),
+    [],
+  );
 
   const originLatitude = useMemo(() => {
     const latitude = userLocation?.coords?.latitude;
@@ -498,17 +603,18 @@ export default function MapScreen() {
   );
 
   const destinationBuilding = useMemo(
-    () => resolveBuildingByCode(destinationBuildingCode, campusBuildings),
-    [campusBuildings, destinationBuildingCode],
+    () => resolveBuildingByCode(destinationBuildingCode, BUILDINGS),
+    [destinationBuildingCode],
   );
 
   const routeStatusText = useMemo(() => {
+    if (!isDirectionsMode) return "";
     if (locationPermissionDenied) {
       return "Enable location permission to route from your current location.";
     }
     if (!originPoint) return "Finding your current location...";
     if (!destinationBuilding) {
-      return "Select a destination building from search or map.";
+      return "Hall building destination is unavailable.";
     }
     if (routeLoading) return "Loading route...";
     if (routeError) return routeError;
@@ -520,6 +626,7 @@ export default function MapScreen() {
     return "Route unavailable for the selected destination.";
   }, [
     destinationBuilding,
+    isDirectionsMode,
     locationPermissionDenied,
     originPoint,
     routeDistanceMeters,
@@ -529,15 +636,41 @@ export default function MapScreen() {
     routeMode,
   ]);
 
-  const clearDirections = () => {
-    setDestinationBuildingCode(null);
+  const exitDirectionsMode = () => {
+    setIsDirectionsMode(false);
     setRouteCoordinates([]);
     setRouteDurationMinutes(null);
     setRouteDistanceMeters(null);
     setRouteError(null);
     setRouteLoading(false);
+    setRouteInstructions([]);
+    setShowRouteInstructions(false);
+    routeInstructionsDismissedRef.current = false;
+  };
+
+  const handleCampusChange = (nextCampus: Campus) => {
+    if (isDirectionsMode) {
+      exitDirectionsMode();
+    }
+    setCampus(nextCampus);
+  };
+
+  const clearDirections = () => {
     setSearchText("");
     setSelectedBuilding(null);
+
+    if (!isDirectionsMode) {
+      routeInstructionsDismissedRef.current = false;
+      setIsDirectionsMode(true);
+      return;
+    }
+
+    exitDirectionsMode();
+    setCampus("SGW");
+
+    if (!isWebPlatform && campus === "SGW") {
+      mapRef.current?.animateToRegion?.(defaultSgwRegion, 450);
+    }
   };
 
   const searchResults = useMemo(() => {
@@ -559,26 +692,18 @@ export default function MapScreen() {
   }, [campusBuildings, searchText]);
 
   const handleSearchResultPress = (building: BuildingRecord) => {
-    setDestinationBuildingCode(building.code);
     setSelectedBuilding(building.code);
     setSearchText("");
   };
 
   useEffect(() => {
-    setDestinationBuildingCode((code) =>
-      resolveBuildingByCode(code, campusBuildings)?.code ?? null,
-    );
-    setRouteCoordinates([]);
-    setRouteDurationMinutes(null);
-    setRouteDistanceMeters(null);
-    setRouteError(null);
-    setRouteLoading(false);
     setSearchText("");
     setSelectedBuilding(null);
   }, [campusBuildings]);
 
   useEffect(() => {
     if (
+      !isDirectionsMode ||
       !destinationBuilding ||
       originLatitude === null ||
       originLongitude === null
@@ -588,10 +713,16 @@ export default function MapScreen() {
       setRouteDistanceMeters(null);
       setRouteError(null);
       setRouteLoading(false);
+      setRouteInstructions([]);
+      setShowRouteInstructions(false);
+      routeInstructionsDismissedRef.current = false;
       return;
     }
 
     let cancelled = false;
+
+    // log route mode
+    console.log("Calculating route with mode:", routeMode);
 
     const loadRoute = async () => {
       try {
@@ -611,12 +742,22 @@ export default function MapScreen() {
         setRouteCoordinates(route.coordinates);
         setRouteDurationMinutes(Math.round(route.durationSeconds / 60));
         setRouteDistanceMeters(route.distanceMeters);
+        setRouteInstructions(route.instructions);
+        if (
+          route.instructions.length > 0 &&
+          !routeInstructionsDismissedRef.current
+        ) {
+          setShowRouteInstructions(true);
+        }
       } catch {
         if (cancelled) return;
         setRouteCoordinates([]);
         setRouteDurationMinutes(null);
         setRouteDistanceMeters(null);
         setRouteError("Could not load route for this selection.");
+        setRouteInstructions([]);
+        setShowRouteInstructions(false);
+        routeInstructionsDismissedRef.current = false;
       } finally {
         if (!cancelled) {
           setRouteLoading(false);
@@ -630,6 +771,7 @@ export default function MapScreen() {
       cancelled = true;
     };
   }, [
+    isDirectionsMode,
     destinationBuilding,
     originLatitude,
     originLongitude,
@@ -678,10 +820,6 @@ export default function MapScreen() {
             if (typeof L !== 'undefined' && window.map) {
             if (window.userMarker) {
               window.userMarker.setLatLng([${latitude}, ${longitude}]);
-              if (window.followUser !== false && !window.hasCenteredOnUser) {
-                window.map.panTo([${latitude}, ${longitude}], { animate: true, duration: 0.5 });
-                window.hasCenteredOnUser = true;
-              }
               console.log('User marker updated to:', ${latitude}, ${longitude});
             } else {
               const userIcon = L.divIcon({
@@ -691,10 +829,6 @@ export default function MapScreen() {
                 iconAnchor: [10, 10]
               });
               window.userMarker = L.marker([${latitude}, ${longitude}], { icon: userIcon }).addTo(window.map);
-              if (window.followUser !== false) {
-                window.map.panTo([${latitude}, ${longitude}], { animate: true, duration: 0.5 });
-                window.hasCenteredOnUser = true;
-              }
               console.log('User marker created at:', ${latitude}, ${longitude});
             }
           }
@@ -841,7 +975,7 @@ export default function MapScreen() {
               window.selectedBuildingCode = null;
               window.selectedPolygon = null;
               window.userMarker = null;  
-              window.followUser = true;
+              window.followUser = false;
               window.hasCenteredOnUser = false;
 
               L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1126,6 +1260,7 @@ export default function MapScreen() {
       MapPolygonComponent ? (
       <MapViewComponent
         key={campus}
+        ref={mapRef}
         testID="map-native"
         style={styles.map}
         initialRegion={region}
@@ -1133,7 +1268,7 @@ export default function MapScreen() {
         showsMyLocationButton
         onPress={() => setSelectedBuilding(null)}
       >
-        {MapPolylineComponent && routeCoordinates.length > 1 && (
+        {isDirectionsMode && MapPolylineComponent && routeCoordinates.length > 1 && (
           <MapPolylineComponent
             testID="route-polyline"
             coordinates={routeCoordinates}
@@ -1246,7 +1381,7 @@ export default function MapScreen() {
     <View style={styles.container}>
       <AppHeader
         campus={campus}
-        onCampusChange={setCampus}
+        onCampusChange={handleCampusChange}
         searchText={searchText}
         onSearchTextChange={setSearchText}
       />
@@ -1299,16 +1434,20 @@ export default function MapScreen() {
             <Text style={styles.directionFieldValue} numberOfLines={1}>
               {destinationBuilding
                 ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
-                : "Select a building (search or map)"}
+                : "H - Hall Building"}
             </Text>
           </View>
 
           <Pressable onPress={clearDirections} style={styles.clearRouteButton}>
-            <Text style={styles.clearRouteText}>Clear</Text>
+            <Text style={styles.clearRouteText}>
+              {isDirectionsMode ? "Cancel" : "Go"}
+            </Text>
           </Pressable>
         </View>
 
-        <Text style={styles.routeStatusText}>{routeStatusText}</Text>
+        {isDirectionsMode && (
+          <Text style={styles.routeStatusText}>{routeStatusText}</Text>
+        )}
       </View>
 
       {currentBuilding &&
@@ -1378,6 +1517,58 @@ export default function MapScreen() {
             <Text style={styles.e2eButtonText}>SP</Text>
           </TouchableOpacity>
         </View>
+      )}
+
+      {isDirectionsMode && showRouteInstructions && routeInstructions.length > 0 && (
+        <View style={styles.routeStepsPopup} testID="route-steps-popup">
+          <Pressable
+            {...routeSheetPanResponder.panHandlers}
+            style={styles.routeStepsHandle}
+            onPress={() => {
+              routeInstructionsDismissedRef.current = true;
+              setShowRouteInstructions(false);
+            }}
+          >
+            <ChevronDown size={24} color="#1F1F24" strokeWidth={2.5} />
+          </Pressable>
+          <Pressable
+            style={styles.routeStepsCloseButton}
+            onPress={() => {
+              routeInstructionsDismissedRef.current = true;
+              setShowRouteInstructions(false);
+            }}
+          >
+            <X size={26} color="#1F1F24" strokeWidth={2.5} />
+          </Pressable>
+
+          <ScrollView
+            style={styles.routeStepsList}
+            contentContainerStyle={styles.routeStepsListContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {routeInstructions.map((instruction, index) => (
+              <Text
+                key={`${index}-${instruction.text}`}
+                style={styles.routeStepText}
+              >
+                {`${index + 1}. ${instruction.text}`}
+              </Text>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+      {isDirectionsMode && !showRouteInstructions && routeInstructions.length > 0 && (
+        <Pressable
+          {...routeSheetPanResponder.panHandlers}
+          style={styles.routeStepsCollapsedTab}
+          testID="route-steps-collapsed-tab"
+          onPress={() => {
+            routeInstructionsDismissedRef.current = false;
+            setShowRouteInstructions(true);
+          }}
+        >
+          <ChevronUp size={24} color="#1F1F24" strokeWidth={2.5} />
+        </Pressable>
       )}
 
       <BuildingInformation
