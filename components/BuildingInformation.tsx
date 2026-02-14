@@ -65,10 +65,7 @@ export default function BuildingInformation({
 
   return (
     <View
-      style={[
-        styles.overlay,
-        { bottom: tabBarHeight + 8 }, // ← properly respects your custom tab height
-      ]}
+      style={[styles.overlay, { bottom: tabBarHeight + 8 }]}
       pointerEvents="box-none"
     >
       <Animated.View
