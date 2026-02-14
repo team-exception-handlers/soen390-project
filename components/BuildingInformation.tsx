@@ -19,6 +19,7 @@ type BuildingInformationProps = {
   readonly buildingInfo: string | undefined;
   readonly buildingPhotoLink: string | undefined;
   readonly onSelectDestination: (code: string) => void;
+  readonly editingField?: "from" | "to";
 };
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -32,6 +33,7 @@ export default function BuildingInformation({
   buildingInfo,
   buildingPhotoLink,
   onSelectDestination,
+  editingField,
 }: BuildingInformationProps) {
   const tabBarHeight = useBottomTabBarHeight();
   const heightAnimation = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
@@ -105,7 +107,7 @@ export default function BuildingInformation({
                 onPress={handleGetDirections}
               >
                 <Text style={styles.headerDirectionsButtonText}>
-                  Directions
+                  {editingField === "from" ? "Start Here" : "Go There"}
                 </Text>
               </Pressable>
             )}
