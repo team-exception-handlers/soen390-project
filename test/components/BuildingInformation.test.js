@@ -1,7 +1,3 @@
-jest.mock("@react-navigation/bottom-tabs", () => ({
-  useBottomTabBarHeight: () => 0, // just return 0 for tests
-}));
-
 jest.mock("lucide-react-native", () => ({
   ChevronDown: (props) => {
     const React = require("react");
@@ -46,4 +42,80 @@ jest.mock("react", () => {
     useCallback: (fn) => fn,
     useEffect: (fn) => fn(),
   };
+});
+
+import BuildingInformation from "../../components/BuildingInformation";
+
+describe("components/BuildingInformation", () => {
+  beforeEach(() => {
+    jest.resetModules();
+    jest.clearAllMocks();
+  });
+
+  function findByTestID(node, id) {
+    if (!node) return null;
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        const res = findByTestID(child, id);
+        if (res) return res;
+      }
+      return null;
+    }
+    if (node && node.props && node.props.testID === id) return node;
+    if (node && node.props && node.props.children)
+      return findByTestID(node.props.children, id);
+    return null;
+  }
+
+  test("renders title, image and description when provided", () => {
+    const onClose = jest.fn();
+    const el = BuildingInformation({
+      buildingCode: "B1",
+      onClose,
+      buildingName: "My Building",
+      buildingInfo: "This is a test building.",
+      buildingPhotoLink: "http://example.com/photo.jpg",
+      onSelectDestination: jest.fn(),
+    });
+
+    const drawer = findByTestID(el, "building-info-drawer");
+    expect(drawer).toBeTruthy();
+
+    const title = findByTestID(el, "building-info-title");
+    expect(title.props.children).toBe("My Building");
+
+    const desc = findByTestID(el, "building-info-description");
+    expect(desc.props.children).toBe("This is a test building.");
+  });
+
+  test("renders fallback description when buildingInfo missing", () => {
+    const onClose = jest.fn();
+    const el = BuildingInformation({
+      buildingCode: "B1",
+      onClose,
+      buildingName: "No Info",
+      buildingInfo: undefined,
+      buildingPhotoLink: undefined,
+      onSelectDestination: jest.fn(),
+    });
+
+    const desc = findByTestID(el, "building-info-description");
+    expect(desc.props.children).toBe("Building information not available.");
+  });
+
+  test("close button calls onClose when pressed", () => {
+    const onClose = jest.fn();
+    const el = BuildingInformation({
+      buildingCode: "B1",
+      onClose,
+      buildingName: "Close Test",
+      buildingInfo: "x",
+      buildingPhotoLink: undefined,
+      onSelectDestination: jest.fn(),
+    });
+
+    const closeBtn = findByTestID(el, "building-info-close");
+    closeBtn.props.onPress();
+    expect(onClose).toHaveBeenCalled();
+  });
 });
