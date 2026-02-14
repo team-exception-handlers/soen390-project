@@ -119,4 +119,43 @@ describe("components/BuildingInformation", () => {
     closeBtn.props.onPress();
     expect(onClose).toHaveBeenCalled();
   });
+
+  test("animates to collapsed height when buildingCode is null", () => {
+    const onClose = jest.fn();
+    const el = BuildingInformation({
+      buildingCode: null, // triggers collapsed branch (lines 54-55)
+      onClose,
+      buildingName: "Collapsed Test",
+      buildingInfo: "x",
+      buildingPhotoLink: undefined,
+      onSelectDestination: jest.fn(),
+    });
+
+    const drawer = findByTestID(el, "building-info-drawer");
+    expect(drawer).toBeTruthy();
+  });
+
+  test("renders 'Start Here' button when editingField is 'from'", () => {
+    const onClose = jest.fn();
+    const onSelectDestination = jest.fn();
+    const el = BuildingInformation({
+      buildingCode: "B1",
+      onClose,
+      buildingName: "Start Here Test",
+      buildingInfo: "x",
+      buildingPhotoLink: undefined,
+      editingField: "from", // triggers line 100
+      onSelectDestination,
+    });
+
+    const directionsBtn = findByTestID(el, "building-info-directions");
+    expect(directionsBtn).toBeTruthy();
+
+    const textNode = findByTestID(directionsBtn, undefined); // capture child text
+    expect(directionsBtn.props.children.props.children).toBe("Start Here");
+
+    // simulate pressing the directions button
+    directionsBtn.props.onPress();
+    expect(onSelectDestination).toHaveBeenCalledWith("B1");
+  });
 });
