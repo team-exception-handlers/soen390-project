@@ -15,13 +15,13 @@ jest.mock("expo-blur", () => {
 });
 
 jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 10 }), // non-zero to test paddingTop branch
+  useSafeAreaInsets: () => ({ top: 10 }),
 }));
 
 jest.mock("react-native", () => {
   const React = require("react");
   return {
-    Platform: { OS: "web" }, // default, we will override in tests
+    Platform: { OS: "web" },
     Pressable: (props) =>
       React.createElement("Pressable", props, props.children),
     StyleSheet: { create: (s) => s },
@@ -96,6 +96,7 @@ describe("components/AppHeader", () => {
     expect(sgw).toBeTruthy();
     expect(loy).toBeTruthy();
 
+    // trigger the onPress arrow functions inside CampusButton
     sgw.props.onPress();
     expect(onCampusChange).toHaveBeenCalledWith("SGW");
 
@@ -152,5 +153,29 @@ describe("components/AppHeader", () => {
     });
     const styleIos = el.props.style;
     expect(styleIos).toContainEqual({ paddingTop: 22 }); // insets.top=10 + 12
+  });
+
+  test("BlurView children onPress functions are executed", () => {
+    const AppHeader = require("../../components/AppHeader").default;
+    const onCampusChange = jest.fn();
+    const searchInputRef = { current: null };
+    const el = AppHeader({
+      campus: "SGW",
+      onCampusChange,
+      searchText: "",
+      onSearchTextChange: jest.fn(),
+      searchInputRef,
+    });
+
+    // Find campus buttons inside BlurView
+    const sgw = findByTestID(el, "campus-toggle-sgw");
+    const loy = findByTestID(el, "campus-toggle-loyola");
+
+    // trigger onPress
+    sgw.props.onPress(); // line 98
+    loy.props.onPress(); // line 100
+
+    expect(onCampusChange).toHaveBeenCalledWith("SGW");
+    expect(onCampusChange).toHaveBeenCalledWith("LOY");
   });
 });
