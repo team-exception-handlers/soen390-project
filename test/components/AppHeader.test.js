@@ -15,7 +15,7 @@ jest.mock("expo-blur", () => {
 });
 
 jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 10 }),
+  useSafeAreaInsets: () => ({ top: 10 }), // non-zero to test paddingTop branch
 }));
 
 jest.mock("react-native", () => {
@@ -77,7 +77,7 @@ describe("components/AppHeader", () => {
     expect(input.props.onChangeText).toBe(onSearchTextChange);
   });
 
-  test("campus buttons call onCampusChange with correct value", () => {
+  test("campus buttons call onCampusChange with correct value and cover active styles", () => {
     const AppHeader = require("../../components/AppHeader").default;
     const onCampusChange = jest.fn();
     const onSearchTextChange = jest.fn();
@@ -93,18 +93,24 @@ describe("components/AppHeader", () => {
 
     const sgw = findByTestID(el, "campus-toggle-sgw");
     const loy = findByTestID(el, "campus-toggle-loyola");
+
     expect(sgw).toBeTruthy();
     expect(loy).toBeTruthy();
 
-    // trigger the onPress arrow functions inside CampusButton
+    // simulate presses
     sgw.props.onPress();
     expect(onCampusChange).toHaveBeenCalledWith("SGW");
-
     loy.props.onPress();
     expect(onCampusChange).toHaveBeenCalledWith("LOY");
+
+    // Style coverage for active && inactive
+    expect(Array.isArray(sgw.props.style)).toBe(true); // active=true
+    expect(Array.isArray(loy.props.style)).toBe(true); // active=false
+    expect(Array.isArray(sgw.props.children.props.style)).toBe(true);
+    expect(Array.isArray(loy.props.children.props.style)).toBe(true);
   });
 
-  test("applies correct styles depending on Platform and isWide", () => {
+  test("applies correct styles depending on Platform, isWide and insets", () => {
     const path = require("path");
     const reactNative = require("react-native");
 
@@ -121,8 +127,7 @@ describe("components/AppHeader", () => {
       onSearchTextChange: jest.fn(),
       searchInputRef: { current: null },
     });
-    const lg = el.props.style;
-    expect(lg).toContainEqual({ paddingHorizontal: 28 });
+    expect(el.props.style).toContainEqual({ paddingHorizontal: 28 });
 
     // web + narrow
     reactNative.useWindowDimensions = () => ({ width: 500, height: 800 });
@@ -153,29 +158,5 @@ describe("components/AppHeader", () => {
     });
     const styleIos = el.props.style;
     expect(styleIos).toContainEqual({ paddingTop: 22 }); // insets.top=10 + 12
-  });
-
-  test("BlurView children onPress functions are executed", () => {
-    const AppHeader = require("../../components/AppHeader").default;
-    const onCampusChange = jest.fn();
-    const searchInputRef = { current: null };
-    const el = AppHeader({
-      campus: "SGW",
-      onCampusChange,
-      searchText: "",
-      onSearchTextChange: jest.fn(),
-      searchInputRef,
-    });
-
-    // Find campus buttons inside BlurView
-    const sgw = findByTestID(el, "campus-toggle-sgw");
-    const loy = findByTestID(el, "campus-toggle-loyola");
-
-    // trigger onPress
-    sgw.props.onPress(); // line 98
-    loy.props.onPress(); // line 100
-
-    expect(onCampusChange).toHaveBeenCalledWith("SGW");
-    expect(onCampusChange).toHaveBeenCalledWith("LOY");
   });
 });
