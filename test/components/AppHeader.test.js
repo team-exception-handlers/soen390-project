@@ -1,35 +1,38 @@
-jest.mock('expo-linear-gradient', () => {
-  const React = require('react');
+jest.mock("expo-linear-gradient", () => {
+  const React = require("react");
   return {
-    LinearGradient: ({ children, ...props }) => React.createElement('LinearGradient', props, children),
+    LinearGradient: ({ children, ...props }) =>
+      React.createElement("LinearGradient", props, children),
   };
 });
 
-jest.mock('expo-blur', () => {
-  const React = require('react');
+jest.mock("expo-blur", () => {
+  const React = require("react");
   return {
-    BlurView: ({ children, ...props }) => React.createElement('BlurView', props, children),
+    BlurView: ({ children, ...props }) =>
+      React.createElement("BlurView", props, children),
   };
 });
 
-jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 0 }),
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 10 }), // non-zero to test paddingTop branch
 }));
 
-jest.mock('react-native', () => {
-  const React = require('react');
+jest.mock("react-native", () => {
+  const React = require("react");
   return {
-    Platform: { OS: 'web' },
-    Pressable: (props) => React.createElement('Pressable', props, props.children),
+    Platform: { OS: "web" }, // default, we will override in tests
+    Pressable: (props) =>
+      React.createElement("Pressable", props, props.children),
     StyleSheet: { create: (s) => s },
-    Text: (props) => React.createElement('Text', props, props.children),
-    TextInput: (props) => React.createElement('TextInput', props),
-    View: (props) => React.createElement('View', props, props.children),
+    Text: (props) => React.createElement("Text", props, props.children),
+    TextInput: (props) => React.createElement("TextInput", props),
+    View: (props) => React.createElement("View", props, props.children),
     useWindowDimensions: () => ({ width: 1000, height: 800 }),
   };
 });
 
-describe('components/AppHeader', () => {
+describe("components/AppHeader", () => {
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
@@ -44,62 +47,110 @@ describe('components/AppHeader', () => {
       }
       return null;
     }
-
     if (node && node.props && node.props.testID === id) return node;
-
-    if (node && node.props && node.props.children) {
+    if (node && node.props && node.props.children)
       return findByTestID(node.props.children, id);
-    }
-
     return null;
   }
 
-  test('renders title and search input with provided value', () => {
-    const path = require('path');
-    const AppHeader = require(path.join(__dirname, '..', '..', 'components', 'AppHeader')).default;
+  test("renders title and search input with provided value", () => {
+    const AppHeader = require("../../components/AppHeader").default;
     const onCampusChange = jest.fn();
     const onSearchTextChange = jest.fn();
+    const searchInputRef = { current: null };
 
     const el = AppHeader({
-      campus: 'SGW',
+      campus: "SGW",
       onCampusChange,
-      searchText: 'hello world',
+      searchText: "hello world",
       onSearchTextChange,
+      searchInputRef,
     });
 
-    const title = findByTestID(el, 'header-title');
+    const title = findByTestID(el, "header-title");
     expect(title).toBeTruthy();
-    expect(title.props.children).toBe('Where to?');
+    expect(title.props.children).toBe("Where to?");
 
-    const input = findByTestID(el, 'search-input');
+    const input = findByTestID(el, "search-input");
     expect(input).toBeTruthy();
-    expect(input.props.value).toBe('hello world');
+    expect(input.props.value).toBe("hello world");
     expect(input.props.onChangeText).toBe(onSearchTextChange);
   });
 
-  test('campus buttons call onCampusChange with correct value', () => {
-    const path = require('path');
-    const AppHeader = require(path.join(__dirname, '..', '..', 'components', 'AppHeader')).default;
+  test("campus buttons call onCampusChange with correct value", () => {
+    const AppHeader = require("../../components/AppHeader").default;
     const onCampusChange = jest.fn();
     const onSearchTextChange = jest.fn();
+    const searchInputRef = { current: null };
 
     const el = AppHeader({
-      campus: 'SGW',
+      campus: "SGW",
       onCampusChange,
-      searchText: '',
+      searchText: "",
       onSearchTextChange,
+      searchInputRef,
     });
 
-    const sgw = findByTestID(el, 'campus-toggle-sgw');
-    const loy = findByTestID(el, 'campus-toggle-loyola');
+    const sgw = findByTestID(el, "campus-toggle-sgw");
+    const loy = findByTestID(el, "campus-toggle-loyola");
     expect(sgw).toBeTruthy();
     expect(loy).toBeTruthy();
 
-    // simulate presses by invoking the onPress prop
     sgw.props.onPress();
-    expect(onCampusChange).toHaveBeenCalledWith('SGW');
+    expect(onCampusChange).toHaveBeenCalledWith("SGW");
 
     loy.props.onPress();
-    expect(onCampusChange).toHaveBeenCalledWith('LOY');
+    expect(onCampusChange).toHaveBeenCalledWith("LOY");
+  });
+
+  test("applies correct styles depending on Platform and isWide", () => {
+    const path = require("path");
+    const reactNative = require("react-native");
+
+    // web + wide
+    reactNative.Platform.OS = "web";
+    reactNative.useWindowDimensions = () => ({ width: 1000, height: 800 });
+    const AppHeaderWebWide = require(
+      path.join(__dirname, "..", "..", "components", "AppHeader"),
+    ).default;
+    let el = AppHeaderWebWide({
+      campus: "SGW",
+      onCampusChange: jest.fn(),
+      searchText: "",
+      onSearchTextChange: jest.fn(),
+      searchInputRef: { current: null },
+    });
+    const lg = el.props.style;
+    expect(lg).toContainEqual({ paddingHorizontal: 28 });
+
+    // web + narrow
+    reactNative.useWindowDimensions = () => ({ width: 500, height: 800 });
+    const AppHeaderWebNarrow = require(
+      path.join(__dirname, "..", "..", "components", "AppHeader"),
+    ).default;
+    el = AppHeaderWebNarrow({
+      campus: "SGW",
+      onCampusChange: jest.fn(),
+      searchText: "",
+      onSearchTextChange: jest.fn(),
+      searchInputRef: { current: null },
+    });
+    expect(el.props.style).not.toContainEqual({ paddingHorizontal: 28 });
+
+    // ios / non-web
+    reactNative.Platform.OS = "ios";
+    reactNative.useWindowDimensions = () => ({ width: 500, height: 800 });
+    const AppHeaderIos = require(
+      path.join(__dirname, "..", "..", "components", "AppHeader"),
+    ).default;
+    el = AppHeaderIos({
+      campus: "SGW",
+      onCampusChange: jest.fn(),
+      searchText: "",
+      onSearchTextChange: jest.fn(),
+      searchInputRef: { current: null },
+    });
+    const styleIos = el.props.style;
+    expect(styleIos).toContainEqual({ paddingTop: 22 }); // insets.top=10 + 12
   });
 });
