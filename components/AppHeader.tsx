@@ -19,6 +19,7 @@ type AppHeaderProps = {
   onCampusChange: (campus: Campus) => void;
   searchText: string;
   onSearchTextChange: (text: string) => void;
+  searchInputRef: React.RefObject<TextInput | null>;
 };
 
 export default function AppHeader({
@@ -26,6 +27,7 @@ export default function AppHeader({
   onCampusChange,
   searchText,
   onSearchTextChange,
+  searchInputRef,
 }: Readonly<AppHeaderProps>) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -57,10 +59,13 @@ export default function AppHeader({
         />
       </BlurView>
 
-      <Text style={styles.title} testID="header-title">Where to?</Text>
+      <Text style={styles.title} testID="header-title">
+        Where to?
+      </Text>
 
       <View style={styles.searchContainer}>
         <TextInput
+          ref={searchInputRef}
           testID="search-input"
           value={searchText}
           onChangeText={onSearchTextChange}
@@ -80,7 +85,12 @@ type CampusButtonProps = {
   onPress: () => void;
 };
 
-function CampusButton({ testID, label, active, onPress }: Readonly<CampusButtonProps>) {
+function CampusButton({
+  testID,
+  label,
+  active,
+  onPress,
+}: Readonly<CampusButtonProps>) {
   return (
     <Pressable
       testID={testID}
