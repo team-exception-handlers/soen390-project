@@ -103,6 +103,55 @@ describe("components/AppHeader", () => {
     loy.props.onPress();
     expect(onCampusChange).toHaveBeenCalledWith("LOY");
   });
+  test("CampusButton applies active and inactive styles correctly", () => {
+    const AppHeader = require("../../components/AppHeader").default;
+
+    const el = AppHeader({
+      campus: "SGW",
+      onCampusChange: jest.fn(),
+      searchText: "",
+      onSearchTextChange: jest.fn(),
+      searchInputRef: { current: null },
+    });
+
+    const sgwWrapper = findByTestID(el, "campus-toggle-sgw");
+    const loyWrapper = findByTestID(el, "campus-toggle-loyola");
+
+    expect(sgwWrapper).toBeTruthy();
+    expect(loyWrapper).toBeTruthy();
+
+    // Manually execute CampusButton to get the Pressable it returns
+    const sgwPressable = sgwWrapper.type(sgwWrapper.props);
+    const loyPressable = loyWrapper.type(loyWrapper.props);
+
+    // Now style exists
+    expect(sgwPressable.props.style).toBeDefined();
+    expect(loyPressable.props.style).toBeDefined();
+
+    // SGW should include active style
+    expect(sgwPressable.props.style).toContainEqual({
+      backgroundColor: "rgba(255,255,255,0.95)",
+    });
+
+    // Loyola should NOT include active style
+    expect(loyPressable.props.style).not.toContainEqual({
+      backgroundColor: "rgba(255,255,255,0.95)",
+    });
+
+    // ---- TEXT ----
+    const sgwText = sgwPressable.props.children;
+    const loyText = loyPressable.props.children;
+
+    expect(sgwText.props.style).toContainEqual({
+      color: "#A32638",
+      fontWeight: "600",
+    });
+
+    expect(loyText.props.style).not.toContainEqual({
+      color: "#A32638",
+      fontWeight: "600",
+    });
+  });
 
   test("applies correct styles depending on Platform and isWide", () => {
     const path = require("path");
