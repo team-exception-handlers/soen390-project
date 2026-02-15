@@ -614,45 +614,10 @@ export default function MapScreen() {
     return null;
   }, [originBuildingCode, userLocation]);
 
-  const currentBuildingRecord = useMemo(
-    () => resolveBuildingByCode(currentBuilding, campusBuildings),
-    [campusBuildings, currentBuilding],
-  );
-
   const destinationBuilding = useMemo(
     () => resolveBuildingByCode(destinationBuildingCode, BUILDINGS),
     [destinationBuildingCode],
   );
-
-  const routeStatusText = useMemo(() => {
-    if (!isDirectionsMode) return "";
-    if (locationPermissionDenied) {
-      return "Enable location permission to route from your current location.";
-    }
-    if (!actualOriginPoint) return "Finding your current location...";
-    if (!destinationBuilding) {
-      return "Hall building destination is unavailable.";
-    }
-    if (routeLoading) return "Loading route...";
-    if (routeError) return routeError;
-    if (routeDurationMinutes !== null && routeDistanceMeters !== null) {
-      const modeLabel =
-        TRAVEL_MODES.find((mode) => mode.value === routeMode)?.label ??
-        routeMode;
-      return `${modeLabel}: ${formatDuration(routeDurationMinutes)} - ${formatDistance(routeDistanceMeters)}`;
-    }
-    return "Route unavailable for the selected destination.";
-  }, [
-    destinationBuilding,
-    isDirectionsMode,
-    locationPermissionDenied,
-    actualOriginPoint,
-    routeDistanceMeters,
-    routeDurationMinutes,
-    routeError,
-    routeLoading,
-    routeMode,
-  ]);
 
   const originBuilding = useMemo(
     () => resolveBuildingByCode(originBuildingCode, BUILDINGS),
