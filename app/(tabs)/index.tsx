@@ -32,6 +32,7 @@ import {
   type RouteInstruction,
   type RouteProfile,
 } from "../../utils/osrmDirections";
+import { fetchTransitRoute } from "../../utils/transitousDirections";
 
 import BuildingInformation from "@/components/BuildingInformation";
 import { getCampusRegion } from "../../utils/mapRegions";
@@ -47,10 +48,10 @@ if (Platform.OS !== "web") {
 
 const roundCoord = (value: number) => Number(value.toFixed(4));
 
-const TRAVEL_MODES: { value: RouteProfile; label: string }[] = [
+const TRAVEL_MODES: { value: RouteProfile | "transit"; label: string }[] = [
   { value: "walking", label: "Walk" },
   { value: "driving", label: "Drive" },
-  { value: "cycling", label: "Bike" },
+  { value: "transit", label: "Transit" },
 ];
 const HALL_BUILDING_CODE = "H";
 
@@ -88,7 +89,7 @@ export default function MapScreen() {
   const [destinationBuildingCode, setDestinationBuildingCode] =
     useState<string>(HALL_BUILDING_CODE);
   const [isDirectionsMode, setIsDirectionsMode] = useState(false);
-  const routeMode: RouteProfile = "walking";
+  const [routeMode, setRouteMode] = useState<RouteProfile | "transit">("walking");
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
@@ -104,6 +105,9 @@ export default function MapScreen() {
     RouteInstruction[]
   >([]);
   const [showRouteInstructions, setShowRouteInstructions] = useState(false);
+  const [modeDurations, setModeDurations] = useState<Record<string, number | null>>({
+    walking: null, driving: null, transit: null,
+  });
   const routeInstructionsDismissedRef = useRef(false);
   const routeSheetPanResponder = useRef(
     PanResponder.create({
@@ -342,33 +346,6 @@ export default function MapScreen() {
       fontSize: 12,
       fontWeight: "700",
     },
-    routeModeRow: {
-      flexDirection: "row",
-      gap: 8,
-      marginTop: 10,
-    },
-    routeModeButton: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: 18,
-      borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.3)",
-      backgroundColor: "rgba(255,255,255,0.06)",
-      paddingVertical: 8,
-    },
-    routeModeButtonActive: {
-      backgroundColor: "#D2E9FF",
-      borderColor: "#95C6F3",
-    },
-    routeModeButtonText: {
-      color: "white",
-      fontSize: 13,
-      fontWeight: "700",
-    },
-    routeModeButtonTextActive: {
-      color: "#123B5D",
-    },
     routeStatusText: {
       marginTop: 10,
       color: "#E8E8EC",
@@ -445,6 +422,69 @@ export default function MapScreen() {
       color: "#111111",
       fontWeight: "700",
       marginBottom: 18,
+    },
+    sameCampusHint: {
+      color: "rgba(255,255,255,0.55)",
+      fontSize: 11,
+      fontStyle: "italic",
+      alignSelf: "center",
+      flex: 1,
+      marginLeft: 8,
+    },
+    modeSelectorGrid: {
+      marginTop: 10,
+      gap: 8,
+    },
+    modeSelectorRow: {
+      flexDirection: "row",
+      gap: 8,
+      alignItems: "center",
+    },
+    modePill: {
+      flex: 1,
+      paddingVertical: 9,
+      paddingHorizontal: 10,
+      borderRadius: 22,
+      borderWidth: 1.5,
+      borderColor: "rgba(255,255,255,0.28)",
+      backgroundColor: "rgba(255,255,255,0.10)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    modePillActive: {
+      backgroundColor: "#D2E9FF",
+      borderColor: "#95C6F3",
+    },
+    modePillText: {
+      color: "white",
+      fontSize: 13,
+      fontWeight: "700",
+    },
+    modePillTextActive: {
+      color: "#123B5D",
+    },
+    modePillSpacer: {
+      flex: 1,
+    },
+    modePillGroup: {
+      flex: 1,
+      flexDirection: "row",
+      gap: 8,
+    },
+    modeActionButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 9,
+      borderRadius: 22,
+      backgroundColor: "rgba(255,255,255,0.15)",
+      borderWidth: 1.5,
+      borderColor: "rgba(255,255,255,0.35)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    modeActionButtonText: {
+      color: "white",
+      fontSize: 13,
+      fontWeight: "700",
     },
     e2eControls: {
       position: "absolute",
@@ -624,6 +664,45 @@ export default function MapScreen() {
     [originBuildingCode],
   );
 
+  const isSameCampus = useMemo(() => {
+    if (!originBuilding || !destinationBuilding) return true;
+    return originBuilding.campus === destinationBuilding.campus;
+  }, [originBuilding, destinationBuilding]);
+
+  useEffect(() => {
+    if (isSameCampus) setRouteMode("walking");
+  }, [isSameCampus]);
+
+  useEffect(() => {
+    if (!destinationBuilding || !actualOriginPoint) {
+      setModeDurations({ walking: null, driving: null, transit: null });
+      return;
+    }
+    let cancelled = false;
+    const go = async () => {
+      const [walk, drive] = await Promise.allSettled([
+        fetchOsrmRoute(actualOriginPoint, destinationBuilding, "walking"),
+        fetchOsrmRoute(actualOriginPoint, destinationBuilding, "driving"),
+      ]);
+      if (cancelled) return;
+      setModeDurations((p) => ({
+        ...p,
+        walking: walk.status === "fulfilled" ? Math.round(walk.value.durationSeconds / 60) : null,
+        driving: drive.status === "fulfilled" ? Math.round(drive.value.durationSeconds / 60) : null,
+      }));
+      if (!isSameCampus) {
+        try {
+          const t = await fetchTransitRoute(actualOriginPoint, destinationBuilding);
+          if (!cancelled) setModeDurations((p) => ({ ...p, transit: Math.round(t.durationSeconds / 60) }));
+        } catch {
+          if (!cancelled) setModeDurations((p) => ({ ...p, transit: null }));
+        }
+      }
+    };
+    go();
+    return () => { cancelled = true; };
+  }, [actualOriginPoint, destinationBuilding, isSameCampus]);
+
   const exitDirectionsMode = () => {
     setIsDirectionsMode(false);
     setRouteCoordinates([]);
@@ -709,22 +788,39 @@ export default function MapScreen() {
         setRouteLoading(true);
         setRouteError(null);
 
-        const route = await fetchOsrmRoute(
-          actualOriginPoint,
-          destinationBuilding,
-          routeMode,
-        );
-
-        if (cancelled) return;
-        setRouteCoordinates(route.coordinates);
-        setRouteDurationMinutes(Math.round(route.durationSeconds / 60));
-        setRouteDistanceMeters(route.distanceMeters);
-        setRouteInstructions(route.instructions);
-        if (
-          route.instructions.length > 0 &&
-          !routeInstructionsDismissedRef.current
-        ) {
-          setShowRouteInstructions(true);
+        if (routeMode === "transit") {
+          const route = await fetchTransitRoute(
+            actualOriginPoint,
+            destinationBuilding,
+          );
+          if (cancelled) return;
+          setRouteCoordinates(route.coordinates);
+          setRouteDurationMinutes(Math.round(route.durationSeconds / 60));
+          setRouteDistanceMeters(route.distanceMeters);
+          setRouteInstructions(route.instructions);
+          if (
+            route.instructions.length > 0 &&
+            !routeInstructionsDismissedRef.current
+          ) {
+            setShowRouteInstructions(true);
+          }
+        } else {
+          const route = await fetchOsrmRoute(
+            actualOriginPoint,
+            destinationBuilding,
+            routeMode,
+          );
+          if (cancelled) return;
+          setRouteCoordinates(route.coordinates);
+          setRouteDurationMinutes(Math.round(route.durationSeconds / 60));
+          setRouteDistanceMeters(route.distanceMeters);
+          setRouteInstructions(route.instructions);
+          if (
+            route.instructions.length > 0 &&
+            !routeInstructionsDismissedRef.current
+          ) {
+            setShowRouteInstructions(true);
+          }
         }
       } catch {
         if (cancelled) return;
@@ -935,11 +1031,11 @@ export default function MapScreen() {
               const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               const routeMode = ${JSON.stringify(routeMode)};
               const routeCoordinates = ${JSON.stringify(
-                routeCoordinates.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      routeCoordinates.map((point) => [
+        point.latitude,
+        point.longitude,
+      ]),
+    )};
               let selectedPolygon = null;
               window.polygonMap = {};
               window.currentBuildingPolygon = null;
@@ -1132,9 +1228,8 @@ export default function MapScreen() {
                   });
               });
 
-              ${
-                userLat && userLng
-                  ? `
+              ${userLat && userLng
+        ? `
               console.log('Adding user marker at:', ${userLat}, ${userLng});
               const userIcon = L.divIcon({
                   className: 'user-marker',
@@ -1144,8 +1239,8 @@ export default function MapScreen() {
               });
               window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
               `
-                  : 'console.log("No user location available");'
-              }
+        : 'console.log("No user location available");'
+      }
           </script>
       </body>
       </html>
@@ -1216,7 +1311,7 @@ export default function MapScreen() {
                   setSelectedBuilding(data.buildingCode);
                 if (data?.type === "buildingDeselected")
                   setSelectedBuilding(null);
-              } catch {}
+              } catch { }
               return false;
             }
             return true;
@@ -1232,9 +1327,9 @@ export default function MapScreen() {
 
   const nativeMapContent =
     MapViewComponent &&
-    MapMarkerComponent &&
-    MapCalloutComponent &&
-    MapPolygonComponent ? (
+      MapMarkerComponent &&
+      MapCalloutComponent &&
+      MapPolygonComponent ? (
       <MapViewComponent
         key={campus}
         ref={mapRef}
@@ -1309,10 +1404,10 @@ export default function MapScreen() {
           const polygonCode = hasExactPolygon
             ? building.code
             : campusPolygons.features.find(
-                (f: any) =>
-                  building.code.startsWith(f.properties.code) &&
-                  f.properties.code.length >= 2,
-              )?.properties.code || building.code;
+              (f: any) =>
+                building.code.startsWith(f.properties.code) &&
+                f.properties.code.length >= 2,
+            )?.properties.code || building.code;
 
           return (
             <MapMarkerComponent
@@ -1432,12 +1527,103 @@ export default function MapScreen() {
           </Pressable>
 
           {/* GO / CANCEL BUTTON */}
-          <Pressable onPress={clearDirections} style={styles.clearRouteButton}>
+          <Pressable testID="direction-go-button" onPress={clearDirections} style={styles.clearRouteButton}>
             <Text style={styles.clearRouteText}>
               {isDirectionsMode ? "Cancel" : "Go"}
             </Text>
           </Pressable>
         </View>
+
+        {/* TRANSPORT MODE BUTTONS — different campus only */}
+        {isDirectionsMode && !isSameCampus && (
+          <View style={styles.modeSelectorGrid}>
+            <View style={styles.modeSelectorRow}>
+              <View style={styles.modePillGroup}>
+                <Pressable
+                  testID="route-mode-walking"
+                  style={[styles.modePill, routeMode === "walking" && styles.modePillActive]}
+                  onPress={() => setRouteMode("walking")}
+                >
+                  <Text style={[styles.modePillText, routeMode === "walking" && styles.modePillTextActive]}>
+                    Walk - {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  testID="route-mode-driving"
+                  style={[styles.modePill, routeMode === "driving" && styles.modePillActive]}
+                  onPress={() => setRouteMode("driving")}
+                >
+                  <Text style={[styles.modePillText, routeMode === "driving" && styles.modePillTextActive]}>
+                    Car - {modeDurations.driving !== null ? formatDuration(modeDurations.driving) : "—"}
+                  </Text>
+                </Pressable>
+              </View>
+              <Pressable
+                testID="direction-start-button"
+                style={styles.modeActionButton}
+                onPress={() => {
+                  routeInstructionsDismissedRef.current = false;
+                  setShowRouteInstructions(true);
+                }}
+              >
+                <Text style={styles.modeActionButtonText}>Start</Text>
+              </Pressable>
+            </View>
+            <View style={styles.modeSelectorRow}>
+              <View style={styles.modePillGroup}>
+                <Pressable
+                  testID="route-mode-transit"
+                  style={[styles.modePill, routeMode === "transit" && styles.modePillActive]}
+                  onPress={() => setRouteMode("transit")}
+                >
+                  <Text style={[styles.modePillText, routeMode === "transit" && styles.modePillTextActive]}>
+                    Public Transit {modeDurations.transit !== null ? formatDuration(modeDurations.transit) : "—"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  testID="route-mode-shuttle"
+                  style={[styles.modePill]}
+                  disabled
+                >
+                  <Text style={[styles.modePillText, { opacity: 0.45 }]}>
+                    Shuttle —
+                  </Text>
+                </Pressable>
+              </View>
+              <Pressable
+                testID="direction-exit-button"
+                style={styles.modeActionButton}
+                onPress={clearDirections}
+              >
+                <Text style={styles.modeActionButtonText}>Exit</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* WALK ONLY — same campus */}
+        {isDirectionsMode && isSameCampus && (
+          <View style={styles.modeSelectorGrid}>
+            <View style={styles.modeSelectorRow}>
+              <Pressable
+                testID="route-mode-walking"
+                style={[styles.modePill, styles.modePillActive]}
+              >
+                <Text style={[styles.modePillText, styles.modePillTextActive]}>
+                  Walk - {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
+                </Text>
+              </Pressable>
+              <Text style={styles.sameCampusHint}>Same campus</Text>
+              <Pressable
+                testID="direction-exit-button"
+                style={styles.modeActionButton}
+                onPress={clearDirections}
+              >
+                <Text style={styles.modeActionButtonText}>Exit</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
       </View>
 
       {currentBuilding &&
