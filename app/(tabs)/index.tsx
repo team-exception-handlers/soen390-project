@@ -1,6 +1,6 @@
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
-import { ChevronDown, ChevronUp, X } from "lucide-react-native";
+import { Bus, ChevronDown, ChevronUp, Footprints, MapPin, Train, TramFront, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
@@ -32,7 +32,7 @@ import {
   type RouteInstruction,
   type RouteProfile,
 } from "../../utils/osrmDirections";
-import { fetchTransitRoute } from "../../utils/transitousDirections";
+import { fetchTransitItineraries, formatTime, type TransitItinerary } from "../../utils/transitousDirections";
 
 import BuildingInformation from "@/components/BuildingInformation";
 import { getCampusRegion } from "../../utils/mapRegions";
@@ -49,9 +49,9 @@ if (Platform.OS !== "web") {
 const roundCoord = (value: number) => Number(value.toFixed(4));
 
 const TRAVEL_MODES: { value: RouteProfile | "transit"; label: string }[] = [
-  { value: "walking", label: "Walk" },
-  { value: "driving", label: "Drive" },
-  { value: "transit", label: "Transit" },
+  { value: "walking", label: "🚶 Walk" },
+  { value: "driving", label: "🚗 Drive" },
+  { value: "transit", label: "🚌 Transit" },
 ];
 const HALL_BUILDING_CODE = "H";
 
@@ -108,6 +108,11 @@ export default function MapScreen() {
   const [modeDurations, setModeDurations] = useState<Record<string, number | null>>({
     walking: null, driving: null, transit: null,
   });
+  const [transitItineraries, setTransitItineraries] = useState<TransitItinerary[]>([]);
+  const [selectedItineraryIndex, setSelectedItineraryIndex] = useState(0);
+  const [expandedItineraries, setExpandedItineraries] = useState<number[]>([]);
+  const [expandedIntermediateStops, setExpandedIntermediateStops] = useState<Set<string>>(new Set());
+  const [routeStarted, setRouteStarted] = useState(false);
   const routeInstructionsDismissedRef = useRef(false);
   const routeSheetPanResponder = useRef(
     PanResponder.create({
@@ -423,6 +428,181 @@ export default function MapScreen() {
       fontWeight: "700",
       marginBottom: 18,
     },
+    itineraryCard: {
+      backgroundColor: "white",
+      borderRadius: 14,
+      padding: 12,
+      marginBottom: 10,
+      borderWidth: 2,
+      borderColor: "#E5E5EA",
+    },
+    itineraryCardActive: {
+      borderColor: "#007AFF",
+      backgroundColor: "#F0F7FF",
+    },
+    itineraryTime: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: "#1C1C1E",
+      marginBottom: 4,
+    },
+    itineraryDuration: {
+      fontSize: 13,
+      color: "#3A3A3C",
+      marginBottom: 2,
+    },
+    itineraryTransfers: {
+      fontSize: 12,
+      color: "#8E8E93",
+      marginBottom: 8,
+    },
+    itineraryLegsRow: {
+      flexDirection: "row",
+      gap: 6,
+      flexWrap: "wrap",
+    },
+    legPill: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    legPillWalk: {
+      backgroundColor: "#E8F5E9",
+      color: "#2E7D32",
+    },
+    legPillBus: {
+      backgroundColor: "#FFF3E0",
+      color: "#E65100",
+    },
+    legPillSubway: {
+      backgroundColor: "#E3F2FD",
+      color: "#1565C0",
+    },
+    legPillTram: {
+      backgroundColor: "#F3E5F5",
+      color: "#6A1B9A",
+    },
+    legDetailRow: {
+      flexDirection: "row",
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: "#F0F0F0",
+    },
+    legDetailTime: {
+      width: 60,
+      fontSize: 13,
+      fontWeight: "600",
+      color: "#1C1C1E",
+    },
+    legDetailLine: {
+      width: 20,
+      alignItems: "center",
+      marginRight: 8,
+    },
+    legDetailContent: {
+      flex: 1,
+      fontSize: 13,
+      color: "#3A3A3C",
+    },
+    timelineContainer: {
+      flexDirection: "row",
+      marginBottom: 8,
+    },
+    timelineLeft: {
+      width: 60,
+      alignItems: "flex-end",
+      paddingRight: 12,
+    },
+    timelineCenter: {
+      width: 40,
+      alignItems: "center",
+      position: "relative",
+    },
+    timelineIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "white",
+      borderWidth: 2,
+      zIndex: 2,
+    },
+    timelineIconWalk: {
+      borderColor: "#2E7D32",
+      backgroundColor: "#E8F5E9",
+    },
+    timelineIconTransit: {
+      borderColor: "#007AFF",
+      backgroundColor: "#E3F2FD",
+    },
+    timelineLine: {
+      position: "absolute",
+      width: 3,
+      top: 32,
+      bottom: -8,
+      backgroundColor: "#E5E5EA",
+      left: "50%",
+      marginLeft: -1.5,
+    },
+    timelineLineWalk: {
+      backgroundColor: "#2E7D32",
+    },
+    timelineLineTransit: {
+      backgroundColor: "#007AFF",
+    },
+    timelineRight: {
+      flex: 1,
+      paddingLeft: 8,
+    },
+    timelineTime: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: "#1C1C1E",
+      marginBottom: 4,
+    },
+    timelineStopName: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#1C1C1E",
+      marginBottom: 6,
+    },
+    timelineWalkDetail: {
+      fontSize: 13,
+      color: "#6A6A75",
+      marginBottom: 4,
+    },
+    timelineRoutePill: {
+      alignSelf: "flex-start",
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 6,
+      marginBottom: 6,
+    },
+    timelineRoutePillBus: {
+      backgroundColor: "#FFA500",
+    },
+    timelineRoutePillSubway: {
+      backgroundColor: "#007AFF",
+    },
+    timelineRoutePillTram: {
+      backgroundColor: "#9C27B0",
+    },
+    timelineRouteText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: "white",
+      marginLeft: 6,
+    },
+    timelineHeadsign: {
+      fontSize: 13,
+      color: "#3A3A3C",
+      marginTop: 2,
+    },
     sameCampusHint: {
       color: "rgba(255,255,255,0.55)",
       fontSize: 11,
@@ -692,8 +872,8 @@ export default function MapScreen() {
       }));
       if (!isSameCampus) {
         try {
-          const t = await fetchTransitRoute(actualOriginPoint, destinationBuilding);
-          if (!cancelled) setModeDurations((p) => ({ ...p, transit: Math.round(t.durationSeconds / 60) }));
+          const itins = await fetchTransitItineraries(actualOriginPoint, destinationBuilding);
+          if (!cancelled) setModeDurations((p) => ({ ...p, transit: itins[0] ? Math.round(itins[0].durationSeconds / 60) : null }));
         } catch {
           if (!cancelled) setModeDurations((p) => ({ ...p, transit: null }));
         }
@@ -712,6 +892,11 @@ export default function MapScreen() {
     setRouteLoading(false);
     setRouteInstructions([]);
     setShowRouteInstructions(false);
+    setTransitItineraries([]);
+    setSelectedItineraryIndex(0);
+    setExpandedItineraries([]);
+    setExpandedIntermediateStops(new Set());
+    setRouteStarted(false);
     routeInstructionsDismissedRef.current = false;
   };
 
@@ -777,6 +962,11 @@ export default function MapScreen() {
       setRouteError(null);
       setRouteInstructions([]);
       setShowRouteInstructions(false);
+      setTransitItineraries([]);
+      setSelectedItineraryIndex(0);
+      setExpandedItineraries([]);
+      setExpandedIntermediateStops(new Set());
+      setRouteStarted(false);
       routeInstructionsDismissedRef.current = false;
       return;
     }
@@ -789,17 +979,24 @@ export default function MapScreen() {
         setRouteError(null);
 
         if (routeMode === "transit") {
-          const route = await fetchTransitRoute(
+          const itineraries = await fetchTransitItineraries(
             actualOriginPoint,
             destinationBuilding,
           );
           if (cancelled) return;
-          setRouteCoordinates(route.coordinates);
-          setRouteDurationMinutes(Math.round(route.durationSeconds / 60));
-          setRouteDistanceMeters(route.distanceMeters);
-          setRouteInstructions(route.instructions);
+          setTransitItineraries(itineraries);
+          setSelectedItineraryIndex(0);
+          setExpandedItineraries([]);
+          setRouteStarted(false);
+
+          // Set route from first itinerary
+          const firstRoute = itineraries[0];
+          setRouteCoordinates(firstRoute.coordinates);
+          setRouteDurationMinutes(Math.round(firstRoute.durationSeconds / 60));
+          setRouteDistanceMeters(firstRoute.distanceMeters);
+          setRouteInstructions(firstRoute.instructions);
           if (
-            route.instructions.length > 0 &&
+            firstRoute.instructions.length > 0 &&
             !routeInstructionsDismissedRef.current
           ) {
             setShowRouteInstructions(true);
@@ -830,6 +1027,11 @@ export default function MapScreen() {
         setRouteError("Could not load route for this selection.");
         setRouteInstructions([]);
         setShowRouteInstructions(false);
+        setTransitItineraries([]);
+        setSelectedItineraryIndex(0);
+        setExpandedItineraries([]);
+        setExpandedIntermediateStops(new Set());
+        setRouteStarted(false);
         routeInstructionsDismissedRef.current = false;
       } finally {
         if (!cancelled) setRouteLoading(false);
@@ -1545,7 +1747,7 @@ export default function MapScreen() {
                   onPress={() => setRouteMode("walking")}
                 >
                   <Text style={[styles.modePillText, routeMode === "walking" && styles.modePillTextActive]}>
-                    Walk - {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
+                    Walk/Bike - {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
                   </Text>
                 </Pressable>
                 <Pressable
@@ -1562,6 +1764,7 @@ export default function MapScreen() {
                 testID="direction-start-button"
                 style={styles.modeActionButton}
                 onPress={() => {
+                  setRouteStarted(true);
                   routeInstructionsDismissedRef.current = false;
                   setShowRouteInstructions(true);
                 }}
@@ -1577,7 +1780,7 @@ export default function MapScreen() {
                   onPress={() => setRouteMode("transit")}
                 >
                   <Text style={[styles.modePillText, routeMode === "transit" && styles.modePillTextActive]}>
-                    Public Transit {modeDurations.transit !== null ? formatDuration(modeDurations.transit) : "—"}
+                    Public Transit - {modeDurations.transit !== null ? formatDuration(modeDurations.transit) : "—"}
                   </Text>
                 </Pressable>
                 <Pressable
@@ -1586,7 +1789,7 @@ export default function MapScreen() {
                   disabled
                 >
                   <Text style={[styles.modePillText, { opacity: 0.45 }]}>
-                    Shuttle —
+                    Shuttle — Temporarily unavailable
                   </Text>
                 </Pressable>
               </View>
@@ -1610,7 +1813,7 @@ export default function MapScreen() {
                 style={[styles.modePill, styles.modePillActive]}
               >
                 <Text style={[styles.modePillText, styles.modePillTextActive]}>
-                  Walk - {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
+                  🚶 {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
                 </Text>
               </Pressable>
               <Text style={styles.sameCampusHint}>Same campus</Text>
@@ -1725,14 +1928,401 @@ export default function MapScreen() {
               contentContainerStyle={styles.routeStepsListContent}
               showsVerticalScrollIndicator={false}
             >
-              {routeInstructions.map((instruction, index) => (
-                <Text
-                  key={`${index}-${instruction.text}`}
-                  style={styles.routeStepText}
-                >
-                  {`${index + 1}. ${instruction.text}`}
-                </Text>
-              ))}
+              {routeMode === "transit" && transitItineraries.length > 0 ? (
+                routeStarted ? (
+                  // After start is pressed, Show only selected route with full details
+                  <>
+                    <Text style={{ fontSize: 17, fontWeight: "700", marginBottom: 20, color: "#1C1C1E" }}>
+                      Journey Details
+                    </Text>
+                    {transitItineraries[selectedItineraryIndex]?.legs.map((leg, legIndex) => {
+                      const isWalk = leg.mode === "WALK";
+                      const isLastLeg = legIndex === transitItineraries[selectedItineraryIndex].legs.length - 1;
+                      const hasIntermediateStops = leg.intermediateStops && leg.intermediateStops.length > 0;
+                      const isFirstLeg = legIndex === 0;
+
+                      return (
+                        <React.Fragment key={legIndex}>
+                          {/* Start of leg */}
+                          <View style={styles.timelineContainer}>
+                            <View style={styles.timelineLeft}>
+                              <Text style={styles.timelineTime}>
+                                {isFirstLeg && isWalk ? "Now" : formatTime(leg.startTime)}
+                              </Text>
+                            </View>
+
+                            <View style={styles.timelineCenter}>
+                              <View style={[styles.timelineIcon, isWalk ? styles.timelineIconWalk : styles.timelineIconTransit]}>
+                                {isWalk ? (
+                                  <Footprints size={20} color="#2E7D32" strokeWidth={2.5} />
+                                ) : leg.mode === "BUS" ? (
+                                  <Bus size={20} color="#007AFF" strokeWidth={2.5} />
+                                ) : leg.mode === "SUBWAY" ? (
+                                  <Train size={20} color="#007AFF" strokeWidth={2.5} />
+                                ) : (
+                                  <TramFront size={20} color="#007AFF" strokeWidth={2.5} />
+                                )}
+                              </View>
+                              <View style={[styles.timelineLine, isWalk ? styles.timelineLineWalk : styles.timelineLineTransit]} />
+                            </View>
+
+                            <View style={styles.timelineRight}>
+                              <Text style={styles.timelineStopName}>{leg.from.name}</Text>
+
+                              {isWalk ? (
+                                <Text style={styles.timelineWalkDetail}>
+                                  {Math.round(leg.duration / 60)} min Walk {Math.round(leg.distance)} m
+                                </Text>
+                              ) : (
+                                <>
+                                  <Text style={{ fontSize: 12, color: "#007AFF", fontWeight: "600", marginBottom: 4 }}>
+                                    Departs {formatTime(leg.startTime)}
+                                  </Text>
+                                  <View style={[
+                                    styles.timelineRoutePill,
+                                    leg.mode === "BUS" ? styles.timelineRoutePillBus :
+                                      leg.mode === "SUBWAY" ? styles.timelineRoutePillSubway :
+                                        styles.timelineRoutePillTram
+                                  ]}>
+                                    {leg.mode === "BUS" ? (
+                                      <Bus size={16} color="white" strokeWidth={2.5} />
+                                    ) : leg.mode === "SUBWAY" ? (
+                                      <Train size={16} color="white" strokeWidth={2.5} />
+                                    ) : (
+                                      <TramFront size={16} color="white" strokeWidth={2.5} />
+                                    )}
+                                    <Text style={styles.timelineRouteText}>{leg.route}</Text>
+                                  </View>
+                                  {leg.headsign && (
+                                    <Text style={styles.timelineHeadsign}>→ {leg.headsign}</Text>
+                                  )}
+                                  {hasIntermediateStops && (
+                                    <Text style={{ fontSize: 12, color: "#8E8E93", marginTop: 4 }}>
+                                      {leg.intermediateStops?.length} intermediate stop{(leg.intermediateStops?.length || 0) > 1 ? 's' : ''}
+                                    </Text>
+                                  )}
+                                </>
+                              )}
+                            </View>
+                          </View>
+
+                          {/* Intermediate stops (always shown after Start) */}
+                          {!isWalk && hasIntermediateStops && (
+                            <View style={{ marginLeft: 60, marginTop: -8, marginBottom: 8 }}>
+                              {leg.intermediateStops?.map((stop, stopIdx) => (
+                                <View key={stopIdx} style={{ flexDirection: "row", paddingVertical: 6, borderLeftWidth: 3, borderLeftColor: "#007AFF", paddingLeft: 28 }}>
+                                  <Text style={{ fontSize: 13, fontWeight: "600", color: "#3A3A3C", width: 60 }}>
+                                    {formatTime(stop.arrival)}
+                                  </Text>
+                                  <Text style={{ fontSize: 13, color: "#3A3A3C", flex: 1 }}>
+                                    {stop.name}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          )}
+
+                          {/* Walk end/arrival at stop (if walk and not last leg) */}
+                          {isWalk && !isLastLeg && (
+                            <View style={styles.timelineContainer}>
+                              <View style={styles.timelineLeft}>
+                                <Text style={[styles.timelineTime, { fontSize: 13, color: "#6A6A75" }]}>
+                                  {formatTime(leg.endTime)}
+                                </Text>
+                              </View>
+
+                              <View style={styles.timelineCenter}>
+                                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: "#D1D5DB", borderWidth: 2, borderColor: "white" }} />
+                                <View style={[styles.timelineLine, { backgroundColor: "#D1D5DB" }]} />
+                              </View>
+
+                              <View style={styles.timelineRight}>
+                                <Text style={{ fontSize: 13, color: "#6A6A75", fontWeight: "600" }}>
+                                  {leg.to.name}
+                                </Text>
+                                <Text style={{ fontSize: 12, color: "#8E8E93", marginTop: 2 }}>
+                                  Arrive at stop
+                                </Text>
+                              </View>
+                            </View>
+                          )}
+
+                          {/* Final destination (only for last leg) */}
+                          {isLastLeg && (
+                            <View style={styles.timelineContainer}>
+                              <View style={styles.timelineLeft}>
+                                <Text style={styles.timelineTime}>{formatTime(leg.endTime)}</Text>
+                              </View>
+
+                              <View style={styles.timelineCenter}>
+                                <View style={[styles.timelineIcon, { borderColor: "#EF4444", backgroundColor: "#FEE2E2" }]}>
+                                  <MapPin size={20} color="#EF4444" strokeWidth={2.5} />
+                                </View>
+                              </View>
+
+                              <View style={styles.timelineRight}>
+                                <Text style={[styles.timelineStopName, { color: "#EF4444" }]}>
+                                  {leg.to.name}
+                                </Text>
+                              </View>
+                            </View>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </>
+                ) : (
+                  // Show cards
+                  <>
+                    {transitItineraries.map((itinerary, index) => {
+                      const isExpanded = expandedItineraries.includes(index);
+                      const isSelected = index === selectedItineraryIndex;
+
+                      return (
+                        <View key={index} style={{ marginBottom: 12 }}>
+                          <Pressable
+                            style={[
+                              styles.itineraryCard,
+                              isSelected && styles.itineraryCardActive,
+                            ]}
+                            onPress={() => {
+                              setSelectedItineraryIndex(index);
+                              setRouteCoordinates(itinerary.coordinates);
+                              setRouteDurationMinutes(Math.round(itinerary.durationSeconds / 60));
+                              setRouteDistanceMeters(itinerary.distanceMeters);
+                              setRouteInstructions(itinerary.instructions);
+                            }}
+                          >
+                            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.itineraryTime}>
+                                  {formatTime(itinerary.departureTime)} → {formatTime(itinerary.arrivalTime)}
+                                </Text>
+                                <Text style={styles.itineraryDuration}>
+                                  {Math.round(itinerary.durationSeconds / 60)} min
+                                </Text>
+                                <Text style={styles.itineraryTransfers}>
+                                  {itinerary.transfers === 0 ? "Direct" : `${itinerary.transfers} transfer${itinerary.transfers > 1 ? "s" : ""}`}
+                                </Text>
+                                <View style={styles.itineraryLegsRow}>
+                                  {itinerary.legs.map((leg, legIndex) => {
+                                    const getLegColor = () => {
+                                      if (leg.mode === "WALK") return styles.legPillWalk;
+                                      if (leg.mode === "BUS") return styles.legPillBus;
+                                      if (leg.mode === "SUBWAY") return styles.legPillSubway;
+                                      if (leg.mode === "TRAM") return styles.legPillTram;
+                                      return styles.legPillBus;
+                                    };
+
+                                    return (
+                                      <Text
+                                        key={legIndex}
+                                        style={[styles.legPill, getLegColor()]}
+                                      >
+                                        {leg.mode === "WALK" ? "Walk" : leg.route || leg.mode}
+                                      </Text>
+                                    );
+                                  })}
+                                </View>
+                              </View>
+                              <Pressable
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedItineraries(prev =>
+                                    prev.includes(index)
+                                      ? prev.filter(i => i !== index)
+                                      : [...prev, index]
+                                  );
+                                }}
+                                style={{ padding: 8, marginLeft: 8 }}
+                              >
+                                {isExpanded ? (
+                                  <ChevronUp size={20} color="#007AFF" strokeWidth={2.5} />
+                                ) : (
+                                  <ChevronDown size={20} color="#8E8E93" strokeWidth={2.5} />
+                                )}
+                              </Pressable>
+                            </View>
+                          </Pressable>
+
+                          {isExpanded && (
+                            <View style={{ paddingHorizontal: 12, paddingTop: 16, paddingBottom: 12, backgroundColor: "#FAFAFA", borderRadius: 12, marginTop: 8 }}>
+                              {itinerary.legs.map((leg, legIndex) => {
+                                const isWalk = leg.mode === "WALK";
+                                const isLastLeg = legIndex === itinerary.legs.length - 1;
+                                const hasIntermediateStops = leg.intermediateStops && leg.intermediateStops.length > 0;
+                                const stopKey = `${index}-${legIndex}`;
+                                const isStopsExpanded = expandedIntermediateStops.has(stopKey);
+                                const isFirstLeg = legIndex === 0;
+
+                                return (
+                                  <React.Fragment key={legIndex}>
+                                    {/* Start of leg */}
+                                    <View style={styles.timelineContainer}>
+                                      <View style={styles.timelineLeft}>
+                                        <Text style={styles.timelineTime}>
+                                          {isFirstLeg && isWalk ? "Now" : formatTime(leg.startTime)}
+                                        </Text>
+                                      </View>
+
+                                      <View style={styles.timelineCenter}>
+                                        <View style={[styles.timelineIcon, isWalk ? styles.timelineIconWalk : styles.timelineIconTransit]}>
+                                          {isWalk ? (
+                                            <Footprints size={20} color="#2E7D32" strokeWidth={2.5} />
+                                          ) : leg.mode === "BUS" ? (
+                                            <Bus size={20} color="#007AFF" strokeWidth={2.5} />
+                                          ) : leg.mode === "SUBWAY" ? (
+                                            <Train size={20} color="#007AFF" strokeWidth={2.5} />
+                                          ) : (
+                                            <TramFront size={20} color="#007AFF" strokeWidth={2.5} />
+                                          )}
+                                        </View>
+                                        <View style={[styles.timelineLine, isWalk ? styles.timelineLineWalk : styles.timelineLineTransit]} />
+                                      </View>
+
+                                      <View style={styles.timelineRight}>
+                                        <Text style={styles.timelineStopName}>{leg.from.name}</Text>
+
+                                        {isWalk ? (
+                                          <Text style={styles.timelineWalkDetail}>
+                                            {Math.round(leg.duration / 60)} min Walk {Math.round(leg.distance)} m
+                                          </Text>
+                                        ) : (
+                                          <>
+                                            <Text style={{ fontSize: 12, color: "#007AFF", fontWeight: "600", marginBottom: 4 }}>
+                                              Departs {formatTime(leg.startTime)}
+                                            </Text>
+                                            <View style={[
+                                              styles.timelineRoutePill,
+                                              leg.mode === "BUS" ? styles.timelineRoutePillBus :
+                                                leg.mode === "SUBWAY" ? styles.timelineRoutePillSubway :
+                                                  styles.timelineRoutePillTram
+                                            ]}>
+                                              {leg.mode === "BUS" ? (
+                                                <Bus size={16} color="white" strokeWidth={2.5} />
+                                              ) : leg.mode === "SUBWAY" ? (
+                                                <Train size={16} color="white" strokeWidth={2.5} />
+                                              ) : (
+                                                <TramFront size={16} color="white" strokeWidth={2.5} />
+                                              )}
+                                              <Text style={styles.timelineRouteText}>{leg.route}</Text>
+                                            </View>
+                                            {leg.headsign && (
+                                              <Text style={styles.timelineHeadsign}>→ {leg.headsign}</Text>
+                                            )}
+
+                                            {hasIntermediateStops && (
+                                              <Pressable
+                                                onPress={() => {
+                                                  setExpandedIntermediateStops(prev => {
+                                                    const next = new Set(prev);
+                                                    if (next.has(stopKey)) {
+                                                      next.delete(stopKey);
+                                                    } else {
+                                                      next.add(stopKey);
+                                                    }
+                                                    return next;
+                                                  });
+                                                }}
+                                                style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}
+                                              >
+                                                {isStopsExpanded ? (
+                                                  <ChevronUp size={14} color="#8E8E93" strokeWidth={2.5} />
+                                                ) : (
+                                                  <ChevronDown size={14} color="#8E8E93" strokeWidth={2.5} />
+                                                )}
+                                                <Text style={{ fontSize: 12, color: "#8E8E93", marginLeft: 4 }}>
+                                                  {leg.intermediateStops?.length} intermediate stop{(leg.intermediateStops?.length || 0) > 1 ? 's' : ''} ({Math.round(leg.duration / 60)} min)
+                                                </Text>
+                                              </Pressable>
+                                            )}
+                                          </>
+                                        )}
+                                      </View>
+                                    </View>
+
+                                    {/* Intermediate stops (if transit and expanded) */}
+                                    {!isWalk && hasIntermediateStops && isStopsExpanded && (
+                                      <View style={{ marginLeft: 60, marginTop: -8, marginBottom: 8 }}>
+                                        {leg.intermediateStops?.map((stop, stopIdx) => (
+                                          <View key={stopIdx} style={{ flexDirection: "row", paddingVertical: 6, borderLeftWidth: 3, borderLeftColor: "#007AFF", paddingLeft: 28 }}>
+                                            <Text style={{ fontSize: 13, fontWeight: "600", color: "#3A3A3C", width: 60 }}>
+                                              {formatTime(stop.arrival)}
+                                            </Text>
+                                            <Text style={{ fontSize: 13, color: "#3A3A3C", flex: 1 }}>
+                                              {stop.name}
+                                            </Text>
+                                          </View>
+                                        ))}
+                                      </View>
+                                    )}
+
+                                    {/* Walk end / arrival at stop (if walk and not last leg) */}
+                                    {isWalk && !isLastLeg && (
+                                      <View style={styles.timelineContainer}>
+                                        <View style={styles.timelineLeft}>
+                                          <Text style={[styles.timelineTime, { fontSize: 13, color: "#6A6A75" }]}>
+                                            {formatTime(leg.endTime)}
+                                          </Text>
+                                        </View>
+
+                                        <View style={styles.timelineCenter}>
+                                          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: "#D1D5DB", borderWidth: 2, borderColor: "white" }} />
+                                          <View style={[styles.timelineLine, { backgroundColor: "#D1D5DB" }]} />
+                                        </View>
+
+                                        <View style={styles.timelineRight}>
+                                          <Text style={{ fontSize: 13, color: "#6A6A75", fontWeight: "600" }}>
+                                            {leg.to.name}
+                                          </Text>
+                                          <Text style={{ fontSize: 12, color: "#8E8E93", marginTop: 2 }}>
+                                            Arrive at stop
+                                          </Text>
+                                        </View>
+                                      </View>
+                                    )}
+
+                                    {/* Final destination (only for last leg) */}
+                                    {isLastLeg && (
+                                      <View style={styles.timelineContainer}>
+                                        <View style={styles.timelineLeft}>
+                                          <Text style={styles.timelineTime}>{formatTime(leg.endTime)}</Text>
+                                        </View>
+
+                                        <View style={styles.timelineCenter}>
+                                          <View style={[styles.timelineIcon, { borderColor: "#EF4444", backgroundColor: "#FEE2E2" }]}>
+                                            <MapPin size={20} color="#EF4444" strokeWidth={2.5} />
+                                          </View>
+                                        </View>
+
+                                        <View style={styles.timelineRight}>
+                                          <Text style={[styles.timelineStopName, { color: "#EF4444" }]}>
+                                            {leg.to.name}
+                                          </Text>
+                                        </View>
+                                      </View>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </>
+                )
+              ) : (
+                // Simple numbered instructions for walk/drive
+                routeInstructions.map((instruction, index) => (
+                  <Text
+                    key={`${index}-${instruction.text}`}
+                    style={styles.routeStepText}
+                  >
+                    {`${index + 1}. ${instruction.text}`}
+                  </Text>
+                ))
+              )}
             </ScrollView>
           </View>
         )}
