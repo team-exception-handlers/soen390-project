@@ -1,41 +1,19 @@
+import BuildingInformation from "@/components/BuildingInformation";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import { Bus, ChevronDown, ChevronUp, Footprints, MapPin, Train, TramFront, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Keyboard,
-  Linking,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Keyboard, Linking, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import AppHeader, { Campus } from "../../components/AppHeader";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
-import {
-  findUserBuilding,
-  hasLocationPermission,
-  requestLocationPermission,
-  startWatchingLocation,
-} from "../../utils/locationUtils";
-import {
-  fetchOsrmRoute,
-  type RouteInstruction,
-  type RouteProfile,
-} from "../../utils/osrmDirections";
-import { fetchTransitItineraries, formatTime, type TransitItinerary } from "../../utils/transitousDirections";
-
-import BuildingInformation from "@/components/BuildingInformation";
+import { findUserBuilding, hasLocationPermission, requestLocationPermission, startWatchingLocation } from "../../utils/locationUtils";
 import { getCampusRegion } from "../../utils/mapRegions";
+import { fetchOsrmRoute, type RouteInstruction, type RouteProfile } from "../../utils/osrmDirections";
+import { decodePolyline, fetchTransitItineraries, formatTime, type TransitItinerary } from "../../utils/transitousDirections";
+
 let WebView: React.ComponentType<any> | null = null;
 if (Platform.OS !== "web") {
   try {
@@ -49,10 +27,11 @@ if (Platform.OS !== "web") {
 const roundCoord = (value: number) => Number(value.toFixed(4));
 
 const TRAVEL_MODES: { value: RouteProfile | "transit"; label: string }[] = [
-  { value: "walking", label: "🚶 Walk" },
-  { value: "driving", label: "🚗 Drive" },
-  { value: "transit", label: "🚌 Transit" },
+  { value: "walking", label: "Walk" },
+  { value: "driving", label: "Drive" },
+  { value: "transit", label: "Transit" },
 ];
+
 const HALL_BUILDING_CODE = "H";
 
 const formatDuration = (minutes: number) => {
@@ -89,30 +68,42 @@ export default function MapScreen() {
   const [destinationBuildingCode, setDestinationBuildingCode] =
     useState<string>(HALL_BUILDING_CODE);
   const [isDirectionsMode, setIsDirectionsMode] = useState(false);
-  const [routeMode, setRouteMode] = useState<RouteProfile | "transit">("walking");
+  const [routeMode, setRouteMode] = useState<RouteProfile | "transit">(
+    "walking",
+  );
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
-  const [routeDurationMinutes, setRouteDurationMinutes] = useState<
-    number | null
-  >(null);
+  const [routeDurationMinutes, setRouteDurationMinutes] = useState<number | null>(
+    null,
+  );
   const [routeDistanceMeters, setRouteDistanceMeters] = useState<number | null>(
     null,
   );
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
-  const [routeInstructions, setRouteInstructions] = useState<
-    RouteInstruction[]
-  >([]);
+  const [routeInstructions, setRouteInstructions] = useState<RouteInstruction[]>(
+    [],
+  );
   const [showRouteInstructions, setShowRouteInstructions] = useState(false);
-  const [modeDurations, setModeDurations] = useState<Record<string, number | null>>({
-    walking: null, driving: null, transit: null,
+  const [modeDurations, setModeDurations] = useState<
+    Record<string, number | null>
+  >({
+    walking: null,
+    driving: null,
+    transit: null,
   });
-  const [transitItineraries, setTransitItineraries] = useState<TransitItinerary[]>([]);
+
+  const [transitItineraries, setTransitItineraries] = useState<
+    TransitItinerary[]
+  >([]);
   const [selectedItineraryIndex, setSelectedItineraryIndex] = useState(0);
   const [expandedItineraries, setExpandedItineraries] = useState<number[]>([]);
-  const [expandedIntermediateStops, setExpandedIntermediateStops] = useState<Set<string>>(new Set());
+  const [expandedIntermediateStops, setExpandedIntermediateStops] = useState<
+    Set<string>
+  >(new Set());
   const [routeStarted, setRouteStarted] = useState(false);
+
   const routeInstructionsDismissedRef = useRef(false);
   const routeSheetPanResponder = useRef(
     PanResponder.create({
@@ -131,12 +122,13 @@ export default function MapScreen() {
       },
     }),
   ).current;
+
   const mapRef = useRef<any>(null);
   const webViewRef = useRef<any>(null);
   const [userLocation, setUserLocation] = useState<any>(null);
-  const [currentBuilding, setCurrentBuilding] = useState<
-    string | null | undefined
-  >(undefined);
+  const [currentBuilding, setCurrentBuilding] = useState<string | null | undefined>(
+    undefined,
+  );
   const [webMapReady, setWebMapReady] = useState(false);
   const locationSubscription = useRef<any>(null);
   const [locationPermissionDenied, setLocationPermissionDenied] =
@@ -584,7 +576,7 @@ export default function MapScreen() {
       marginBottom: 6,
     },
     timelineRoutePillBus: {
-      backgroundColor: "#FFA500",
+      backgroundColor: "#007AFF",
     },
     timelineRoutePillSubway: {
       backgroundColor: "#007AFF",
@@ -695,6 +687,7 @@ export default function MapScreen() {
   let MapCalloutComponent: React.ComponentType<any> | null = null;
   let MapPolygonComponent: React.ComponentType<any> | null = null;
   let MapPolylineComponent: React.ComponentType<any> | null = null;
+
   useEffect(() => {
     if (Platform.OS !== "web") return;
 
@@ -710,7 +703,7 @@ export default function MapScreen() {
           setSelectedBuilding(null);
         }
       } catch {
-        // ignore non-JSON messages
+        // ignore
       }
     };
 
@@ -756,11 +749,7 @@ export default function MapScreen() {
           setUserLocation(location);
           setLocationPermissionDenied(false);
           const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
-          const building = findUserBuilding(
-            latitude,
-            longitude,
-            polygons as any,
-          );
+          const building = findUserBuilding(latitude, longitude, polygons as any);
 
           if (building !== currentBuilding) {
             setCurrentBuilding(building);
@@ -791,7 +780,6 @@ export default function MapScreen() {
         }
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentBuilding is set by this effect, not read
   }, [campus]);
 
   // Get polygon data based on campus
@@ -799,6 +787,25 @@ export default function MapScreen() {
     () => (campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS),
     [campus],
   );
+
+  const getTransitColor = (mode: string, route?: string) => {
+    if (mode === "WALK") return "#2E7D32";
+    if (mode === "BUS") return "#007AFF";
+    if (mode === "TRAM") return "#9C27B0";
+
+    // STM metro colors
+    if (mode === "SUBWAY" || mode === "RAIL" || mode === "METRO") {
+      const line = (route ?? "").trim();
+      if (line === "1") return "#009E60"; // GREEN LINE
+      if (line === "2") return "#FF6600"; // ORANGE LINE
+      if (line === "4") return "#FFD700"; // YELLOW LINE
+      if (line === "5") return "#0075BF"; // BLUE LINE
+      return "#007AFF"; // fallback: blue
+    }
+
+    return "#1668C7";
+  };
+
   // Tracks the selected origin building (or null if using current location)
   const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
     null,
@@ -808,6 +815,7 @@ export default function MapScreen() {
     () => BUILDINGS.filter((building) => building.campus === campus),
     [campus],
   );
+
   const defaultSgwRegion = useMemo(
     () => getCampusRegion("SGW", SGW_POLYGONS.features),
     [],
@@ -867,20 +875,37 @@ export default function MapScreen() {
       if (cancelled) return;
       setModeDurations((p) => ({
         ...p,
-        walking: walk.status === "fulfilled" ? Math.round(walk.value.durationSeconds / 60) : null,
-        driving: drive.status === "fulfilled" ? Math.round(drive.value.durationSeconds / 60) : null,
+        walking:
+          walk.status === "fulfilled"
+            ? Math.round(walk.value.durationSeconds / 60)
+            : null,
+        driving:
+          drive.status === "fulfilled"
+            ? Math.round(drive.value.durationSeconds / 60)
+            : null,
       }));
       if (!isSameCampus) {
         try {
-          const itins = await fetchTransitItineraries(actualOriginPoint, destinationBuilding);
-          if (!cancelled) setModeDurations((p) => ({ ...p, transit: itins[0] ? Math.round(itins[0].durationSeconds / 60) : null }));
+          const itins = await fetchTransitItineraries(
+            actualOriginPoint,
+            destinationBuilding,
+          );
+          if (!cancelled)
+            setModeDurations((p) => ({
+              ...p,
+              transit: itins[0]
+                ? Math.round(itins[0].durationSeconds / 60)
+                : null,
+            }));
         } catch {
           if (!cancelled) setModeDurations((p) => ({ ...p, transit: null }));
         }
       }
     };
     go();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [actualOriginPoint, destinationBuilding, isSameCampus]);
 
   const exitDirectionsMode = () => {
@@ -982,6 +1007,7 @@ export default function MapScreen() {
           const itineraries = await fetchTransitItineraries(
             actualOriginPoint,
             destinationBuilding,
+            new Date().toISOString(),
           );
           if (cancelled) return;
           setTransitItineraries(itineraries);
@@ -991,7 +1017,7 @@ export default function MapScreen() {
 
           // Set route from first itinerary
           const firstRoute = itineraries[0];
-          setRouteCoordinates(firstRoute.coordinates);
+          setRouteCoordinates([]);
           setRouteDurationMinutes(Math.round(firstRoute.durationSeconds / 60));
           setRouteDistanceMeters(firstRoute.distanceMeters);
           setRouteInstructions(firstRoute.instructions);
@@ -1049,8 +1075,7 @@ export default function MapScreen() {
   const buildingsWithPolygons = useMemo(() => {
     const buildingHasPolygon = (building: { code: string }) => {
       const hasExact = campusPolygons.features.some(
-        (f: { properties: { code: string } }) =>
-          f.properties.code === building.code,
+        (f: { properties: { code: string } }) => f.properties.code === building.code,
       );
       const hasParent = campusPolygons.features.some(
         (f: { properties: { code: string } }) =>
@@ -1073,18 +1098,13 @@ export default function MapScreen() {
   let buildingPhotoLink = b?.photoLink;
 
   useEffect(() => {
-    if (
-      webViewRef.current &&
-      Platform.OS !== "web" &&
-      userLocation &&
-      webMapReady
-    ) {
+    if (webViewRef.current && Platform.OS !== "web" && userLocation && webMapReady) {
       const { latitude, longitude } = userLocation.coords;
 
       const script = `
       (function() {
         try {
-            if (typeof L !== 'undefined' && window.map) {
+          if (typeof L !== 'undefined' && window.map) {
             if (window.userMarker) {
               window.userMarker.setLatLng([${latitude}, ${longitude}]);
               console.log('User marker updated to:', ${latitude}, ${longitude});
@@ -1147,8 +1167,8 @@ export default function MapScreen() {
               });
             }
           } else {
-              window.currentBuildingPolygon = null;
-              window.currentBuildingCode = null;
+            window.currentBuildingPolygon = null;
+            window.currentBuildingCode = null;
           }
         } catch (e) {
           console.log('Current building highlight error:', e);
@@ -1159,6 +1179,27 @@ export default function MapScreen() {
 
     webViewRef.current?.injectJavaScript(script);
   }, [currentBuilding, userLocation, selectedBuilding, webMapReady]);
+
+  // Precompute per-leg transit segments for Leaflet
+  const webTransitSegments = useMemo(() => {
+    if (routeMode !== "transit") return [];
+    const itin = transitItineraries[selectedItineraryIndex];
+    if (!itin) return [];
+
+    return itin.legs
+      .filter((leg) => !!leg.legGeometry?.points)
+      .map((leg) => {
+        const precision = (leg.legGeometry as any)?.precision ?? 7;
+        const coords = decodePolyline(leg.legGeometry!.points, precision).map(
+          (p) => [p.latitude, p.longitude],
+        );
+        return {
+          mode: leg.mode,
+          route: leg.route ?? "",
+          coords,
+        };
+      });
+  }, [routeMode, transitItineraries, selectedItineraryIndex]);
 
   // Generate HTML for web map
   const mapHTML = useMemo(() => {
@@ -1186,10 +1227,7 @@ export default function MapScreen() {
           <style>
               body { margin: 0; padding: 0; }
               #map { width: 100%; height: 100vh; }
-              .building-marker {
-                  background: transparent;
-                  border: none;
-              }
+              .building-marker { background: transparent; border: none; }
               .marker-badge {
                   min-width: 30px;
                   height: 28px;
@@ -1214,80 +1252,103 @@ export default function MapScreen() {
                   border-top: 8px solid #A32638;
                   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
               }
-              .user-marker {
-                  background: transparent;
-                  border: none;
-              }
+              .user-marker { background: transparent; border: none; }
           </style>
       </head>
       <body>
           <div id="map"></div>
           <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
           <script>
-              const map = L.map('map', {
-                maxZoom: 22
-              }).setView([${latitude}, ${longitude}], 20);
-              window.map = map; 
+              const map = L.map('map', { maxZoom: 22 }).setView([${latitude}, ${longitude}], 20);
+              window.map = map;
+
               const buildings = ${JSON.stringify(buildingData)};
               const polygonData = ${JSON.stringify(campusPolygons)};
               const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               const routeMode = ${JSON.stringify(routeMode)};
               const routeCoordinates = ${JSON.stringify(
-      routeCoordinates.map((point) => [
-        point.latitude,
-        point.longitude,
-      ]),
+      routeCoordinates.map((point) => [point.latitude, point.longitude]),
     )};
+
+              // Per-leg transit segments for Leaflet
+              const transitSegments = ${JSON.stringify(webTransitSegments)};
+
               let selectedPolygon = null;
               window.polygonMap = {};
               window.currentBuildingPolygon = null;
               window.currentBuildingCode = null;
               window.selectedBuildingCode = null;
               window.selectedPolygon = null;
-              window.userMarker = null;  
+              window.userMarker = null;
               window.followUser = false;
               window.hasCenteredOnUser = false;
 
               L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                   attribution: '© OpenStreetMap contributors',
                   maxZoom: 22,
-                  maxNativeZoom: 19  
+                  maxNativeZoom: 19
               }).addTo(map);
 
-              const defaultPolygonStyle = {
-                  color: '#A32638',
-                  fillColor: '#A32638',
-                  fillOpacity: 0.2,
-                  weight: 2
-              };
-
-              const currentPolygonStyle = {
-                  color: '#FFA500',
-                  fillColor: '#FFA500',
-                  fillOpacity: 0.5,
-                  weight: 3
-              };
-
-              const selectedPolygonStyle = {
-                  color: '#238c51',
-                  fillColor: '#238c51',
-                  fillOpacity: 0.5,
-                  weight: 3
-              };
+              const defaultPolygonStyle = { color: '#A32638', fillColor: '#A32638', fillOpacity: 0.2, weight: 2 };
+              const currentPolygonStyle = { color: '#FFA500', fillColor: '#FFA500', fillOpacity: 0.5, weight: 3 };
+              const selectedPolygonStyle = { color: '#238c51', fillColor: '#238c51', fillOpacity: 0.5, weight: 3 };
 
               const resetPolygonStyle = (polygon) => {
                   if (!polygon) return;
                   const code = polygon.__buildingCode || null;
-                  if (code && window.currentBuildingCode === code) {
-                      polygon.setStyle(currentPolygonStyle);
-                  } else {
-                      polygon.setStyle(defaultPolygonStyle);
-                  }
+                  if (code && window.currentBuildingCode === code) polygon.setStyle(currentPolygonStyle);
+                  else polygon.setStyle(defaultPolygonStyle);
               };
 
               const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
-              let routePolyline = null;
-              if (routeCoordinates.length > 1) {
+
+             const segmentColor = (mode, route) => {
+                  if (mode === "WALK") return "#2E7D32";
+                  if (mode === "BUS") return "#007AFF";    
+                  if (mode === "TRAM") return "#9C27B0";  
+
+                  // STM metro colours
+                  if (mode === "SUBWAY" || mode === "RAIL" || mode === "METRO") {
+                    const line = (route || "").trim();
+                    if (line === "1") return "#009E60"; // GREEN LINE
+                    if (line === "2") return "#FF6600"; // ORANGE LINE
+                    if (line === "4") return "#FFD700"; // YELLOW LINE
+                    if (line === "5") return "#0075BF"; // BLUE LINE
+                    return "#007AFF";
+                  }
+
+                  return "#1668C7";
+                };
+
+
+              let routeLayers = [];
+              let hasAnyRoute = false;
+
+              if (routeMode === "transit" && Array.isArray(transitSegments) && transitSegments.length) {
+                transitSegments.forEach((seg) => {
+                  if (!seg.coords || seg.coords.length < 2) return;
+
+                  const poly = L.polyline(seg.coords, {
+                    color: segmentColor(seg.mode, seg.route),
+                    weight: 6,
+                    opacity: 0.9,
+                    lineCap: "round",
+                    lineJoin: "round",
+                    dashArray: seg.mode === "WALK" ? "2 12" : undefined
+                  }).addTo(map);
+
+                  routeLayers.push(poly);
+                });
+
+                if (routeLayers.length) {
+                  hasAnyRoute = true;
+                  const group = L.featureGroup(routeLayers);
+                  map.fitBounds(group.getBounds(), { padding: [50, 50] });
+                }
+              }
+
+              // Existing non-transit behavior (walking/driving): draw single polyline
+              if (!hasAnyRoute && routeCoordinates.length > 1) {
                   const routeStyle = {
                       color: '#1668C7',
                       weight: routeMode === 'walking' ? 7 : 6,
@@ -1300,7 +1361,8 @@ export default function MapScreen() {
                       routeStyle.dashArray = '1 12';
                   }
 
-                  routePolyline = L.polyline(routeCoordinates, routeStyle).addTo(map);
+                  const routePolyline = L.polyline(routeCoordinates, routeStyle).addTo(map);
+                  routeLayers.push(routePolyline);
 
                   L.circleMarker(routeCoordinates[0], {
                       radius: 6,
@@ -1317,18 +1379,16 @@ export default function MapScreen() {
                       fillOpacity: 1,
                       weight: 2
                   }).addTo(map);
+
+                  map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
+                  hasAnyRoute = true;
               }
 
-              if (routePolyline) {
-                  map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
-              } else {
+              if (!hasAnyRoute) {
                   map.fitBounds(bounds, { padding: [20, 20] });
               }
 
-              const disableFollow = () => {
-                  window.followUser = false;
-              };
-
+              const disableFollow = () => { window.followUser = false; };
               map.on('dragstart', disableFollow);
               map.on('zoomstart', disableFollow);
               map.on('movestart', disableFollow);
@@ -1343,10 +1403,7 @@ export default function MapScreen() {
                   polygon.__buildingCode = buildingCode;
 
                   polygon.on('click', function(e) {
-                      if (selectedPolygon) {
-                          resetPolygonStyle(selectedPolygon);
-                      }
-
+                      if (selectedPolygon) resetPolygonStyle(selectedPolygon);
                       this.setStyle(selectedPolygonStyle);
                       selectedPolygon = this;
                       window.selectedBuildingCode = buildingCode;
@@ -1356,15 +1413,11 @@ export default function MapScreen() {
                   });
 
                   polygon.on('mouseover', function() {
-                      if (this !== selectedPolygon) {
-                          this.setStyle({ fillOpacity: 0.3 });
-                      }
+                      if (this !== selectedPolygon) this.setStyle({ fillOpacity: 0.3 });
                   });
 
                   polygon.on('mouseout', function() {
-                      if (this !== selectedPolygon) {
-                          this.setStyle({ fillOpacity: 0.2 });
-                      }
+                      if (this !== selectedPolygon) this.setStyle({ fillOpacity: 0.2 });
                   });
               });
 
@@ -1393,9 +1446,7 @@ export default function MapScreen() {
               });
 
               buildings.forEach((building) => {
-                  const marker = L.marker([building.latitude, building.longitude], {
-                      icon: createBuildingIcon(building.code)
-                  }).addTo(map);
+                  const marker = L.marker([building.latitude, building.longitude], { icon: createBuildingIcon(building.code) }).addTo(map);
 
                   marker.on('click', function(e) {
                       let polygon = window.polygonMap[building.code];
@@ -1405,9 +1456,7 @@ export default function MapScreen() {
                       }
 
                       if (polygon) {
-                          if (selectedPolygon) {
-                              resetPolygonStyle(selectedPolygon);
-                          }
+                          if (selectedPolygon) resetPolygonStyle(selectedPolygon);
 
                           if (selectedPolygon === polygon) {
                               resetPolygonStyle(selectedPolygon);
@@ -1417,15 +1466,17 @@ export default function MapScreen() {
                               selectedPolygon = polygon;
                           }
                       }
-                          if(selectedPolygon){
-                            window.selectedBuildingCode = building.code;
-                            window.selectedPolygon = selectedPolygon;
-                            (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type:'buildingSelected', buildingCode: building.code}), '*');
-                          } else {
-                            window.selectedBuildingCode = null;
-                            window.selectedPolygon = null;
-                            (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
-                          }
+
+                      if (selectedPolygon) {
+                        window.selectedBuildingCode = building.code;
+                        window.selectedPolygon = selectedPolygon;
+                        (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type:'buildingSelected', buildingCode: building.code}), '*');
+                      } else {
+                        window.selectedBuildingCode = null;
+                        window.selectedPolygon = null;
+                        (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
+                      }
+
                       L.DomEvent.stopPropagation(e);
                   });
               });
@@ -1456,6 +1507,7 @@ export default function MapScreen() {
     routeMode,
     userLat,
     userLng,
+    webTransitSegments,
   ]);
 
   const webViewSource = useMemo(() => ({ html: mapHTML }), [mapHTML]);
@@ -1511,8 +1563,7 @@ export default function MapScreen() {
                 );
                 if (data?.type === "buildingSelected")
                   setSelectedBuilding(data.buildingCode);
-                if (data?.type === "buildingDeselected")
-                  setSelectedBuilding(null);
+                if (data?.type === "buildingDeselected") setSelectedBuilding(null);
               } catch { }
               return false;
             }
@@ -1542,18 +1593,44 @@ export default function MapScreen() {
         showsMyLocationButton
         onPress={() => setSelectedBuilding(null)}
       >
+
         {isDirectionsMode &&
           MapPolylineComponent &&
-          routeCoordinates.length > 1 && (
-            <MapPolylineComponent
-              testID="route-polyline"
-              coordinates={routeCoordinates}
-              strokeColor="#1668C7"
-              strokeWidth={routeMode === "walking" ? 6 : 5}
-              lineDashPattern={routeMode === "walking" ? [1, 12] : undefined}
-              lineCap="round"
-            />
-          )}
+          routeMode === "transit" &&
+          transitItineraries[selectedItineraryIndex] ? (
+          <>
+            {transitItineraries[selectedItineraryIndex].legs.map((leg, index) => {
+              console.log(`Rendering leg ${index}:`, leg.mode);
+
+              if (!leg.legGeometry?.points) return null;
+              const precision = (leg.legGeometry as any)?.precision ?? 7;
+              const coordinates = decodePolyline(leg.legGeometry.points, precision);
+              if (coordinates.length < 2) return null;
+
+              const strokeColor = getTransitColor(leg.mode, leg.route);
+
+              return (
+                <MapPolylineComponent
+                  key={`leg-${index}`}
+                  coordinates={coordinates}
+                  strokeColor={strokeColor}
+                  strokeWidth={leg.mode === "WALK" ? 4 : 6}
+                  lineDashPattern={leg.mode === "WALK" ? [2, 8] : undefined}
+                  lineCap="round"
+                />
+              );
+            })}
+          </>
+        ) : isDirectionsMode && MapPolylineComponent && routeCoordinates.length > 1 ? (
+          <MapPolylineComponent
+            testID="route-polyline"
+            coordinates={routeCoordinates}
+            strokeColor="#1668C7"
+            strokeWidth={routeMode === "walking" ? 6 : 5}
+            lineDashPattern={routeMode === "walking" ? [1, 12] : undefined}
+            lineCap="round"
+          />
+        ) : null}
 
         {campusPolygons.features.map((feature: any) => {
           const coordinates = feature.geometry.coordinates[0].map(
@@ -1590,9 +1667,7 @@ export default function MapScreen() {
               fillOpacity={fillOpacity}
               tappable
               onPress={() =>
-                setSelectedBuilding(
-                  selectedBuilding === buildingCode ? null : buildingCode,
-                )
+                setSelectedBuilding(selectedBuilding === buildingCode ? null : buildingCode)
               }
             />
           );
@@ -1603,13 +1678,14 @@ export default function MapScreen() {
             (f: any) => f.properties.code === building.code,
           );
 
-          const polygonCode = hasExactPolygon
-            ? building.code
-            : campusPolygons.features.find(
-              (f: any) =>
-                building.code.startsWith(f.properties.code) &&
-                f.properties.code.length >= 2,
-            )?.properties.code || building.code;
+          const polygonCode =
+            hasExactPolygon
+              ? building.code
+              : campusPolygons.features.find(
+                (f: any) =>
+                  building.code.startsWith(f.properties.code) &&
+                  f.properties.code.length >= 2,
+              )?.properties.code || building.code;
 
           return (
             <MapMarkerComponent
@@ -1624,9 +1700,7 @@ export default function MapScreen() {
                 longitude: building.longitude,
               }}
               onPress={() =>
-                setSelectedBuilding(
-                  selectedBuilding === polygonCode ? null : polygonCode,
-                )
+                setSelectedBuilding(selectedBuilding === polygonCode ? null : polygonCode)
               }
             >
               <View
@@ -1647,11 +1721,10 @@ export default function MapScreen() {
       </MapViewComponent>
     ) : (
       <View style={styles.webFallback}>
-        <Text style={styles.webFallbackText}>
-          Map view is unavailable in this environment.
-        </Text>
+        <Text style={styles.webFallbackText}>Map view is unavailable in this environment.</Text>
       </View>
     );
+
   const searchInputRef = useRef<TextInput>(null);
 
   return (
@@ -1666,9 +1739,7 @@ export default function MapScreen() {
 
       {searchResults.length > 0 && (
         <View style={styles.searchResultsContainer} testID="search-results">
-          <Text style={styles.searchResultsHint}>
-            Tap a building to set destination (To).
-          </Text>
+          <Text style={styles.searchResultsHint}>Tap a building to set destination (To).</Text>
           {searchResults.map((building) => (
             <Pressable
               key={building.code}
@@ -1729,10 +1800,12 @@ export default function MapScreen() {
           </Pressable>
 
           {/* GO / CANCEL BUTTON */}
-          <Pressable testID="direction-go-button" onPress={clearDirections} style={styles.clearRouteButton}>
-            <Text style={styles.clearRouteText}>
-              {isDirectionsMode ? "Cancel" : "Go"}
-            </Text>
+          <Pressable
+            testID="direction-go-button"
+            onPress={clearDirections}
+            style={styles.clearRouteButton}
+          >
+            <Text style={styles.clearRouteText}>{isDirectionsMode ? "Cancel" : "Go"}</Text>
           </Pressable>
         </View>
 
@@ -1746,8 +1819,14 @@ export default function MapScreen() {
                   style={[styles.modePill, routeMode === "walking" && styles.modePillActive]}
                   onPress={() => setRouteMode("walking")}
                 >
-                  <Text style={[styles.modePillText, routeMode === "walking" && styles.modePillTextActive]}>
-                    Walk/Bike - {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
+                  <Text
+                    style={[
+                      styles.modePillText,
+                      routeMode === "walking" && styles.modePillTextActive,
+                    ]}
+                  >
+                    Walk/Bike -{" "}
+                    {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
                   </Text>
                 </Pressable>
                 <Pressable
@@ -1755,8 +1834,14 @@ export default function MapScreen() {
                   style={[styles.modePill, routeMode === "driving" && styles.modePillActive]}
                   onPress={() => setRouteMode("driving")}
                 >
-                  <Text style={[styles.modePillText, routeMode === "driving" && styles.modePillTextActive]}>
-                    Car - {modeDurations.driving !== null ? formatDuration(modeDurations.driving) : "—"}
+                  <Text
+                    style={[
+                      styles.modePillText,
+                      routeMode === "driving" && styles.modePillTextActive,
+                    ]}
+                  >
+                    Car -{" "}
+                    {modeDurations.driving !== null ? formatDuration(modeDurations.driving) : "—"}
                   </Text>
                 </Pressable>
               </View>
@@ -1772,6 +1857,7 @@ export default function MapScreen() {
                 <Text style={styles.modeActionButtonText}>Start</Text>
               </Pressable>
             </View>
+
             <View style={styles.modeSelectorRow}>
               <View style={styles.modePillGroup}>
                 <Pressable
@@ -1779,15 +1865,17 @@ export default function MapScreen() {
                   style={[styles.modePill, routeMode === "transit" && styles.modePillActive]}
                   onPress={() => setRouteMode("transit")}
                 >
-                  <Text style={[styles.modePillText, routeMode === "transit" && styles.modePillTextActive]}>
-                    Public Transit - {modeDurations.transit !== null ? formatDuration(modeDurations.transit) : "—"}
+                  <Text
+                    style={[
+                      styles.modePillText,
+                      routeMode === "transit" && styles.modePillTextActive,
+                    ]}
+                  >
+                    Public Transit -{" "}
+                    {modeDurations.transit !== null ? formatDuration(modeDurations.transit) : "—"}
                   </Text>
                 </Pressable>
-                <Pressable
-                  testID="route-mode-shuttle"
-                  style={[styles.modePill]}
-                  disabled
-                >
+                <Pressable testID="route-mode-shuttle" style={[styles.modePill]} disabled>
                   <Text style={[styles.modePillText, { opacity: 0.45 }]}>
                     Shuttle — Temporarily unavailable
                   </Text>
@@ -1808,12 +1896,9 @@ export default function MapScreen() {
         {isDirectionsMode && isSameCampus && (
           <View style={styles.modeSelectorGrid}>
             <View style={styles.modeSelectorRow}>
-              <Pressable
-                testID="route-mode-walking"
-                style={[styles.modePill, styles.modePillActive]}
-              >
+              <Pressable testID="route-mode-walking" style={[styles.modePill, styles.modePillActive]}>
                 <Text style={[styles.modePillText, styles.modePillTextActive]}>
-                  🚶 {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
+                  Walk {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
                 </Text>
               </Pressable>
               <Text style={styles.sameCampusHint}>Same campus</Text>
@@ -1834,17 +1919,11 @@ export default function MapScreen() {
           const building = BUILDINGS.find((b) => b.code === currentBuilding);
           return building ? (
             <View
-              style={[
-                styles.buildingInfo,
-                !isWebPlatform && { top: insets.top + 44 },
-              ]}
+              style={[styles.buildingInfo, !isWebPlatform && { top: insets.top + 44 }]}
               testID="current-building-info"
             >
               <Text style={styles.buildingInfoTitle}>Current Building:</Text>
-              <Text
-                style={styles.buildingInfoText}
-                testID="current-building-name"
-              >
+              <Text style={styles.buildingInfoText} testID="current-building-name">
                 {building.longName} ({building.shortName}) - [{building.code}]
               </Text>
             </View>
@@ -1854,13 +1933,9 @@ export default function MapScreen() {
       {locationPermissionDenied && (
         <TouchableOpacity
           testID="location-permission-banner"
-          style={[
-            styles.permissionBanner,
-            { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 },
-          ]}
+          style={[styles.permissionBanner, { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 }]}
           onPress={async () => {
-            const { canAskAgain } =
-              await Location.getForegroundPermissionsAsync();
+            const { canAskAgain } = await Location.getForegroundPermissionsAsync();
             if (canAskAgain) {
               await requestLocationPermission();
             } else {
@@ -1870,12 +1945,13 @@ export default function MapScreen() {
           activeOpacity={0.7}
         >
           <Text style={styles.permissionText}>
-            Enable location permissions to see where you are on campus. Tap
-            here.
+            Enable location permissions to see where you are on campus. Tap here.
           </Text>
         </TouchableOpacity>
       )}
+
       {shouldUseWebFallback ? webMapContent : nativeMapContent}
+
       {showE2EHooks && (
         <View style={styles.e2eControls} pointerEvents="box-none">
           <TouchableOpacity
@@ -1899,448 +1975,563 @@ export default function MapScreen() {
         </View>
       )}
 
-      {isDirectionsMode &&
-        showRouteInstructions &&
-        routeInstructions.length > 0 && (
-          <View style={styles.routeStepsPopup} testID="route-steps-popup">
-            <Pressable
-              {...routeSheetPanResponder.panHandlers}
-              style={styles.routeStepsHandle}
-              onPress={() => {
-                routeInstructionsDismissedRef.current = true;
-                setShowRouteInstructions(false);
-              }}
-            >
-              <ChevronDown size={24} color="#1F1F24" strokeWidth={2.5} />
-            </Pressable>
-            <Pressable
-              style={styles.routeStepsCloseButton}
-              onPress={() => {
-                routeInstructionsDismissedRef.current = true;
-                setShowRouteInstructions(false);
-              }}
-            >
-              <X size={26} color="#1F1F24" strokeWidth={2.5} />
-            </Pressable>
+      {isDirectionsMode && showRouteInstructions && routeInstructions.length > 0 && (
+        <View style={styles.routeStepsPopup} testID="route-steps-popup">
+          <Pressable
+            {...routeSheetPanResponder.panHandlers}
+            style={styles.routeStepsHandle}
+            onPress={() => {
+              routeInstructionsDismissedRef.current = true;
+              setShowRouteInstructions(false);
+            }}
+          >
+            <ChevronDown size={24} color="#1F1F24" strokeWidth={2.5} />
+          </Pressable>
+          <Pressable
+            style={styles.routeStepsCloseButton}
+            onPress={() => {
+              routeInstructionsDismissedRef.current = true;
+              setShowRouteInstructions(false);
+            }}
+          >
+            <X size={26} color="#1F1F24" strokeWidth={2.5} />
+          </Pressable>
 
-            <ScrollView
-              style={styles.routeStepsList}
-              contentContainerStyle={styles.routeStepsListContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {routeMode === "transit" && transitItineraries.length > 0 ? (
-                routeStarted ? (
-                  // After start is pressed, Show only selected route with full details
-                  <>
-                    <Text style={{ fontSize: 17, fontWeight: "700", marginBottom: 20, color: "#1C1C1E" }}>
-                      Journey Details
-                    </Text>
-                    {transitItineraries[selectedItineraryIndex]?.legs.map((leg, legIndex) => {
-                      const isWalk = leg.mode === "WALK";
-                      const isLastLeg = legIndex === transitItineraries[selectedItineraryIndex].legs.length - 1;
-                      const hasIntermediateStops = leg.intermediateStops && leg.intermediateStops.length > 0;
-                      const isFirstLeg = legIndex === 0;
+          <ScrollView
+            style={styles.routeStepsList}
+            contentContainerStyle={styles.routeStepsListContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {routeMode === "transit" && transitItineraries.length > 0 ? (
+              routeStarted ? (
+                <>
+                  <Text
+                    style={{
+                      fontSize: 17,
+                      fontWeight: "700",
+                      marginBottom: 20,
+                      color: "#1C1C1E",
+                    }}
+                  >
+                    Journey Details
+                  </Text>
 
-                      return (
-                        <React.Fragment key={legIndex}>
-                          {/* Start of leg */}
+                  {transitItineraries[selectedItineraryIndex]?.legs.map((leg, legIndex) => {
+                    const isWalk = leg.mode === "WALK";
+                    const isLastLeg =
+                      legIndex ===
+                      transitItineraries[selectedItineraryIndex].legs.length - 1;
+                    const hasIntermediateStops =
+                      leg.intermediateStops && leg.intermediateStops.length > 0;
+                    const isFirstLeg = legIndex === 0;
+
+                    return (
+                      <React.Fragment key={legIndex}>
+                        {/* Start of leg */}
+                        <View style={styles.timelineContainer}>
+                          <View style={styles.timelineLeft}>
+                            <Text style={styles.timelineTime}>
+                              {isFirstLeg && isWalk ? "Now" : formatTime(leg.startTime)}
+                            </Text>
+                          </View>
+
+                          <View style={styles.timelineCenter}>
+                            <View
+                              style={[
+                                styles.timelineIcon,
+                                isWalk ? styles.timelineIconWalk : styles.timelineIconTransit,
+                              ]}
+                            >
+                              {isWalk ? (
+                                <Footprints size={20} color="#2E7D32" strokeWidth={2.5} />
+                              ) : leg.mode === "BUS" ? (
+                                <Bus size={20} color="#007AFF" strokeWidth={2.5} />
+                              ) : leg.mode === "SUBWAY" ? (
+                                <Train size={20} color="#007AFF" strokeWidth={2.5} />
+                              ) : (
+                                <TramFront size={20} color="#007AFF" strokeWidth={2.5} />
+                              )}
+                            </View>
+                            <View
+                              style={[
+                                styles.timelineLine,
+                                isWalk ? styles.timelineLineWalk : styles.timelineLineTransit,
+                              ]}
+                            />
+                          </View>
+
+                          <View style={styles.timelineRight}>
+                            <Text style={styles.timelineStopName}>{leg.from.name}</Text>
+
+                            {isWalk ? (
+                              <Text style={styles.timelineWalkDetail}>
+                                {Math.round(leg.duration / 60)} min Walk {Math.round(leg.distance)} m
+                              </Text>
+                            ) : (
+                              <>
+                                <Text
+                                  style={{
+                                    fontSize: 12,
+                                    color: "#007AFF",
+                                    fontWeight: "600",
+                                    marginBottom: 4,
+                                  }}
+                                >
+                                  Departs {formatTime(leg.startTime)}
+                                </Text>
+                                <View
+                                  style={[
+                                    styles.timelineRoutePill,
+                                    leg.mode === "BUS"
+                                      ? styles.timelineRoutePillBus
+                                      : leg.mode === "SUBWAY"
+                                        ? styles.timelineRoutePillSubway
+                                        : styles.timelineRoutePillTram,
+                                  ]}
+                                >
+                                  {leg.mode === "BUS" ? (
+                                    <Bus size={16} color="white" strokeWidth={2.5} />
+                                  ) : leg.mode === "SUBWAY" ? (
+                                    <Train size={16} color="white" strokeWidth={2.5} />
+                                  ) : (
+                                    <TramFront size={16} color="white" strokeWidth={2.5} />
+                                  )}
+                                  <Text style={styles.timelineRouteText}>{leg.route}</Text>
+                                </View>
+                                {leg.headsign && (
+                                  <Text style={styles.timelineHeadsign}>→ {leg.headsign}</Text>
+                                )}
+                                {hasIntermediateStops && (
+                                  <Text style={{ fontSize: 12, color: "#8E8E93", marginTop: 4 }}>
+                                    {leg.intermediateStops?.length} intermediate stop
+                                    {(leg.intermediateStops?.length || 0) > 1 ? "s" : ""}
+                                  </Text>
+                                )}
+                              </>
+                            )}
+                          </View>
+                        </View>
+
+                        {/* Intermediate stops (always shown after Start) */}
+                        {!isWalk && hasIntermediateStops && (
+                          <View style={{ marginLeft: 60, marginTop: -8, marginBottom: 8 }}>
+                            {leg.intermediateStops?.map((stop, stopIdx) => (
+                              <View
+                                key={stopIdx}
+                                style={{
+                                  flexDirection: "row",
+                                  paddingVertical: 6,
+                                  borderLeftWidth: 3,
+                                  borderLeftColor: "#007AFF",
+                                  paddingLeft: 28,
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    fontSize: 13,
+                                    fontWeight: "600",
+                                    color: "#3A3A3C",
+                                    width: 60,
+                                  }}
+                                >
+                                  {formatTime(stop.arrival)}
+                                </Text>
+                                <Text style={{ fontSize: 13, color: "#3A3A3C", flex: 1 }}>
+                                  {stop.name}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+
+                        {/* Walk end/arrival at stop (if walk and not last leg) */}
+                        {isWalk && !isLastLeg && (
                           <View style={styles.timelineContainer}>
                             <View style={styles.timelineLeft}>
-                              <Text style={styles.timelineTime}>
-                                {isFirstLeg && isWalk ? "Now" : formatTime(leg.startTime)}
+                              <Text style={[styles.timelineTime, { fontSize: 13, color: "#6A6A75" }]}>
+                                {formatTime(leg.endTime)}
                               </Text>
                             </View>
 
                             <View style={styles.timelineCenter}>
-                              <View style={[styles.timelineIcon, isWalk ? styles.timelineIconWalk : styles.timelineIconTransit]}>
-                                {isWalk ? (
-                                  <Footprints size={20} color="#2E7D32" strokeWidth={2.5} />
-                                ) : leg.mode === "BUS" ? (
-                                  <Bus size={20} color="#007AFF" strokeWidth={2.5} />
-                                ) : leg.mode === "SUBWAY" ? (
-                                  <Train size={20} color="#007AFF" strokeWidth={2.5} />
-                                ) : (
-                                  <TramFront size={20} color="#007AFF" strokeWidth={2.5} />
-                                )}
-                              </View>
-                              <View style={[styles.timelineLine, isWalk ? styles.timelineLineWalk : styles.timelineLineTransit]} />
+                              <View
+                                style={{
+                                  width: 12,
+                                  height: 12,
+                                  borderRadius: 6,
+                                  backgroundColor: "#D1D5DB",
+                                  borderWidth: 2,
+                                  borderColor: "white",
+                                }}
+                              />
+                              <View style={[styles.timelineLine, { backgroundColor: "#D1D5DB" }]} />
                             </View>
 
                             <View style={styles.timelineRight}>
-                              <Text style={styles.timelineStopName}>{leg.from.name}</Text>
-
-                              {isWalk ? (
-                                <Text style={styles.timelineWalkDetail}>
-                                  {Math.round(leg.duration / 60)} min Walk {Math.round(leg.distance)} m
-                                </Text>
-                              ) : (
-                                <>
-                                  <Text style={{ fontSize: 12, color: "#007AFF", fontWeight: "600", marginBottom: 4 }}>
-                                    Departs {formatTime(leg.startTime)}
-                                  </Text>
-                                  <View style={[
-                                    styles.timelineRoutePill,
-                                    leg.mode === "BUS" ? styles.timelineRoutePillBus :
-                                      leg.mode === "SUBWAY" ? styles.timelineRoutePillSubway :
-                                        styles.timelineRoutePillTram
-                                  ]}>
-                                    {leg.mode === "BUS" ? (
-                                      <Bus size={16} color="white" strokeWidth={2.5} />
-                                    ) : leg.mode === "SUBWAY" ? (
-                                      <Train size={16} color="white" strokeWidth={2.5} />
-                                    ) : (
-                                      <TramFront size={16} color="white" strokeWidth={2.5} />
-                                    )}
-                                    <Text style={styles.timelineRouteText}>{leg.route}</Text>
-                                  </View>
-                                  {leg.headsign && (
-                                    <Text style={styles.timelineHeadsign}>→ {leg.headsign}</Text>
-                                  )}
-                                  {hasIntermediateStops && (
-                                    <Text style={{ fontSize: 12, color: "#8E8E93", marginTop: 4 }}>
-                                      {leg.intermediateStops?.length} intermediate stop{(leg.intermediateStops?.length || 0) > 1 ? 's' : ''}
-                                    </Text>
-                                  )}
-                                </>
-                              )}
+                              <Text style={{ fontSize: 13, color: "#6A6A75", fontWeight: "600" }}>
+                                {leg.to.name}
+                              </Text>
+                              <Text style={{ fontSize: 12, color: "#8E8E93", marginTop: 2 }}>
+                                Arrive at stop
+                              </Text>
                             </View>
                           </View>
+                        )}
 
-                          {/* Intermediate stops (always shown after Start) */}
-                          {!isWalk && hasIntermediateStops && (
-                            <View style={{ marginLeft: 60, marginTop: -8, marginBottom: 8 }}>
-                              {leg.intermediateStops?.map((stop, stopIdx) => (
-                                <View key={stopIdx} style={{ flexDirection: "row", paddingVertical: 6, borderLeftWidth: 3, borderLeftColor: "#007AFF", paddingLeft: 28 }}>
-                                  <Text style={{ fontSize: 13, fontWeight: "600", color: "#3A3A3C", width: 60 }}>
-                                    {formatTime(stop.arrival)}
-                                  </Text>
-                                  <Text style={{ fontSize: 13, color: "#3A3A3C", flex: 1 }}>
-                                    {stop.name}
-                                  </Text>
-                                </View>
-                              ))}
+                        {/* Final destination (only for last leg) */}
+                        {isLastLeg && (
+                          <View style={styles.timelineContainer}>
+                            <View style={styles.timelineLeft}>
+                              <Text style={styles.timelineTime}>{formatTime(leg.endTime)}</Text>
                             </View>
-                          )}
 
-                          {/* Walk end/arrival at stop (if walk and not last leg) */}
-                          {isWalk && !isLastLeg && (
-                            <View style={styles.timelineContainer}>
-                              <View style={styles.timelineLeft}>
-                                <Text style={[styles.timelineTime, { fontSize: 13, color: "#6A6A75" }]}>
-                                  {formatTime(leg.endTime)}
-                                </Text>
-                              </View>
-
-                              <View style={styles.timelineCenter}>
-                                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: "#D1D5DB", borderWidth: 2, borderColor: "white" }} />
-                                <View style={[styles.timelineLine, { backgroundColor: "#D1D5DB" }]} />
-                              </View>
-
-                              <View style={styles.timelineRight}>
-                                <Text style={{ fontSize: 13, color: "#6A6A75", fontWeight: "600" }}>
-                                  {leg.to.name}
-                                </Text>
-                                <Text style={{ fontSize: 12, color: "#8E8E93", marginTop: 2 }}>
-                                  Arrive at stop
-                                </Text>
+                            <View style={styles.timelineCenter}>
+                              <View
+                                style={[
+                                  styles.timelineIcon,
+                                  { borderColor: "#EF4444", backgroundColor: "#FEE2E2" },
+                                ]}
+                              >
+                                <MapPin size={20} color="#EF4444" strokeWidth={2.5} />
                               </View>
                             </View>
-                          )}
 
-                          {/* Final destination (only for last leg) */}
-                          {isLastLeg && (
-                            <View style={styles.timelineContainer}>
-                              <View style={styles.timelineLeft}>
-                                <Text style={styles.timelineTime}>{formatTime(leg.endTime)}</Text>
-                              </View>
-
-                              <View style={styles.timelineCenter}>
-                                <View style={[styles.timelineIcon, { borderColor: "#EF4444", backgroundColor: "#FEE2E2" }]}>
-                                  <MapPin size={20} color="#EF4444" strokeWidth={2.5} />
-                                </View>
-                              </View>
-
-                              <View style={styles.timelineRight}>
-                                <Text style={[styles.timelineStopName, { color: "#EF4444" }]}>
-                                  {leg.to.name}
-                                </Text>
-                              </View>
+                            <View style={styles.timelineRight}>
+                              <Text style={[styles.timelineStopName, { color: "#EF4444" }]}>
+                                {leg.to.name}
+                              </Text>
                             </View>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </>
-                ) : (
-                  // Show cards
-                  <>
-                    {transitItineraries.map((itinerary, index) => {
-                      const isExpanded = expandedItineraries.includes(index);
-                      const isSelected = index === selectedItineraryIndex;
+                          </View>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </>
+              ) : (
+                <>
+                  {transitItineraries.map((itinerary, index) => {
+                    const isExpanded = expandedItineraries.includes(index);
+                    const isSelected = index === selectedItineraryIndex;
 
-                      return (
-                        <View key={index} style={{ marginBottom: 12 }}>
-                          <Pressable
-                            style={[
-                              styles.itineraryCard,
-                              isSelected && styles.itineraryCardActive,
-                            ]}
-                            onPress={() => {
-                              setSelectedItineraryIndex(index);
-                              setRouteCoordinates(itinerary.coordinates);
-                              setRouteDurationMinutes(Math.round(itinerary.durationSeconds / 60));
-                              setRouteDistanceMeters(itinerary.distanceMeters);
-                              setRouteInstructions(itinerary.instructions);
+                    return (
+                      <View key={index} style={{ marginBottom: 12 }}>
+                        <Pressable
+                          style={[styles.itineraryCard, isSelected && styles.itineraryCardActive]}
+                          onPress={() => {
+                            setSelectedItineraryIndex(index);
+                            setRouteDurationMinutes(Math.round(itinerary.durationSeconds / 60));
+                            setRouteDistanceMeters(itinerary.distanceMeters);
+                            setRouteInstructions(itinerary.instructions);
+                          }}
+                        >
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              justifyContent: "space-between",
+                              alignItems: "flex-start",
                             }}
                           >
-                            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                              <View style={{ flex: 1 }}>
-                                <Text style={styles.itineraryTime}>
-                                  {formatTime(itinerary.departureTime)} → {formatTime(itinerary.arrivalTime)}
-                                </Text>
-                                <Text style={styles.itineraryDuration}>
-                                  {Math.round(itinerary.durationSeconds / 60)} min
-                                </Text>
-                                <Text style={styles.itineraryTransfers}>
-                                  {itinerary.transfers === 0 ? "Direct" : `${itinerary.transfers} transfer${itinerary.transfers > 1 ? "s" : ""}`}
-                                </Text>
-                                <View style={styles.itineraryLegsRow}>
-                                  {itinerary.legs.map((leg, legIndex) => {
-                                    const getLegColor = () => {
-                                      if (leg.mode === "WALK") return styles.legPillWalk;
-                                      if (leg.mode === "BUS") return styles.legPillBus;
-                                      if (leg.mode === "SUBWAY") return styles.legPillSubway;
-                                      if (leg.mode === "TRAM") return styles.legPillTram;
-                                      return styles.legPillBus;
-                                    };
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.itineraryTime}>
+                                {formatTime(itinerary.departureTime)} → {formatTime(itinerary.arrivalTime)}
+                              </Text>
+                              <Text style={styles.itineraryDuration}>
+                                {Math.round(itinerary.durationSeconds / 60)} min
+                              </Text>
+                              <Text style={styles.itineraryTransfers}>
+                                {itinerary.transfers === 0
+                                  ? "Direct"
+                                  : `${itinerary.transfers} transfer${itinerary.transfers > 1 ? "s" : ""}`}
+                              </Text>
+                              <View style={styles.itineraryLegsRow}>
+                                {itinerary.legs.map((leg, legIndex) => {
+                                  const getLegColor = () => {
+                                    if (leg.mode === "WALK") return styles.legPillWalk;
+                                    if (leg.mode === "BUS") return styles.legPillBus;
+                                    if (leg.mode === "SUBWAY") return styles.legPillSubway;
+                                    if (leg.mode === "TRAM") return styles.legPillTram;
+                                    return styles.legPillBus;
+                                  };
 
-                                    return (
-                                      <Text
-                                        key={legIndex}
-                                        style={[styles.legPill, getLegColor()]}
-                                      >
-                                        {leg.mode === "WALK" ? "Walk" : leg.route || leg.mode}
-                                      </Text>
-                                    );
-                                  })}
-                                </View>
-                              </View>
-                              <Pressable
-                                onPress={(e) => {
-                                  e.stopPropagation();
-                                  setExpandedItineraries(prev =>
-                                    prev.includes(index)
-                                      ? prev.filter(i => i !== index)
-                                      : [...prev, index]
+                                  return (
+                                    <Text key={legIndex} style={[styles.legPill, getLegColor()]}>
+                                      {leg.mode === "WALK" ? "Walk" : leg.route || leg.mode}
+                                    </Text>
                                   );
-                                }}
-                                style={{ padding: 8, marginLeft: 8 }}
-                              >
-                                {isExpanded ? (
-                                  <ChevronUp size={20} color="#007AFF" strokeWidth={2.5} />
-                                ) : (
-                                  <ChevronDown size={20} color="#8E8E93" strokeWidth={2.5} />
-                                )}
-                              </Pressable>
+                                })}
+                              </View>
                             </View>
-                          </Pressable>
 
-                          {isExpanded && (
-                            <View style={{ paddingHorizontal: 12, paddingTop: 16, paddingBottom: 12, backgroundColor: "#FAFAFA", borderRadius: 12, marginTop: 8 }}>
-                              {itinerary.legs.map((leg, legIndex) => {
-                                const isWalk = leg.mode === "WALK";
-                                const isLastLeg = legIndex === itinerary.legs.length - 1;
-                                const hasIntermediateStops = leg.intermediateStops && leg.intermediateStops.length > 0;
-                                const stopKey = `${index}-${legIndex}`;
-                                const isStopsExpanded = expandedIntermediateStops.has(stopKey);
-                                const isFirstLeg = legIndex === 0;
+                            <Pressable
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                setExpandedItineraries((prev) =>
+                                  prev.includes(index)
+                                    ? prev.filter((i) => i !== index)
+                                    : [...prev, index],
+                                );
+                              }}
+                              style={{ padding: 8, marginLeft: 8 }}
+                            >
+                              {isExpanded ? (
+                                <ChevronUp size={20} color="#007AFF" strokeWidth={2.5} />
+                              ) : (
+                                <ChevronDown size={20} color="#8E8E93" strokeWidth={2.5} />
+                              )}
+                            </Pressable>
+                          </View>
+                        </Pressable>
 
-                                return (
-                                  <React.Fragment key={legIndex}>
-                                    {/* Start of leg */}
+                        {isExpanded && (
+                          <View
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingTop: 16,
+                              paddingBottom: 12,
+                              backgroundColor: "#FAFAFA",
+                              borderRadius: 12,
+                              marginTop: 8,
+                            }}
+                          >
+                            {itinerary.legs.map((leg, legIndex) => {
+                              const isWalk = leg.mode === "WALK";
+                              const isLastLeg = legIndex === itinerary.legs.length - 1;
+                              const hasIntermediateStops =
+                                leg.intermediateStops && leg.intermediateStops.length > 0;
+                              const stopKey = `${index}-${legIndex}`;
+                              const isStopsExpanded = expandedIntermediateStops.has(stopKey);
+                              const isFirstLeg = legIndex === 0;
+
+                              return (
+                                <React.Fragment key={legIndex}>
+                                  <View style={styles.timelineContainer}>
+                                    <View style={styles.timelineLeft}>
+                                      <Text style={styles.timelineTime}>
+                                        {isFirstLeg && isWalk ? "Now" : formatTime(leg.startTime)}
+                                      </Text>
+                                    </View>
+
+                                    <View style={styles.timelineCenter}>
+                                      <View
+                                        style={[
+                                          styles.timelineIcon,
+                                          isWalk ? styles.timelineIconWalk : styles.timelineIconTransit,
+                                        ]}
+                                      >
+                                        {isWalk ? (
+                                          <Footprints size={20} color="#2E7D32" strokeWidth={2.5} />
+                                        ) : leg.mode === "BUS" ? (
+                                          <Bus size={20} color="#007AFF" strokeWidth={2.5} />
+                                        ) : leg.mode === "SUBWAY" ? (
+                                          <Train size={20} color="#007AFF" strokeWidth={2.5} />
+                                        ) : (
+                                          <TramFront size={20} color="#007AFF" strokeWidth={2.5} />
+                                        )}
+                                      </View>
+                                      <View
+                                        style={[
+                                          styles.timelineLine,
+                                          isWalk ? styles.timelineLineWalk : styles.timelineLineTransit,
+                                        ]}
+                                      />
+                                    </View>
+
+                                    <View style={styles.timelineRight}>
+                                      <Text style={styles.timelineStopName}>{leg.from.name}</Text>
+
+                                      {isWalk ? (
+                                        <Text style={styles.timelineWalkDetail}>
+                                          {Math.round(leg.duration / 60)} min Walk {Math.round(leg.distance)} m
+                                        </Text>
+                                      ) : (
+                                        <>
+                                          <Text
+                                            style={{
+                                              fontSize: 12,
+                                              color: "#007AFF",
+                                              fontWeight: "600",
+                                              marginBottom: 4,
+                                            }}
+                                          >
+                                            Departs {formatTime(leg.startTime)}
+                                          </Text>
+                                          <View
+                                            style={[
+                                              styles.timelineRoutePill,
+                                              leg.mode === "BUS"
+                                                ? styles.timelineRoutePillBus
+                                                : leg.mode === "SUBWAY"
+                                                  ? styles.timelineRoutePillSubway
+                                                  : styles.timelineRoutePillTram,
+                                            ]}
+                                          >
+                                            {leg.mode === "BUS" ? (
+                                              <Bus size={16} color="white" strokeWidth={2.5} />
+                                            ) : leg.mode === "SUBWAY" ? (
+                                              <Train size={16} color="white" strokeWidth={2.5} />
+                                            ) : (
+                                              <TramFront size={16} color="white" strokeWidth={2.5} />
+                                            )}
+                                            <Text style={styles.timelineRouteText}>{leg.route}</Text>
+                                          </View>
+
+                                          {leg.headsign && (
+                                            <Text style={styles.timelineHeadsign}>→ {leg.headsign}</Text>
+                                          )}
+
+                                          {hasIntermediateStops && (
+                                            <Pressable
+                                              onPress={() => {
+                                                setExpandedIntermediateStops((prev) => {
+                                                  const next = new Set(prev);
+                                                  if (next.has(stopKey)) next.delete(stopKey);
+                                                  else next.add(stopKey);
+                                                  return next;
+                                                });
+                                              }}
+                                              style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}
+                                            >
+                                              {isStopsExpanded ? (
+                                                <ChevronUp size={14} color="#8E8E93" strokeWidth={2.5} />
+                                              ) : (
+                                                <ChevronDown size={14} color="#8E8E93" strokeWidth={2.5} />
+                                              )}
+                                              <Text style={{ fontSize: 12, color: "#8E8E93", marginLeft: 4 }}>
+                                                {leg.intermediateStops?.length} intermediate stop
+                                                {(leg.intermediateStops?.length || 0) > 1 ? "s" : ""} (
+                                                {Math.round(leg.duration / 60)} min)
+                                              </Text>
+                                            </Pressable>
+                                          )}
+                                        </>
+                                      )}
+                                    </View>
+                                  </View>
+
+                                  {!isWalk && hasIntermediateStops && isStopsExpanded && (
+                                    <View style={{ marginLeft: 60, marginTop: -8, marginBottom: 8 }}>
+                                      {leg.intermediateStops?.map((stop, stopIdx) => (
+                                        <View
+                                          key={stopIdx}
+                                          style={{
+                                            flexDirection: "row",
+                                            paddingVertical: 6,
+                                            borderLeftWidth: 3,
+                                            borderLeftColor: "#007AFF",
+                                            paddingLeft: 28,
+                                          }}
+                                        >
+                                          <Text
+                                            style={{
+                                              fontSize: 13,
+                                              fontWeight: "600",
+                                              color: "#3A3A3C",
+                                              width: 60,
+                                            }}
+                                          >
+                                            {formatTime(stop.arrival)}
+                                          </Text>
+                                          <Text style={{ fontSize: 13, color: "#3A3A3C", flex: 1 }}>
+                                            {stop.name}
+                                          </Text>
+                                        </View>
+                                      ))}
+                                    </View>
+                                  )}
+
+                                  {isWalk && !isLastLeg && (
                                     <View style={styles.timelineContainer}>
                                       <View style={styles.timelineLeft}>
-                                        <Text style={styles.timelineTime}>
-                                          {isFirstLeg && isWalk ? "Now" : formatTime(leg.startTime)}
+                                        <Text
+                                          style={[styles.timelineTime, { fontSize: 13, color: "#6A6A75" }]}
+                                        >
+                                          {formatTime(leg.endTime)}
                                         </Text>
                                       </View>
 
                                       <View style={styles.timelineCenter}>
-                                        <View style={[styles.timelineIcon, isWalk ? styles.timelineIconWalk : styles.timelineIconTransit]}>
-                                          {isWalk ? (
-                                            <Footprints size={20} color="#2E7D32" strokeWidth={2.5} />
-                                          ) : leg.mode === "BUS" ? (
-                                            <Bus size={20} color="#007AFF" strokeWidth={2.5} />
-                                          ) : leg.mode === "SUBWAY" ? (
-                                            <Train size={20} color="#007AFF" strokeWidth={2.5} />
-                                          ) : (
-                                            <TramFront size={20} color="#007AFF" strokeWidth={2.5} />
-                                          )}
-                                        </View>
-                                        <View style={[styles.timelineLine, isWalk ? styles.timelineLineWalk : styles.timelineLineTransit]} />
+                                        <View
+                                          style={{
+                                            width: 12,
+                                            height: 12,
+                                            borderRadius: 6,
+                                            backgroundColor: "#D1D5DB",
+                                            borderWidth: 2,
+                                            borderColor: "white",
+                                          }}
+                                        />
+                                        <View style={[styles.timelineLine, { backgroundColor: "#D1D5DB" }]} />
                                       </View>
 
                                       <View style={styles.timelineRight}>
-                                        <Text style={styles.timelineStopName}>{leg.from.name}</Text>
-
-                                        {isWalk ? (
-                                          <Text style={styles.timelineWalkDetail}>
-                                            {Math.round(leg.duration / 60)} min Walk {Math.round(leg.distance)} m
-                                          </Text>
-                                        ) : (
-                                          <>
-                                            <Text style={{ fontSize: 12, color: "#007AFF", fontWeight: "600", marginBottom: 4 }}>
-                                              Departs {formatTime(leg.startTime)}
-                                            </Text>
-                                            <View style={[
-                                              styles.timelineRoutePill,
-                                              leg.mode === "BUS" ? styles.timelineRoutePillBus :
-                                                leg.mode === "SUBWAY" ? styles.timelineRoutePillSubway :
-                                                  styles.timelineRoutePillTram
-                                            ]}>
-                                              {leg.mode === "BUS" ? (
-                                                <Bus size={16} color="white" strokeWidth={2.5} />
-                                              ) : leg.mode === "SUBWAY" ? (
-                                                <Train size={16} color="white" strokeWidth={2.5} />
-                                              ) : (
-                                                <TramFront size={16} color="white" strokeWidth={2.5} />
-                                              )}
-                                              <Text style={styles.timelineRouteText}>{leg.route}</Text>
-                                            </View>
-                                            {leg.headsign && (
-                                              <Text style={styles.timelineHeadsign}>→ {leg.headsign}</Text>
-                                            )}
-
-                                            {hasIntermediateStops && (
-                                              <Pressable
-                                                onPress={() => {
-                                                  setExpandedIntermediateStops(prev => {
-                                                    const next = new Set(prev);
-                                                    if (next.has(stopKey)) {
-                                                      next.delete(stopKey);
-                                                    } else {
-                                                      next.add(stopKey);
-                                                    }
-                                                    return next;
-                                                  });
-                                                }}
-                                                style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}
-                                              >
-                                                {isStopsExpanded ? (
-                                                  <ChevronUp size={14} color="#8E8E93" strokeWidth={2.5} />
-                                                ) : (
-                                                  <ChevronDown size={14} color="#8E8E93" strokeWidth={2.5} />
-                                                )}
-                                                <Text style={{ fontSize: 12, color: "#8E8E93", marginLeft: 4 }}>
-                                                  {leg.intermediateStops?.length} intermediate stop{(leg.intermediateStops?.length || 0) > 1 ? 's' : ''} ({Math.round(leg.duration / 60)} min)
-                                                </Text>
-                                              </Pressable>
-                                            )}
-                                          </>
-                                        )}
+                                        <Text style={{ fontSize: 13, color: "#6A6A75", fontWeight: "600" }}>
+                                          {leg.to.name}
+                                        </Text>
+                                        <Text style={{ fontSize: 12, color: "#8E8E93", marginTop: 2 }}>
+                                          Arrive at stop
+                                        </Text>
                                       </View>
                                     </View>
+                                  )}
 
-                                    {/* Intermediate stops (if transit and expanded) */}
-                                    {!isWalk && hasIntermediateStops && isStopsExpanded && (
-                                      <View style={{ marginLeft: 60, marginTop: -8, marginBottom: 8 }}>
-                                        {leg.intermediateStops?.map((stop, stopIdx) => (
-                                          <View key={stopIdx} style={{ flexDirection: "row", paddingVertical: 6, borderLeftWidth: 3, borderLeftColor: "#007AFF", paddingLeft: 28 }}>
-                                            <Text style={{ fontSize: 13, fontWeight: "600", color: "#3A3A3C", width: 60 }}>
-                                              {formatTime(stop.arrival)}
-                                            </Text>
-                                            <Text style={{ fontSize: 13, color: "#3A3A3C", flex: 1 }}>
-                                              {stop.name}
-                                            </Text>
-                                          </View>
-                                        ))}
+                                  {isLastLeg && (
+                                    <View style={styles.timelineContainer}>
+                                      <View style={styles.timelineLeft}>
+                                        <Text style={styles.timelineTime}>{formatTime(leg.endTime)}</Text>
                                       </View>
-                                    )}
 
-                                    {/* Walk end / arrival at stop (if walk and not last leg) */}
-                                    {isWalk && !isLastLeg && (
-                                      <View style={styles.timelineContainer}>
-                                        <View style={styles.timelineLeft}>
-                                          <Text style={[styles.timelineTime, { fontSize: 13, color: "#6A6A75" }]}>
-                                            {formatTime(leg.endTime)}
-                                          </Text>
-                                        </View>
-
-                                        <View style={styles.timelineCenter}>
-                                          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: "#D1D5DB", borderWidth: 2, borderColor: "white" }} />
-                                          <View style={[styles.timelineLine, { backgroundColor: "#D1D5DB" }]} />
-                                        </View>
-
-                                        <View style={styles.timelineRight}>
-                                          <Text style={{ fontSize: 13, color: "#6A6A75", fontWeight: "600" }}>
-                                            {leg.to.name}
-                                          </Text>
-                                          <Text style={{ fontSize: 12, color: "#8E8E93", marginTop: 2 }}>
-                                            Arrive at stop
-                                          </Text>
+                                      <View style={styles.timelineCenter}>
+                                        <View
+                                          style={[
+                                            styles.timelineIcon,
+                                            { borderColor: "#EF4444", backgroundColor: "#FEE2E2" },
+                                          ]}
+                                        >
+                                          <MapPin size={20} color="#EF4444" strokeWidth={2.5} />
                                         </View>
                                       </View>
-                                    )}
 
-                                    {/* Final destination (only for last leg) */}
-                                    {isLastLeg && (
-                                      <View style={styles.timelineContainer}>
-                                        <View style={styles.timelineLeft}>
-                                          <Text style={styles.timelineTime}>{formatTime(leg.endTime)}</Text>
-                                        </View>
-
-                                        <View style={styles.timelineCenter}>
-                                          <View style={[styles.timelineIcon, { borderColor: "#EF4444", backgroundColor: "#FEE2E2" }]}>
-                                            <MapPin size={20} color="#EF4444" strokeWidth={2.5} />
-                                          </View>
-                                        </View>
-
-                                        <View style={styles.timelineRight}>
-                                          <Text style={[styles.timelineStopName, { color: "#EF4444" }]}>
-                                            {leg.to.name}
-                                          </Text>
-                                        </View>
+                                      <View style={styles.timelineRight}>
+                                        <Text style={[styles.timelineStopName, { color: "#EF4444" }]}>
+                                          {leg.to.name}
+                                        </Text>
                                       </View>
-                                    )}
-                                  </React.Fragment>
-                                );
-                              })}
-                            </View>
-                          )}
-                        </View>
-                      );
-                    })}
-                  </>
-                )
-              ) : (
-                // Simple numbered instructions for walk/drive
-                routeInstructions.map((instruction, index) => (
-                  <Text
-                    key={`${index}-${instruction.text}`}
-                    style={styles.routeStepText}
-                  >
-                    {`${index + 1}. ${instruction.text}`}
-                  </Text>
-                ))
-              )}
-            </ScrollView>
-          </View>
-        )}
-      {isDirectionsMode &&
-        !showRouteInstructions &&
-        routeInstructions.length > 0 && (
-          <Pressable
-            {...routeSheetPanResponder.panHandlers}
-            style={styles.routeStepsCollapsedTab}
-            testID="route-steps-collapsed-tab"
-            onPress={() => {
-              routeInstructionsDismissedRef.current = false;
-              setShowRouteInstructions(true);
-            }}
-          >
-            <ChevronUp size={24} color="#1F1F24" strokeWidth={2.5} />
-          </Pressable>
-        )}
+                                    </View>
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </>
+              )
+            ) : (
+              routeInstructions.map((instruction, index) => (
+                <Text key={`${index}-${instruction.text}`} style={styles.routeStepText}>
+                  {`${index + 1}. ${instruction.text}`}
+                </Text>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      )}
+
+      {isDirectionsMode && !showRouteInstructions && routeInstructions.length > 0 && (
+        <Pressable
+          {...routeSheetPanResponder.panHandlers}
+          style={styles.routeStepsCollapsedTab}
+          testID="route-steps-collapsed-tab"
+          onPress={() => {
+            routeInstructionsDismissedRef.current = false;
+            setShowRouteInstructions(true);
+          }}
+        >
+          <ChevronUp size={24} color="#1F1F24" strokeWidth={2.5} />
+        </Pressable>
+      )}
 
       <BuildingInformation
         buildingCode={selectedBuilding}
