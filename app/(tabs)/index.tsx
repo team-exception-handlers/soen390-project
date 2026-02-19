@@ -868,16 +868,18 @@ export default function MapScreen() {
     }
     let cancelled = false;
     const go = async () => {
-      const [walk, drive] = await Promise.allSettled([
-        fetchOsrmRoute(actualOriginPoint, destinationBuilding, "walking"),
+      // For same campus: walk. For different campus: bike      
+      const walkOrBikeProfile = isSameCampus ? "walking" : "cycling";
+      const [walkOrBike, drive] = await Promise.allSettled([
+        fetchOsrmRoute(actualOriginPoint, destinationBuilding, walkOrBikeProfile),
         fetchOsrmRoute(actualOriginPoint, destinationBuilding, "driving"),
       ]);
       if (cancelled) return;
       setModeDurations((p) => ({
         ...p,
         walking:
-          walk.status === "fulfilled"
-            ? Math.round(walk.value.durationSeconds / 60)
+          walkOrBike.status === "fulfilled"
+            ? Math.round(walkOrBike.value.durationSeconds / 60)
             : null,
         driving:
           drive.status === "fulfilled"
@@ -1028,10 +1030,13 @@ export default function MapScreen() {
             setShowRouteInstructions(true);
           }
         } else {
+          // Use cycling mode for intercampus "walking", otherwise use the selected mode
+          const actualMode = routeMode === "walking" && !isSameCampus ? "cycling" : routeMode;
+
           const route = await fetchOsrmRoute(
             actualOriginPoint,
             destinationBuilding,
-            routeMode,
+            actualMode,
           );
           if (cancelled) return;
           setRouteCoordinates(route.coordinates);
@@ -1825,7 +1830,7 @@ export default function MapScreen() {
                       routeMode === "walking" && styles.modePillTextActive,
                     ]}
                   >
-                    Walk/Bike -{" "}
+                    Bike - {" "}
                     {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
                   </Text>
                 </Pressable>
