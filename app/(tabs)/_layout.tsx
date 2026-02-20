@@ -1,7 +1,7 @@
 import { BlurView } from "expo-blur";
 import * as NavigationBar from "expo-navigation-bar";
 import { Tabs } from "expo-router";
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BottomTabIcon from "../../components/BottomTabIcon";
@@ -34,7 +34,6 @@ function TabBarBackground() {
         style={StyleSheet.absoluteFill}
         intensity={90}
         tint="light"
-        experimentalBlurMethod="dimezisBlurView"
       />
       <View
         style={[
