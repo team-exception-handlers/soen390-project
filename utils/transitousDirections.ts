@@ -116,11 +116,12 @@ function formatLegInstruction(leg: TransitLeg): string {
 export function buildTransitousUrl(
     origin: { latitude: number; longitude: number },
     destination: { latitude: number; longitude: number },
+    departureTime?: string,
 ): string {
     const params = new URLSearchParams({
         fromPlace: `${origin.latitude},${origin.longitude}`,
         toPlace: `${destination.latitude},${destination.longitude}`,
-        time: new Date().toISOString(),
+        time: departureTime || new Date().toISOString(),
         numItineraries: "3",
     });
 
@@ -177,8 +178,9 @@ function parseItinerary(itinerary: any): TransitItinerary {
 export async function fetchTransitRoute(
     origin: { latitude: number; longitude: number },
     destination: { latitude: number; longitude: number },
+    departureTime?: string,
 ): Promise<TransitItinerary> {
-    const url = buildTransitousUrl(origin, destination);
+    const url = buildTransitousUrl(origin, destination, departureTime);
 
     const response = await fetch(url, {
         headers: {
@@ -204,8 +206,9 @@ export async function fetchTransitRoute(
 export async function fetchTransitItineraries(
     origin: { latitude: number; longitude: number },
     destination: { latitude: number; longitude: number },
+    departureTime?: string,
 ): Promise<TransitItinerary[]> {
-    const url = buildTransitousUrl(origin, destination);
+    const url = buildTransitousUrl(origin, destination, departureTime);
 
     const response = await fetch(url, {
         headers: {
