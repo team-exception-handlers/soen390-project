@@ -114,6 +114,26 @@ const ShuttleDirections: React.FC<ShuttleDirectionsProps> = ({ origin, destinati
         );
     }
 
+    if(shuttleInfo?.serviceUnavailable) return(
+        <View style={styles.card}>
+
+            <View style={styles.timelineItem}>
+                <View style={styles.timelineLeft}>
+                    <View style={[styles.timelineIcon, styles.iconShuttle]}>
+                        <Bus size={16} color="white" />
+                    </View>
+                </View>
+                <View style={styles.timelineRight}>
+                    <View style={styles.shuttleHeader}>
+                        <Text style={styles.timelineTitle}>Concordia Shuttle</Text>
+                    </View>
+
+                    <Text style={styles.unavailableText}>{shuttleInfo.message}</Text>
+                    
+                </View>
+            </View>
+        </View>
+    );
     return (
         <View style={styles.card}>
             {/* SEGMENT 1: Walk to Stop */}
