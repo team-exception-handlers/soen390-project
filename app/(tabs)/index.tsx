@@ -4,6 +4,20 @@ import * as Location from "expo-location";
 import { ChevronDown, ChevronUp, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Keyboard, Linking, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Keyboard,
+  Linking,
+  PanResponder,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import TransitLegTimeline from "../../components/TransitLegTimeline";
@@ -46,6 +60,8 @@ const formatDistance = (meters: number) => {
   if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
   return `${Math.round(meters)} m`;
 };
+const DEFAULT_START_BUILDING_CODE = "H";
+const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
 
 const resolveBuildingByCode = (
   code: string | null | undefined,
@@ -55,6 +71,19 @@ const resolveBuildingByCode = (
   const exact = buildings.find((building) => building.code === code);
   if (exact) return exact;
   return buildings.find((building) => building.code.startsWith(code)) ?? null;
+};
+
+const detectBuildingFromLocation = (
+  latitude: number,
+  longitude: number,
+): { code: string | null; campus: Campus | null } => {
+  const sgwBuilding = findUserBuilding(latitude, longitude, SGW_POLYGONS as any);
+  if (sgwBuilding) return { code: sgwBuilding, campus: "SGW" };
+
+  const loyBuilding = findUserBuilding(latitude, longitude, LOY_POLYGONS as any);
+  if (loyBuilding) return { code: loyBuilding, campus: "LOY" };
+
+  return { code: null, campus: null };
 };
 
 /* these make it so we can view selected campus and building from the map level */
@@ -67,7 +96,11 @@ export default function MapScreen() {
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const [destinationBuildingCode, setDestinationBuildingCode] =
-    useState<string>(HALL_BUILDING_CODE);
+    useState<string>(DEFAULT_DESTINATION_BUILDING_CODE);
+  // Tracks the selected origin building (or null if using current location)
+  const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
+    null,
+  );
   const [isDirectionsMode, setIsDirectionsMode] = useState(false);
   const [routeMode, setRouteMode] = useState<RouteProfile | "transit">(
     "walking",
@@ -86,6 +119,9 @@ export default function MapScreen() {
   const [routeInstructions, setRouteInstructions] = useState<RouteInstruction[]>(
     [],
   );
+  const [routeInstructions, setRouteInstructions] = useState<
+    RouteInstruction[]
+  >([]);
   const [showRouteInstructions, setShowRouteInstructions] = useState(false);
   const [modeDurations, setModeDurations] = useState<
     Record<string, number | null>
@@ -132,6 +168,9 @@ export default function MapScreen() {
   );
   const [webMapReady, setWebMapReady] = useState(false);
   const locationSubscription = useRef<any>(null);
+  const campusRef = useRef<Campus>(campus);
+  const originModeRef = useRef<"auto" | "manual">("auto");
+  const hasInitializedCampusFromLocationRef = useRef(false);
   const [locationPermissionDenied, setLocationPermissionDenied] =
     useState(false);
 
@@ -147,6 +186,10 @@ export default function MapScreen() {
   const userLat = isWebPlatform ? userLocation?.coords.latitude || null : null;
   const userLng = isWebPlatform ? userLocation?.coords.longitude || null : null;
   const currentBuildingForHTML = isWebPlatform ? currentBuilding : null;
+
+  useEffect(() => {
+    campusRef.current = campus;
+  }, [campus]);
 
   // Styles defined inside component
   const styles = StyleSheet.create({
@@ -730,6 +773,66 @@ export default function MapScreen() {
     }
   }
 
+  const applyDetectedLocationState = useCallback(
+    (
+      detected: { code: string | null; campus: Campus | null },
+      options: {
+        forceOriginSync?: boolean;
+        syncOriginWhenAuto?: boolean;
+        syncCampusMode?: "never" | "once" | "always";
+      } = {},
+    ) => {
+      const {
+        forceOriginSync = false,
+        syncOriginWhenAuto = false,
+        syncCampusMode = "never",
+      } = options;
+
+      setCurrentBuilding((previous) =>
+        previous === detected.code ? previous : detected.code,
+      );
+
+      if (forceOriginSync || (syncOriginWhenAuto && originModeRef.current === "auto")) {
+        setOriginBuildingCode((previous) =>
+          previous === detected.code ? previous : detected.code,
+        );
+      }
+
+      if (!detected.campus) return;
+
+      if (syncCampusMode === "always") {
+        hasInitializedCampusFromLocationRef.current = true;
+        if (campusRef.current !== detected.campus) {
+          setCampus(detected.campus);
+        }
+        return;
+      }
+
+      if (syncCampusMode === "once" && !hasInitializedCampusFromLocationRef.current) {
+        hasInitializedCampusFromLocationRef.current = true;
+        if (campusRef.current !== detected.campus) {
+          setCampus(detected.campus);
+        }
+      }
+    },
+    [],
+  );
+
+  const handleLocationUpdate = useCallback(
+    (location: Location.LocationObject) => {
+      const { latitude, longitude } = location.coords;
+      const detected = detectBuildingFromLocation(latitude, longitude);
+
+      setUserLocation(location);
+      setLocationPermissionDenied(false);
+      applyDetectedLocationState(detected, {
+        syncOriginWhenAuto: true,
+        syncCampusMode: "once",
+      });
+    },
+    [applyDetectedLocationState],
+  );
+
   // Start tracking user location
   useEffect(() => {
     async function setupLocation() {
@@ -739,6 +842,7 @@ export default function MapScreen() {
         const granted = await requestLocationPermission();
         if (!granted) {
           setLocationPermissionDenied(true);
+          setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
           return;
         }
       }
@@ -760,7 +864,17 @@ export default function MapScreen() {
           console.log("User location:", latitude, longitude);
         },
       );
+      try {
+        const initialLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+        handleLocationUpdate(initialLocation);
+      } catch (error) {
+        console.error("Error getting initial location:", error);
+        setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
+      }
 
+      const subscription = await startWatchingLocation(handleLocationUpdate);
       if (subscription) {
         locationSubscription.current = subscription;
       }
@@ -781,7 +895,7 @@ export default function MapScreen() {
         }
       }
     };
-  }, [campus]);
+  }, [campus], [handleLocationUpdate]);
 
   // Get polygon data based on campus
   const campusPolygons = useMemo(
@@ -930,6 +1044,10 @@ export default function MapScreen() {
     setIsDirectionsMode(false);
     setRouteLoading(false);
     resetRouteState();
+    setRouteCoordinates([]);
+    setRouteInstructions([]);
+    setShowRouteInstructions(false);
+    routeInstructionsDismissedRef.current = false;
   };
 
   const handleCampusChange = (nextCampus: Campus) => {
@@ -950,10 +1068,31 @@ export default function MapScreen() {
     }
 
     exitDirectionsMode();
-    setCampus("SGW");
+    originModeRef.current = "auto";
+    let restoredCampus: Campus | null = null;
 
-    if (!isWebPlatform && campus === "SGW") {
-      mapRef.current?.animateToRegion?.(defaultSgwRegion, 450);
+    const latitude = userLocation?.coords?.latitude;
+    const longitude = userLocation?.coords?.longitude;
+    if (typeof latitude === "number" && typeof longitude === "number") {
+      const detected = detectBuildingFromLocation(latitude, longitude);
+      restoredCampus = detected.campus;
+      applyDetectedLocationState(detected, {
+        forceOriginSync: true,
+        syncCampusMode: "always",
+      });
+    } else {
+      setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
+    }
+
+    if (restoredCampus && restoredCampus !== campus) {
+      setCampus(restoredCampus);
+    }
+
+    if (!isWebPlatform) {
+      const mapCampus = restoredCampus ?? campus;
+      const polygons =
+        mapCampus === "SGW" ? SGW_POLYGONS.features : LOY_POLYGONS.features;
+      mapRef.current?.animateToRegion?.(getCampusRegion(mapCampus, polygons), 450);
     }
   };
 
@@ -989,6 +1128,10 @@ export default function MapScreen() {
   useEffect(() => {
     if (!isDirectionsMode || !destinationBuilding || !actualOriginPoint) {
       resetRouteState();
+      setRouteCoordinates([]);
+      setRouteInstructions([]);
+      setShowRouteInstructions(false);
+      routeInstructionsDismissedRef.current = false;
       return;
     }
 
@@ -2158,6 +2301,7 @@ export default function MapScreen() {
         editingField={editingField}
         onSelectDestination={(code: string) => {
           if (editingField === "from") {
+            originModeRef.current = "manual";
             setOriginBuildingCode(code);
           } else {
             setDestinationBuildingCode(code);
