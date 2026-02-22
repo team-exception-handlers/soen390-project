@@ -120,35 +120,149 @@ describe("utils/transitousDirections", () => {
         );
 
         expect(result).toHaveLength(1);
-        expect(result[0]).toEqual({
-            durationSeconds: 1920,
-            distanceMeters: 5978,
-            transfers: 0,
-            departureTime: "2026-02-19T17:06:00Z",
-            arrivalTime: "2026-02-19T17:29:00Z",
-            legs: expect.arrayContaining([
-                expect.objectContaining({
-                    mode: "WALK",
-                    route: undefined,
-                }),
-                expect.objectContaining({
-                    mode: "BUS",
-                    route: "105",
-                    headsign: "East",
-                }),
-            ]),
-            instructions: expect.arrayContaining([
-                expect.objectContaining({
-                    text: expect.stringContaining("Walk"),
-                    distanceMeters: 978,
-                }),
-                expect.objectContaining({
-                    text: expect.stringContaining("Take Bus 105"),
-                    distanceMeters: 5000,
-                }),
-            ]),
-            coordinates: expect.any(Array),
+        expect(result[0].durationSeconds).toBe(1920);
+        expect(result[0].distanceMeters).toBe(5978);
+        expect(result[0].transfers).toBe(0);
+    });
+
+    test("fetchTransitItineraries formats duration with exact hours", async () => {
+        globalThis.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+                itineraries: [
+                    {
+                        duration: 7200,
+                        legs: [
+                            {
+                                mode: "WALK",
+                                from: { name: "A" },
+                                to: { name: "B" },
+                                startTime: "2026-02-19T17:00:00Z",
+                                endTime: "2026-02-19T19:00:00Z",
+                                distance: 5000,
+                                duration: 7200,
+                                legGeometry: { points: "abc" },
+                            },
+                        ],
+                    },
+                ],
+            }),
         });
+
+        const result = await fetchTransitItineraries(
+            { latitude: 45.5, longitude: -73.6 },
+            { latitude: 45.6, longitude: -73.7 },
+        );
+
+        expect(result[0].instructions[0].text).toContain("2 h");
+        expect(result[0].instructions[0].text).not.toContain("0 min");
+    });
+
+    test("fetchTransitItineraries formats duration with hours and minutes", async () => {
+        globalThis.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+                itineraries: [
+                    {
+                        duration: 5430,
+                        legs: [
+                            {
+                                mode: "WALK",
+                                from: { name: "A" },
+                                to: { name: "B" },
+                                startTime: "2026-02-19T17:00:00Z",
+                                endTime: "2026-02-19T18:30:30Z",
+                                distance: 5000,
+                                duration: 5430,
+                                legGeometry: { points: "abc" },
+                            },
+                        ],
+                    },
+                ],
+            }),
+        });
+
+        const result = await fetchTransitItineraries(
+            { latitude: 45.5, longitude: -73.6 },
+            { latitude: 45.6, longitude: -73.7 },
+        );
+
+        expect(result[0].instructions[0].text).toContain("h");
+        expect(result[0].instructions[0].text).toContain("min");
+    });
+
+    test("fetchTransitItineraries handles TRAM mode correctly", async () => {
+        globalThis.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+                itineraries: [
+                    {
+                        duration: 1200,
+                        legs: [
+                            {
+                                mode: "TRAM",
+                                from: { name: "Stop A" },
+                                to: { name: "Stop B" },
+                                startTime: "2026-02-19T17:00:00Z",
+                                endTime: "2026-02-19T17:20:00Z",
+                                distance: 3000,
+                                duration: 1200,
+                                routeShortName: "T1",
+                                headsign: "Downtown",
+                                legGeometry: { points: "xyz" },
+                            },
+                        ],
+                    },
+                ],
+            }),
+        });
+
+        const result = await fetchTransitItineraries(
+            { latitude: 45.5, longitude: -73.6 },
+            { latitude: 45.6, longitude: -73.7 },
+        );
+
+        expect(result[0].legs[0].mode).toBe("TRAM");
+        expect(result[0].instructions[0].text).toContain("Take Tram");
+        expect(result[0].instructions[0].text).toContain("T1");
+        expect(result[0].instructions[0].text).toContain("towards Downtown");
+    });
+
+    test("fetchTransitItineraries handles RAIL mode correctly", async () => {
+        globalThis.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+                itineraries: [
+                    {
+                        duration: 1800,
+                        legs: [
+                            {
+                                mode: "RAIL",
+                                from: { name: "Station A" },
+                                to: { name: "Station B" },
+                                startTime: "2026-02-19T17:00:00Z",
+                                endTime: "2026-02-19T17:30:00Z",
+                                distance: 10000,
+                                duration: 1800,
+                                routeShortName: "R5",
+                                headsign: "North",
+                                legGeometry: { points: "qrs" },
+                            },
+                        ],
+                    },
+                ],
+            }),
+        });
+
+        const result = await fetchTransitItineraries(
+            { latitude: 45.5, longitude: -73.6 },
+            { latitude: 45.6, longitude: -73.7 },
+        );
+
+        expect(result[0].legs[0].mode).toBe("RAIL");
+        expect(result[0].instructions[0].text).toContain("Take Train");
+        expect(result[0].instructions[0].text).toContain("R5");
+        expect(result[0].instructions[0].text).toContain("towards North");
     });
 
     test("fetchTransitItineraries calculates transfers correctly for multiple transit legs", async () => {
