@@ -47,24 +47,7 @@ if (Platform.OS !== "web") {
 
 const roundCoord = (value: number) => Number(value.toFixed(4));
 
-const TRAVEL_MODES: { value: RouteProfile; label: string }[] = [
-  { value: "walking", label: "Walk" },
-  { value: "driving", label: "Drive" },
-  { value: "cycling", label: "Bike" },
-];
 const HALL_BUILDING_CODE = "H";
-
-const formatDuration = (minutes: number) => {
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins === 0 ? `${hours} h` : `${hours} h ${mins} min`;
-};
-
-const formatDistance = (meters: number) => {
-  if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
-  return `${Math.round(meters)} m`;
-};
 
 const resolveBuildingByCode = (
   code: string | null | undefined,
@@ -109,14 +92,10 @@ export default function MapScreen() {
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
-  const [routeDurationMinutes, setRouteDurationMinutes] = useState<
-    number | null
-  >(null);
-  const [routeDistanceMeters, setRouteDistanceMeters] = useState<number | null>(
-    null,
-  );
-  const [routeLoading, setRouteLoading] = useState(false);
-  const [routeError, setRouteError] = useState<string | null>(null);
+  const [, setRouteDurationMinutes] = useState<number | null>(null);
+  const [, setRouteDistanceMeters] = useState<number | null>(null);
+  const [, setRouteLoading] = useState(false);
+  const [, setRouteError] = useState<string | null>(null);
   const [routeInstructions, setRouteInstructions] = useState<
     RouteInstruction[]
   >([]);
@@ -540,29 +519,65 @@ export default function MapScreen() {
     }
   }
 
-  const handleLocationUpdate = useCallback((location: Location.LocationObject) => {
-    const { latitude, longitude } = location.coords;
-    const detected = detectBuildingFromLocation(latitude, longitude);
+  const applyDetectedLocationState = useCallback(
+    (
+      detected: { code: string | null; campus: Campus | null },
+      options: {
+        forceOriginSync?: boolean;
+        syncOriginWhenAuto?: boolean;
+        syncCampusMode?: "never" | "once" | "always";
+      } = {},
+    ) => {
+      const {
+        forceOriginSync = false,
+        syncOriginWhenAuto = false,
+        syncCampusMode = "never",
+      } = options;
 
-    setUserLocation(location);
-    setLocationPermissionDenied(false);
-    setCurrentBuilding((previous) =>
-      previous === detected.code ? previous : detected.code,
-    );
-
-    if (originModeRef.current === "auto") {
-      setOriginBuildingCode((previous) =>
+      setCurrentBuilding((previous) =>
         previous === detected.code ? previous : detected.code,
       );
-    }
 
-    if (detected.campus && !hasInitializedCampusFromLocationRef.current) {
-      hasInitializedCampusFromLocationRef.current = true;
-      if (campusRef.current !== detected.campus) {
-        setCampus(detected.campus);
+      if (forceOriginSync || (syncOriginWhenAuto && originModeRef.current === "auto")) {
+        setOriginBuildingCode((previous) =>
+          previous === detected.code ? previous : detected.code,
+        );
       }
-    }
-  }, []);
+
+      if (!detected.campus) return;
+
+      if (syncCampusMode === "always") {
+        hasInitializedCampusFromLocationRef.current = true;
+        if (campusRef.current !== detected.campus) {
+          setCampus(detected.campus);
+        }
+        return;
+      }
+
+      if (syncCampusMode === "once" && !hasInitializedCampusFromLocationRef.current) {
+        hasInitializedCampusFromLocationRef.current = true;
+        if (campusRef.current !== detected.campus) {
+          setCampus(detected.campus);
+        }
+      }
+    },
+    [],
+  );
+
+  const handleLocationUpdate = useCallback(
+    (location: Location.LocationObject) => {
+      const { latitude, longitude } = location.coords;
+      const detected = detectBuildingFromLocation(latitude, longitude);
+
+      setUserLocation(location);
+      setLocationPermissionDenied(false);
+      applyDetectedLocationState(detected, {
+        syncOriginWhenAuto: true,
+        syncCampusMode: "once",
+      });
+    },
+    [applyDetectedLocationState],
+  );
 
   // Start tracking user location
   useEffect(() => {
@@ -687,10 +702,10 @@ export default function MapScreen() {
     if (typeof latitude === "number" && typeof longitude === "number") {
       const detected = detectBuildingFromLocation(latitude, longitude);
       restoredCampus = detected.campus;
-      setCurrentBuilding((previous) =>
-        previous === detected.code ? previous : detected.code,
-      );
-      setOriginBuildingCode(detected.code);
+      applyDetectedLocationState(detected, {
+        forceOriginSync: true,
+        syncCampusMode: "always",
+      });
     } else {
       setOriginBuildingCode(currentBuilding ?? null);
     }
