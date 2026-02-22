@@ -1,7 +1,7 @@
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import { ChevronDown, ChevronUp, X } from "lucide-react-native";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
   Linking,
@@ -47,24 +47,8 @@ if (Platform.OS !== "web") {
 
 const roundCoord = (value: number) => Number(value.toFixed(4));
 
-const TRAVEL_MODES: { value: RouteProfile; label: string }[] = [
-  { value: "walking", label: "Walk" },
-  { value: "driving", label: "Drive" },
-  { value: "cycling", label: "Bike" },
-];
-const HALL_BUILDING_CODE = "H";
-
-const formatDuration = (minutes: number) => {
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins === 0 ? `${hours} h` : `${hours} h ${mins} min`;
-};
-
-const formatDistance = (meters: number) => {
-  if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
-  return `${Math.round(meters)} m`;
-};
+const DEFAULT_START_BUILDING_CODE = "H";
+const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
 
 const resolveBuildingByCode = (
   code: string | null | undefined,
@@ -74,6 +58,19 @@ const resolveBuildingByCode = (
   const exact = buildings.find((building) => building.code === code);
   if (exact) return exact;
   return buildings.find((building) => building.code.startsWith(code)) ?? null;
+};
+
+const detectBuildingFromLocation = (
+  latitude: number,
+  longitude: number,
+): { code: string | null; campus: Campus | null } => {
+  const sgwBuilding = findUserBuilding(latitude, longitude, SGW_POLYGONS as any);
+  if (sgwBuilding) return { code: sgwBuilding, campus: "SGW" };
+
+  const loyBuilding = findUserBuilding(latitude, longitude, LOY_POLYGONS as any);
+  if (loyBuilding) return { code: loyBuilding, campus: "LOY" };
+
+  return { code: null, campus: null };
 };
 
 /* these make it so we can view selected campus and building from the map level */
@@ -86,20 +83,16 @@ export default function MapScreen() {
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const [destinationBuildingCode, setDestinationBuildingCode] =
-    useState<string>(HALL_BUILDING_CODE);
+    useState<string>(DEFAULT_DESTINATION_BUILDING_CODE);
+  // Tracks the selected origin building (or null if using current location)
+  const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
+    null,
+  );
   const [isDirectionsMode, setIsDirectionsMode] = useState(false);
   const routeMode: RouteProfile = "walking";
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
-  const [routeDurationMinutes, setRouteDurationMinutes] = useState<
-    number | null
-  >(null);
-  const [routeDistanceMeters, setRouteDistanceMeters] = useState<number | null>(
-    null,
-  );
-  const [routeLoading, setRouteLoading] = useState(false);
-  const [routeError, setRouteError] = useState<string | null>(null);
   const [routeInstructions, setRouteInstructions] = useState<
     RouteInstruction[]
   >([]);
@@ -130,6 +123,9 @@ export default function MapScreen() {
   >(undefined);
   const [webMapReady, setWebMapReady] = useState(false);
   const locationSubscription = useRef<any>(null);
+  const campusRef = useRef<Campus>(campus);
+  const originModeRef = useRef<"auto" | "manual">("auto");
+  const hasInitializedCampusFromLocationRef = useRef(false);
   const [locationPermissionDenied, setLocationPermissionDenied] =
     useState(false);
 
@@ -145,6 +141,10 @@ export default function MapScreen() {
   const userLat = isWebPlatform ? userLocation?.coords.latitude || null : null;
   const userLng = isWebPlatform ? userLocation?.coords.longitude || null : null;
   const currentBuildingForHTML = isWebPlatform ? currentBuilding : null;
+
+  useEffect(() => {
+    campusRef.current = campus;
+  }, [campus]);
 
   // Styles defined inside component
   const styles = StyleSheet.create({
@@ -516,6 +516,66 @@ export default function MapScreen() {
     }
   }
 
+  const applyDetectedLocationState = useCallback(
+    (
+      detected: { code: string | null; campus: Campus | null },
+      options: {
+        forceOriginSync?: boolean;
+        syncOriginWhenAuto?: boolean;
+        syncCampusMode?: "never" | "once" | "always";
+      } = {},
+    ) => {
+      const {
+        forceOriginSync = false,
+        syncOriginWhenAuto = false,
+        syncCampusMode = "never",
+      } = options;
+
+      setCurrentBuilding((previous) =>
+        previous === detected.code ? previous : detected.code,
+      );
+
+      if (forceOriginSync || (syncOriginWhenAuto && originModeRef.current === "auto")) {
+        setOriginBuildingCode((previous) =>
+          previous === detected.code ? previous : detected.code,
+        );
+      }
+
+      if (!detected.campus) return;
+
+      if (syncCampusMode === "always") {
+        hasInitializedCampusFromLocationRef.current = true;
+        if (campusRef.current !== detected.campus) {
+          setCampus(detected.campus);
+        }
+        return;
+      }
+
+      if (syncCampusMode === "once" && !hasInitializedCampusFromLocationRef.current) {
+        hasInitializedCampusFromLocationRef.current = true;
+        if (campusRef.current !== detected.campus) {
+          setCampus(detected.campus);
+        }
+      }
+    },
+    [],
+  );
+
+  const handleLocationUpdate = useCallback(
+    (location: Location.LocationObject) => {
+      const { latitude, longitude } = location.coords;
+      const detected = detectBuildingFromLocation(latitude, longitude);
+
+      setUserLocation(location);
+      setLocationPermissionDenied(false);
+      applyDetectedLocationState(detected, {
+        syncOriginWhenAuto: true,
+        syncCampusMode: "once",
+      });
+    },
+    [applyDetectedLocationState],
+  );
+
   // Start tracking user location
   useEffect(() => {
     async function setupLocation() {
@@ -525,32 +585,22 @@ export default function MapScreen() {
         const granted = await requestLocationPermission();
         if (!granted) {
           setLocationPermissionDenied(true);
+          setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
           return;
         }
       }
 
-      const subscription = await startWatchingLocation(
-        (location: Location.LocationObject) => {
-          const { latitude, longitude } = location.coords;
+      try {
+        const initialLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+        handleLocationUpdate(initialLocation);
+      } catch (error) {
+        console.error("Error getting initial location:", error);
+        setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
+      }
 
-          setUserLocation(location);
-          setLocationPermissionDenied(false);
-          const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
-          const building = findUserBuilding(
-            latitude,
-            longitude,
-            polygons as any,
-          );
-
-          if (building !== currentBuilding) {
-            setCurrentBuilding(building);
-            console.log("Current building:", building || "Outside");
-          }
-
-          console.log("User location:", latitude, longitude);
-        },
-      );
-
+      const subscription = await startWatchingLocation(handleLocationUpdate);
       if (subscription) {
         locationSubscription.current = subscription;
       }
@@ -571,28 +621,17 @@ export default function MapScreen() {
         }
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentBuilding is set by this effect, not read
-  }, [campus]);
+  }, [handleLocationUpdate]);
 
   // Get polygon data based on campus
   const campusPolygons = useMemo(
     () => (campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS),
     [campus],
   );
-  // Tracks the selected origin building (or null if using current location)
-  const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
-    null,
-  );
-
   const campusBuildings = useMemo(
     () => BUILDINGS.filter((building) => building.campus === campus),
     [campus],
   );
-  const defaultSgwRegion = useMemo(
-    () => getCampusRegion("SGW", SGW_POLYGONS.features),
-    [],
-  );
-
   const actualOriginPoint = useMemo(() => {
     // If user selected a building as origin, use that building's coordinates
     if (originBuildingCode) {
@@ -627,10 +666,6 @@ export default function MapScreen() {
   const exitDirectionsMode = () => {
     setIsDirectionsMode(false);
     setRouteCoordinates([]);
-    setRouteDurationMinutes(null);
-    setRouteDistanceMeters(null);
-    setRouteError(null);
-    setRouteLoading(false);
     setRouteInstructions([]);
     setShowRouteInstructions(false);
     routeInstructionsDismissedRef.current = false;
@@ -654,10 +689,31 @@ export default function MapScreen() {
     }
 
     exitDirectionsMode();
-    setCampus("SGW");
+    originModeRef.current = "auto";
+    let restoredCampus: Campus | null = null;
 
-    if (!isWebPlatform && campus === "SGW") {
-      mapRef.current?.animateToRegion?.(defaultSgwRegion, 450);
+    const latitude = userLocation?.coords?.latitude;
+    const longitude = userLocation?.coords?.longitude;
+    if (typeof latitude === "number" && typeof longitude === "number") {
+      const detected = detectBuildingFromLocation(latitude, longitude);
+      restoredCampus = detected.campus;
+      applyDetectedLocationState(detected, {
+        forceOriginSync: true,
+        syncCampusMode: "always",
+      });
+    } else {
+      setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
+    }
+
+    if (restoredCampus && restoredCampus !== campus) {
+      setCampus(restoredCampus);
+    }
+
+    if (!isWebPlatform) {
+      const mapCampus = restoredCampus ?? campus;
+      const polygons =
+        mapCampus === "SGW" ? SGW_POLYGONS.features : LOY_POLYGONS.features;
+      mapRef.current?.animateToRegion?.(getCampusRegion(mapCampus, polygons), 450);
     }
   };
 
@@ -693,9 +749,6 @@ export default function MapScreen() {
   useEffect(() => {
     if (!isDirectionsMode || !destinationBuilding || !actualOriginPoint) {
       setRouteCoordinates([]);
-      setRouteDurationMinutes(null);
-      setRouteDistanceMeters(null);
-      setRouteError(null);
       setRouteInstructions([]);
       setShowRouteInstructions(false);
       routeInstructionsDismissedRef.current = false;
@@ -706,9 +759,6 @@ export default function MapScreen() {
 
     const loadRoute = async () => {
       try {
-        setRouteLoading(true);
-        setRouteError(null);
-
         const route = await fetchOsrmRoute(
           actualOriginPoint,
           destinationBuilding,
@@ -717,8 +767,6 @@ export default function MapScreen() {
 
         if (cancelled) return;
         setRouteCoordinates(route.coordinates);
-        setRouteDurationMinutes(Math.round(route.durationSeconds / 60));
-        setRouteDistanceMeters(route.distanceMeters);
         setRouteInstructions(route.instructions);
         if (
           route.instructions.length > 0 &&
@@ -729,14 +777,9 @@ export default function MapScreen() {
       } catch {
         if (cancelled) return;
         setRouteCoordinates([]);
-        setRouteDurationMinutes(null);
-        setRouteDistanceMeters(null);
-        setRouteError("Could not load route for this selection.");
         setRouteInstructions([]);
         setShowRouteInstructions(false);
         routeInstructionsDismissedRef.current = false;
-      } finally {
-        if (!cancelled) setRouteLoading(false);
       }
     };
 
@@ -1575,6 +1618,7 @@ export default function MapScreen() {
         editingField={editingField}
         onSelectDestination={(code: string) => {
           if (editingField === "from") {
+            originModeRef.current = "manual";
             setOriginBuildingCode(code);
           } else {
             setDestinationBuildingCode(code);
