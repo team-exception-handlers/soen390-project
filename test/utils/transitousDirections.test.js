@@ -134,7 +134,7 @@ describe("utils/transitousDirections", () => {
                         duration: 7200,
                         legs: [
                             {
-                                mode: "BUS",
+                                mode: "WALK",
                                 from: { name: "A" },
                                 to: { name: "B" },
                                 startTime: "2026-02-19T17:00:00Z",
@@ -167,7 +167,7 @@ describe("utils/transitousDirections", () => {
                         duration: 5430,
                         legs: [
                             {
-                                mode: "BUS",
+                                mode: "WALK",
                                 from: { name: "A" },
                                 to: { name: "B" },
                                 startTime: "2026-02-19T17:00:00Z",
