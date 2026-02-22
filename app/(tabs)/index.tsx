@@ -47,7 +47,8 @@ if (Platform.OS !== "web") {
 
 const roundCoord = (value: number) => Number(value.toFixed(4));
 
-const HALL_BUILDING_CODE = "H";
+const DEFAULT_START_BUILDING_CODE = "H";
+const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
 
 const resolveBuildingByCode = (
   code: string | null | undefined,
@@ -82,7 +83,7 @@ export default function MapScreen() {
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const [destinationBuildingCode, setDestinationBuildingCode] =
-    useState<string>(HALL_BUILDING_CODE);
+    useState<string>(DEFAULT_DESTINATION_BUILDING_CODE);
   // Tracks the selected origin building (or null if using current location)
   const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
     null,
@@ -92,10 +93,6 @@ export default function MapScreen() {
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
-  const [, setRouteDurationMinutes] = useState<number | null>(null);
-  const [, setRouteDistanceMeters] = useState<number | null>(null);
-  const [, setRouteLoading] = useState(false);
-  const [, setRouteError] = useState<string | null>(null);
   const [routeInstructions, setRouteInstructions] = useState<
     RouteInstruction[]
   >([]);
@@ -588,6 +585,7 @@ export default function MapScreen() {
         const granted = await requestLocationPermission();
         if (!granted) {
           setLocationPermissionDenied(true);
+          setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
           return;
         }
       }
@@ -599,6 +597,7 @@ export default function MapScreen() {
         handleLocationUpdate(initialLocation);
       } catch (error) {
         console.error("Error getting initial location:", error);
+        setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
       }
 
       const subscription = await startWatchingLocation(handleLocationUpdate);
@@ -667,10 +666,6 @@ export default function MapScreen() {
   const exitDirectionsMode = () => {
     setIsDirectionsMode(false);
     setRouteCoordinates([]);
-    setRouteDurationMinutes(null);
-    setRouteDistanceMeters(null);
-    setRouteError(null);
-    setRouteLoading(false);
     setRouteInstructions([]);
     setShowRouteInstructions(false);
     routeInstructionsDismissedRef.current = false;
@@ -707,7 +702,7 @@ export default function MapScreen() {
         syncCampusMode: "always",
       });
     } else {
-      setOriginBuildingCode(currentBuilding ?? null);
+      setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
     }
 
     if (restoredCampus && restoredCampus !== campus) {
@@ -754,9 +749,6 @@ export default function MapScreen() {
   useEffect(() => {
     if (!isDirectionsMode || !destinationBuilding || !actualOriginPoint) {
       setRouteCoordinates([]);
-      setRouteDurationMinutes(null);
-      setRouteDistanceMeters(null);
-      setRouteError(null);
       setRouteInstructions([]);
       setShowRouteInstructions(false);
       routeInstructionsDismissedRef.current = false;
@@ -767,9 +759,6 @@ export default function MapScreen() {
 
     const loadRoute = async () => {
       try {
-        setRouteLoading(true);
-        setRouteError(null);
-
         const route = await fetchOsrmRoute(
           actualOriginPoint,
           destinationBuilding,
@@ -778,8 +767,6 @@ export default function MapScreen() {
 
         if (cancelled) return;
         setRouteCoordinates(route.coordinates);
-        setRouteDurationMinutes(Math.round(route.durationSeconds / 60));
-        setRouteDistanceMeters(route.distanceMeters);
         setRouteInstructions(route.instructions);
         if (
           route.instructions.length > 0 &&
@@ -790,14 +777,9 @@ export default function MapScreen() {
       } catch {
         if (cancelled) return;
         setRouteCoordinates([]);
-        setRouteDurationMinutes(null);
-        setRouteDistanceMeters(null);
-        setRouteError("Could not load route for this selection.");
         setRouteInstructions([]);
         setShowRouteInstructions(false);
         routeInstructionsDismissedRef.current = false;
-      } finally {
-        if (!cancelled) setRouteLoading(false);
       }
     };
 
