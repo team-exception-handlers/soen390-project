@@ -88,6 +88,15 @@ function formatDuration(seconds: number): string {
     return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
 
+function formatRouteAndHeadsign(leg: TransitLeg): string {
+    const route = leg.route ? `${leg.route}` : "";
+    const headsign = leg.headsign ? ` towards ${leg.headsign}` : "";
+    return `${route}${headsign}`;
+}
+
+function formatTransitTake(modeLabel: string, leg: TransitLeg): string {
+    return `Take ${modeLabel}${formatRouteAndHeadsign(leg)} to ${leg.to.name}.`
+}
 function formatLegInstruction(leg: TransitLeg): string {
     const dist =
         leg.distance >= 1000
@@ -99,13 +108,13 @@ function formatLegInstruction(leg: TransitLeg): string {
         case "WALK":
             return `Walk ${dur} (${dist}) to ${leg.to.name}.`;
         case "BUS":
-            return `Take Bus ${leg.route ?? ""}${leg.headsign ? ` towards ${leg.headsign}` : ""} to ${leg.to.name}.`;
+            return formatTransitTake("Bus",leg);
         case "SUBWAY":
-            return `Take Metro ${leg.route ?? ""}${leg.headsign ? ` towards ${leg.headsign}` : ""} to ${leg.to.name}.`;
+            return formatTransitTake("Metro", leg);
         case "TRAM":
-            return `Take Tram ${leg.route ?? ""}${leg.headsign ? ` towards ${leg.headsign}` : ""} to ${leg.to.name}.`;
+            return formatTransitTake("Tram", leg);
         case "RAIL":
-            return `Take Train ${leg.route ?? ""}${leg.headsign ? ` towards ${leg.headsign}` : ""} to ${leg.to.name}.`;
+            return formatTransitTake("Train", leg);
         default:
             return `Take ${leg.mode} to ${leg.to.name} (${dist}).`;
     }

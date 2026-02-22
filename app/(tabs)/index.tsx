@@ -911,21 +911,25 @@ export default function MapScreen() {
     };
   }, [actualOriginPoint, destinationBuilding, isSameCampus]);
 
+  const resetRouteState = () => {
+      setRouteCoordinates([]);
+      setRouteDurationMinutes(null);
+      setRouteDistanceMeters(null);
+      setRouteError(null);
+      setRouteInstructions([]);
+      setShowRouteInstructions(false);
+      setTransitItineraries([]);
+      setSelectedItineraryIndex(0);
+      setExpandedItineraries([]);
+      setExpandedIntermediateStops(new Set());
+      setRouteStarted(false);
+      routeInstructionsDismissedRef.current = false;
+  };
+
   const exitDirectionsMode = () => {
     setIsDirectionsMode(false);
-    setRouteCoordinates([]);
-    setRouteDurationMinutes(null);
-    setRouteDistanceMeters(null);
-    setRouteError(null);
     setRouteLoading(false);
-    setRouteInstructions([]);
-    setShowRouteInstructions(false);
-    setTransitItineraries([]);
-    setSelectedItineraryIndex(0);
-    setExpandedItineraries([]);
-    setExpandedIntermediateStops(new Set());
-    setRouteStarted(false);
-    routeInstructionsDismissedRef.current = false;
+    resetRouteState();
   };
 
   const handleCampusChange = (nextCampus: Campus) => {
@@ -984,18 +988,7 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (!isDirectionsMode || !destinationBuilding || !actualOriginPoint) {
-      setRouteCoordinates([]);
-      setRouteDurationMinutes(null);
-      setRouteDistanceMeters(null);
-      setRouteError(null);
-      setRouteInstructions([]);
-      setShowRouteInstructions(false);
-      setTransitItineraries([]);
-      setSelectedItineraryIndex(0);
-      setExpandedItineraries([]);
-      setExpandedIntermediateStops(new Set());
-      setRouteStarted(false);
-      routeInstructionsDismissedRef.current = false;
+      resetRouteState();
       return;
     }
 
@@ -1053,18 +1046,8 @@ export default function MapScreen() {
         }
       } catch {
         if (cancelled) return;
-        setRouteCoordinates([]);
-        setRouteDurationMinutes(null);
-        setRouteDistanceMeters(null);
+        resetRouteState();
         setRouteError("Could not load route for this selection.");
-        setRouteInstructions([]);
-        setShowRouteInstructions(false);
-        setTransitItineraries([]);
-        setSelectedItineraryIndex(0);
-        setExpandedItineraries([]);
-        setExpandedIntermediateStops(new Set());
-        setRouteStarted(false);
-        routeInstructionsDismissedRef.current = false;
       } finally {
         if (!cancelled) setRouteLoading(false);
       }
