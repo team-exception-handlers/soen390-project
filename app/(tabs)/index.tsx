@@ -1046,18 +1046,8 @@ export default function MapScreen() {
         }
       } catch {
         if (cancelled) return;
-        setRouteCoordinates([]);
-        setRouteDurationMinutes(null);
-        setRouteDistanceMeters(null);
+        resetRouteState();
         setRouteError("Could not load route for this selection.");
-        setRouteInstructions([]);
-        setShowRouteInstructions(false);
-        setTransitItineraries([]);
-        setSelectedItineraryIndex(0);
-        setExpandedItineraries([]);
-        setExpandedIntermediateStops(new Set());
-        setRouteStarted(false);
-        routeInstructionsDismissedRef.current = false;
       } finally {
         if (!cancelled) setRouteLoading(false);
       }
