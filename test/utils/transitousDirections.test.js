@@ -446,4 +446,67 @@ describe("utils/transitousDirections", () => {
             expect.any(Object),
         );
     });
+
+    test("fetchTransitItineraries handles unknown mode with default case", async () => {
+        globalThis.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+                itineraries: [
+                    {
+                        duration: 900,
+                        legs: [
+                            {
+                                mode: "OTHER",
+                                from: { name: "A" },
+                                to: { name: "B" },
+                                distance: 1500,
+                                duration: 900,
+                                legGeometry: { points: "abc" },
+                            },
+                        ],
+                    },
+                ],
+            }),
+        });
+
+        const result = await fetchTransitItineraries(
+            { latitude: 45.5, longitude: -73.6 },
+            { latitude: 45.6, longitude: -73.7 },
+        );
+
+        expect(result[0].instructions[0].text).toContain("Take OTHER");
+    });
+
+
+    test("fetchTransitItineraries handles legs without geometry", async () => {
+        globalThis.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+                itineraries: [
+                    {
+                        duration: 600,
+                        legs: [
+                            {
+                                mode: "WALK",
+                                from: { name: "A" },
+                                to: { name: "B" },
+                                startTime: "2026-02-19T17:00:00Z",
+                                endTime: "2026-02-19T17:10:00Z",
+                                distance: 500,
+                                duration: 600,
+                                legGeometry: null,
+                            },
+                        ],
+                    },
+                ],
+            }),
+        });
+
+        const result = await fetchTransitItineraries(
+            { latitude: 45.5, longitude: -73.6 },
+            { latitude: 45.6, longitude: -73.7 },
+        );
+
+        expect(result[0].coordinates).toEqual([]);
+    });
 });
