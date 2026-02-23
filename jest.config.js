@@ -33,6 +33,7 @@ module.exports = {
         '!metro.config.js',
         '!**/hooks/**',
         '!**/app/**',
+        '!**/test/mocks/**',
     ],
     coverageThreshold: {
         global: {
