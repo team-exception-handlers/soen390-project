@@ -2,22 +2,8 @@ import BuildingInformation from "@/components/BuildingInformation";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import { ChevronDown, ChevronUp, X } from "lucide-react-native";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, Linking, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Keyboard,
-  Linking,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Keyboard, Linking, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import TransitLegTimeline from "../../components/TransitLegTimeline";
@@ -97,10 +83,7 @@ export default function MapScreen() {
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const [destinationBuildingCode, setDestinationBuildingCode] =
     useState<string>(DEFAULT_DESTINATION_BUILDING_CODE);
-  // Tracks the selected origin building (or null if using current location)
-  const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
-    null,
-  );
+
   const [isDirectionsMode, setIsDirectionsMode] = useState(false);
   const [routeMode, setRouteMode] = useState<RouteProfile | "transit">(
     "walking",
@@ -119,9 +102,6 @@ export default function MapScreen() {
   const [routeInstructions, setRouteInstructions] = useState<RouteInstruction[]>(
     [],
   );
-  const [routeInstructions, setRouteInstructions] = useState<
-    RouteInstruction[]
-  >([]);
   const [showRouteInstructions, setShowRouteInstructions] = useState(false);
   const [modeDurations, setModeDurations] = useState<
     Record<string, number | null>
@@ -820,11 +800,28 @@ export default function MapScreen() {
 
   const handleLocationUpdate = useCallback(
     (location: Location.LocationObject) => {
-      const { latitude, longitude } = location.coords;
+      //const { latitude, longitude } = location.coords;
+
+      const latitude = 45.497092;
+      const longitude = -73.5788;
+
+
+      const fakeLocation = {
+        ...location,
+        coords: {
+          ...location.coords,
+          latitude,
+          longitude,
+        }
+      };
+
+      setUserLocation(fakeLocation);
+      setLocationPermissionDenied(false);
+
       const detected = detectBuildingFromLocation(latitude, longitude);
 
-      setUserLocation(location);
-      setLocationPermissionDenied(false);
+      //setUserLocation(location);
+      //setLocationPermissionDenied(false);
       applyDetectedLocationState(detected, {
         syncOriginWhenAuto: true,
         syncCampusMode: "once",
@@ -833,7 +830,6 @@ export default function MapScreen() {
     [applyDetectedLocationState],
   );
 
-  // Start tracking user location
   useEffect(() => {
     async function setupLocation() {
       const permission = await hasLocationPermission();
@@ -847,23 +843,6 @@ export default function MapScreen() {
         }
       }
 
-      const subscription = await startWatchingLocation(
-        (location: Location.LocationObject) => {
-          const { latitude, longitude } = location.coords;
-
-          setUserLocation(location);
-          setLocationPermissionDenied(false);
-          const polygons = campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS;
-          const building = findUserBuilding(latitude, longitude, polygons as any);
-
-          if (building !== currentBuilding) {
-            setCurrentBuilding(building);
-            console.log("Current building:", building || "Outside");
-          }
-
-          console.log("User location:", latitude, longitude);
-        },
-      );
       try {
         const initialLocation = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
@@ -895,7 +874,7 @@ export default function MapScreen() {
         }
       }
     };
-  }, [campus], [handleLocationUpdate]);
+  }, [handleLocationUpdate]);
 
   // Get polygon data based on campus
   const campusPolygons = useMemo(
@@ -1026,18 +1005,18 @@ export default function MapScreen() {
   }, [actualOriginPoint, destinationBuilding, isSameCampus]);
 
   const resetRouteState = () => {
-      setRouteCoordinates([]);
-      setRouteDurationMinutes(null);
-      setRouteDistanceMeters(null);
-      setRouteError(null);
-      setRouteInstructions([]);
-      setShowRouteInstructions(false);
-      setTransitItineraries([]);
-      setSelectedItineraryIndex(0);
-      setExpandedItineraries([]);
-      setExpandedIntermediateStops(new Set());
-      setRouteStarted(false);
-      routeInstructionsDismissedRef.current = false;
+    setRouteCoordinates([]);
+    setRouteDurationMinutes(null);
+    setRouteDistanceMeters(null);
+    setRouteError(null);
+    setRouteInstructions([]);
+    setShowRouteInstructions(false);
+    setTransitItineraries([]);
+    setSelectedItineraryIndex(0);
+    setExpandedItineraries([]);
+    setExpandedIntermediateStops(new Set());
+    setRouteStarted(false);
+    routeInstructionsDismissedRef.current = false;
   };
 
   const exitDirectionsMode = () => {
@@ -2250,7 +2229,7 @@ export default function MapScreen() {
                               formatTime={formatTime}
                               canToggleIntermediateStops
                               expandedStops={expandedIntermediateStops}
-                              onToggleStops={(stopKey)=> {
+                              onToggleStops={(stopKey) => {
                                 setExpandedIntermediateStops((prev) => {
                                   const next = new Set(prev);
                                   if (next.has(stopKey)) next.delete(stopKey);
