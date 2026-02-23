@@ -12,35 +12,20 @@ const MapTabIcon = ({ focused }: { focused: boolean }) => (
   <BottomTabIcon focused={focused} label="Map" type="map" />
 );
 
-const ProfileTabIcon = ({ focused }: { focused: boolean }) => (
-  <BottomTabIcon focused={focused} label="Profile" type="profile" />
+const CalendarTabIcon = ({ focused }: { focused: boolean }) => (
+  <BottomTabIcon focused={focused} label="Calendar" type="calendar" />
 );
 
 function TabBarBackground() {
   if (Platform.OS === "ios") {
     return (
-      <BlurView
-        intensity={35}
-        tint="light"
-        style={StyleSheet.absoluteFill}
-      />
+      <BlurView intensity={35} tint="light" style={StyleSheet.absoluteFill} />
     );
   }
-
-  // Android
   return (
     <View style={StyleSheet.absoluteFill}>
-      <BlurView
-        style={StyleSheet.absoluteFill}
-        intensity={90}
-        tint="light"
-      />
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: "rgba(255,255,255,0.55)" },
-        ]}
-      />
+      <BlurView style={StyleSheet.absoluteFill} intensity={90} tint="light" />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(255,255,255,0.55)" }]} />
     </View>
   );
 }
@@ -51,9 +36,7 @@ export default function TabsLayout() {
   useEffect(() => {
     if (Platform.OS === "android") {
       NavigationBar.setBackgroundColorAsync("transparent");
-
       NavigationBar.setButtonStyleAsync("dark");
-
       NavigationBar.setPositionAsync("absolute");
     }
   }, []);
@@ -63,7 +46,6 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-
         tabBarStyle: [
           styles.tabBar,
           {
@@ -72,27 +54,12 @@ export default function TabsLayout() {
             paddingTop: 6,
           },
         ],
-
         tabBarBackground: TabBarBackground,
-
-        tabBarItemStyle: {
-          paddingVertical: 0,
-        },
+        tabBarItemStyle: { paddingVertical: 0 },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          tabBarIcon: MapTabIcon,
-        }}
-      />
-
-      <Tabs.Screen
-        name="profile"
-        options={{
-          tabBarIcon: ProfileTabIcon,
-        }}
-      />
+      <Tabs.Screen name="index" options={{ tabBarIcon: MapTabIcon }} />
+      <Tabs.Screen name="calendar" options={{ tabBarIcon: CalendarTabIcon }} />
     </Tabs>
   );
 }
@@ -103,7 +70,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-
     backgroundColor: "transparent",
     borderTopWidth: 0,
     elevation: 0,
