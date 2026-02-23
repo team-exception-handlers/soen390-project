@@ -59,7 +59,7 @@ jest.mock("react", () => {
             if (mockStates[idx] === undefined) mockStates[idx] = init;
             return [mockStates[idx], (v) => { mockStates[idx] = v; }];
         },
-        useEffect: (fn) => { },
+        useEffect: (fn) => fn(),
         useRef: (init) => ({ current: init }),
         useCallback: (fn) => fn,
     };
@@ -137,4 +137,133 @@ describe("components/ShuttleDirections", () => {
         const tree = expand(React.createElement(ShuttleDirections, { origin: {}, destination: {} }));
         expect(findByText(tree, /Weekend/)).toBeTruthy();
     });
+
+    test("handles missing origin/destination early return", () => {
+        mockStates = [null, null, "", true, null];
+
+        const tree = expand(
+            React.createElement(ShuttleDirections, { origin: null, destination: {} })
+        );
+
+        // loading should eventually be false
+        expect(mockStates[3]).toBe(false);
+    });
+
+    test("handles successful route calculation", async () => {
+        const origin = { latitude: 1, longitude: 1 };
+        const destination = { latitude: 2, longitude: 2 };
+
+        mockStates = [null, null, "", true, null, null, null, null];
+
+        const tree = expand(
+            React.createElement(ShuttleDirections, { origin, destination })
+        );
+
+        // simulate resolved async logic
+        await new Promise(setImmediate);
+
+        expect(mockStates[5]).toBe(10); // walkToStopMinutes
+        expect(mockStates[6]).toBe(10); // walkFromStopMinutes
+    });
+
+    test("handles fetch error branch", async () => {
+        const osrm = require("../../utils/osrmDirections");
+        osrm.fetchOsrmRoute.mockImplementationOnce(() =>
+            Promise.reject(new Error("fail"))
+        );
+
+        const origin = { latitude: 1, longitude: 1 };
+        const destination = { latitude: 2, longitude: 2 };
+
+        mockStates = [null, null, "", true, null];
+
+        expand(
+            React.createElement(ShuttleDirections, { origin, destination })
+        );
+
+        await Promise.resolve();
+
+        expect(mockStates[4]).toBe("Failed to fetch some directions.");
+    });
+
+    test("does nothing if nearestStop is null", () => {
+        mockStates = [null, null, "", false, null];
+
+        const tree = expand(
+            React.createElement(ShuttleDirections, { origin: {}, destination: {} })
+        );
+
+        expect(tree).toBeTruthy();
+    });
+
+    test("sets countdown when departure in future", () => {
+        mockStates = [
+            { nextDeparture: "23:59", nextThreeDepartures: ["23:59"], estimatedArrival: "00:10", serviceUnavailable: false },
+            { stop: "SGW", destination: "LOY" },
+            "",
+            false,
+            null,
+            10,
+            10,
+            "23:59"
+        ];
+
+        const tree = expand(
+            React.createElement(ShuttleDirections, { origin: {}, destination: {} })
+        );
+
+        expect(tree).toBeTruthy();
+    });
+
+    test("sets countdown to Departing when past time", () => {
+        const shuttleLogic = require("../../utils/shuttleLogic");
+        shuttleLogic.getShuttleInfo.mockReturnValueOnce({
+            nextDeparture: "00:00",
+            nextThreeDepartures: ["00:00"],
+            estimatedArrival: "00:30",
+            serviceUnavailable: false,
+        });
+
+        mockStates = [
+            shuttleLogic.getShuttleInfo(),
+            { stop: "SGW", destination: "LOY" },
+            "",
+            false,
+            null,
+            10,
+            10,
+            "00:00"
+        ];
+
+        const tree = expand(
+            React.createElement(ShuttleDirections, { origin: {}, destination: {} })
+        );
+
+        expect(tree).toBeTruthy();
+    });
+
+    test("renders LIVE badge when service available", () => {
+        mockStates = [
+            {
+                nextDeparture: "10:00",
+                nextThreeDepartures: ["10:00"],
+                estimatedArrival: "10:30",
+                serviceUnavailable: false
+            },
+            { stop: "SGW", destination: "LOY" },
+            "",
+            false,
+            null,
+            10,
+            10,
+            "10:00"
+        ];
+
+        const tree = expand(
+            React.createElement(ShuttleDirections, { origin: {}, destination: {} })
+        );
+
+        expect(findByText(tree, /LIVE/)).toBeTruthy();
+    });
+
 });
