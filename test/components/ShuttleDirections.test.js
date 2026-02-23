@@ -113,6 +113,7 @@ describe("components/ShuttleDirections", () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        jest.spyOn(console, "error").mockImplementation(() => { });
         mockStates = [];
         mockStateIdx = 0;
     });

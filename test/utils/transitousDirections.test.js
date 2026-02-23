@@ -9,6 +9,27 @@ const {
     path.join(__dirname, "..", "..", "utils", "transitousDirections.ts"),
 );
 
+const {
+    mockItineraryWithBus,
+    mockItineraryWithDuration,
+    mockItineraryWithHoursMinutes,
+    mockItineraryWithTram,
+    mockItineraryWithRail,
+    mockItineraryWithTransfers,
+    mockItineraryWithNullGeometry,
+    mockItineraryWithFerry,
+    mockItineraryAllWalk,
+    mockItineraryNoRoute,
+    mockItineraryWithFork,
+} = require("../mocks/transitousMocks");
+
+const createMockFetch = (response) => {
+    return jest.fn().mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(response),
+    });
+};
+
 describe("utils/transitousDirections", () => {
     beforeEach(() => {
         jest.resetAllMocks();
@@ -67,42 +88,7 @@ describe("utils/transitousDirections", () => {
     });
 
     test("fetchTransitItineraries parses API response correctly", async () => {
-        globalThis.fetch = jest.fn().mockResolvedValue({
-            ok: true,
-            json: jest.fn().mockResolvedValue({
-                itineraries: [
-                    {
-                        duration: 1920,
-                        legs: [
-                            {
-                                mode: "WALK",
-                                from: { name: "START", lat: 45.49705, lon: -73.578009 },
-                                to: { name: "Station A", lat: 45.49475, lon: -73.57078 },
-                                startTime: "2026-02-19T17:06:00Z",
-                                endTime: "2026-02-19T17:20:00Z",
-                                distance: 978,
-                                duration: 840,
-                                legGeometry: { points: "i~fxbZhaqkzj@}tA_sA" },
-                                intermediateStops: [],
-                            },
-                            {
-                                mode: "BUS",
-                                from: { name: "Station A", lat: 45.49475, lon: -73.57078 },
-                                to: { name: "Station B", lat: 45.45367, lon: -73.64172 },
-                                startTime: "2026-02-19T17:20:00Z",
-                                endTime: "2026-02-19T17:29:00Z",
-                                distance: 5000,
-                                duration: 540,
-                                routeShortName: "105",
-                                headsign: "East",
-                                legGeometry: { points: "wixvbZnh`gzj@fEfE" },
-                                intermediateStops: [],
-                            },
-                        ],
-                    },
-                ],
-            }),
-        });
+        globalThis.fetch = createMockFetch({ itineraries: [mockItineraryWithBus] });
 
         const result = await fetchTransitItineraries(
             { latitude: 45.495376, longitude: -73.577997 },
@@ -126,28 +112,7 @@ describe("utils/transitousDirections", () => {
     });
 
     test("fetchTransitItineraries formats duration with exact hours", async () => {
-        globalThis.fetch = jest.fn().mockResolvedValue({
-            ok: true,
-            json: jest.fn().mockResolvedValue({
-                itineraries: [
-                    {
-                        duration: 7200,
-                        legs: [
-                            {
-                                mode: "WALK",
-                                from: { name: "A" },
-                                to: { name: "B" },
-                                startTime: "2026-02-19T17:00:00Z",
-                                endTime: "2026-02-19T19:00:00Z",
-                                distance: 5000,
-                                duration: 7200,
-                                legGeometry: { points: "abc" },
-                            },
-                        ],
-                    },
-                ],
-            }),
-        });
+        globalThis.fetch = createMockFetch({ itineraries: [mockItineraryWithDuration] });
 
         const result = await fetchTransitItineraries(
             { latitude: 45.5, longitude: -73.6 },
@@ -159,28 +124,7 @@ describe("utils/transitousDirections", () => {
     });
 
     test("fetchTransitItineraries formats duration with hours and minutes", async () => {
-        globalThis.fetch = jest.fn().mockResolvedValue({
-            ok: true,
-            json: jest.fn().mockResolvedValue({
-                itineraries: [
-                    {
-                        duration: 5430,
-                        legs: [
-                            {
-                                mode: "WALK",
-                                from: { name: "A" },
-                                to: { name: "B" },
-                                startTime: "2026-02-19T17:00:00Z",
-                                endTime: "2026-02-19T18:30:30Z",
-                                distance: 5000,
-                                duration: 5430,
-                                legGeometry: { points: "abc" },
-                            },
-                        ],
-                    },
-                ],
-            }),
-        });
+        globalThis.fetch = createMockFetch({ itineraries: [mockItineraryWithHoursMinutes] });
 
         const result = await fetchTransitItineraries(
             { latitude: 45.5, longitude: -73.6 },
