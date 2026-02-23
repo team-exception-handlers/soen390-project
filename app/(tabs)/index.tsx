@@ -1,40 +1,20 @@
+import BuildingInformation from "@/components/BuildingInformation";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import { ChevronDown, ChevronUp, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Keyboard,
-  Linking,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Keyboard, Linking, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import AppHeader, { Campus } from "../../components/AppHeader";
+import TransitLegTimeline from "../../components/TransitLegTimeline";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
-import {
-  findUserBuilding,
-  hasLocationPermission,
-  requestLocationPermission,
-  startWatchingLocation,
-} from "../../utils/locationUtils";
-import {
-  fetchOsrmRoute,
-  type RouteInstruction,
-  type RouteProfile,
-} from "../../utils/osrmDirections";
-
-import BuildingInformation from "@/components/BuildingInformation";
+import { findUserBuilding, hasLocationPermission, requestLocationPermission, startWatchingLocation } from "../../utils/locationUtils";
 import { getCampusRegion } from "../../utils/mapRegions";
+import { fetchOsrmRoute, type RouteInstruction, type RouteProfile } from "../../utils/osrmDirections";
+import { decodePolyline, fetchTransitItineraries, formatTime, type TransitItinerary } from "../../utils/transitousDirections";
+
 let WebView: React.ComponentType<any> | null = null;
 if (Platform.OS !== "web") {
   try {
@@ -47,6 +27,25 @@ if (Platform.OS !== "web") {
 
 const roundCoord = (value: number) => Number(value.toFixed(4));
 
+const TRAVEL_MODES: { value: RouteProfile | "transit"; label: string }[] = [
+  { value: "walking", label: "Walk" },
+  { value: "driving", label: "Drive" },
+  { value: "transit", label: "Transit" },
+];
+
+const HALL_BUILDING_CODE = "H";
+
+const formatDuration = (minutes: number) => {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins === 0 ? `${hours} h` : `${hours} h ${mins} min`;
+};
+
+const formatDistance = (meters: number) => {
+  if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
+  return `${Math.round(meters)} m`;
+};
 const DEFAULT_START_BUILDING_CODE = "H";
 const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
 
@@ -84,19 +83,44 @@ export default function MapScreen() {
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const [destinationBuildingCode, setDestinationBuildingCode] =
     useState<string>(DEFAULT_DESTINATION_BUILDING_CODE);
-  // Tracks the selected origin building (or null if using current location)
-  const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
-    null,
-  );
+
   const [isDirectionsMode, setIsDirectionsMode] = useState(false);
-  const routeMode: RouteProfile = "walking";
+  const [routeMode, setRouteMode] = useState<RouteProfile | "transit">(
+    "walking",
+  );
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
-  const [routeInstructions, setRouteInstructions] = useState<
-    RouteInstruction[]
-  >([]);
+  const [routeDurationMinutes, setRouteDurationMinutes] = useState<number | null>(
+    null,
+  );
+  const [routeDistanceMeters, setRouteDistanceMeters] = useState<number | null>(
+    null,
+  );
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeInstructions, setRouteInstructions] = useState<RouteInstruction[]>(
+    [],
+  );
   const [showRouteInstructions, setShowRouteInstructions] = useState(false);
+  const [modeDurations, setModeDurations] = useState<
+    Record<string, number | null>
+  >({
+    walking: null,
+    driving: null,
+    transit: null,
+  });
+
+  const [transitItineraries, setTransitItineraries] = useState<
+    TransitItinerary[]
+  >([]);
+  const [selectedItineraryIndex, setSelectedItineraryIndex] = useState(0);
+  const [expandedItineraries, setExpandedItineraries] = useState<number[]>([]);
+  const [expandedIntermediateStops, setExpandedIntermediateStops] = useState<
+    Set<string>
+  >(new Set());
+  const [routeStarted, setRouteStarted] = useState(false);
+
   const routeInstructionsDismissedRef = useRef(false);
   const routeSheetPanResponder = useRef(
     PanResponder.create({
@@ -115,12 +139,13 @@ export default function MapScreen() {
       },
     }),
   ).current;
+
   const mapRef = useRef<any>(null);
   const webViewRef = useRef<any>(null);
   const [userLocation, setUserLocation] = useState<any>(null);
-  const [currentBuilding, setCurrentBuilding] = useState<
-    string | null | undefined
-  >(undefined);
+  const [currentBuilding, setCurrentBuilding] = useState<string | null | undefined>(
+    undefined,
+  );
   const [webMapReady, setWebMapReady] = useState(false);
   const locationSubscription = useRef<any>(null);
   const campusRef = useRef<Campus>(campus);
@@ -342,33 +367,6 @@ export default function MapScreen() {
       fontSize: 12,
       fontWeight: "700",
     },
-    routeModeRow: {
-      flexDirection: "row",
-      gap: 8,
-      marginTop: 10,
-    },
-    routeModeButton: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: 18,
-      borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.3)",
-      backgroundColor: "rgba(255,255,255,0.06)",
-      paddingVertical: 8,
-    },
-    routeModeButtonActive: {
-      backgroundColor: "#D2E9FF",
-      borderColor: "#95C6F3",
-    },
-    routeModeButtonText: {
-      color: "white",
-      fontSize: 13,
-      fontWeight: "700",
-    },
-    routeModeButtonTextActive: {
-      color: "#123B5D",
-    },
     routeStatusText: {
       marginTop: 10,
       color: "#E8E8EC",
@@ -446,6 +444,244 @@ export default function MapScreen() {
       fontWeight: "700",
       marginBottom: 18,
     },
+    itineraryCard: {
+      backgroundColor: "white",
+      borderRadius: 14,
+      padding: 12,
+      marginBottom: 10,
+      borderWidth: 2,
+      borderColor: "#E5E5EA",
+    },
+    itineraryCardActive: {
+      borderColor: "#007AFF",
+      backgroundColor: "#F0F7FF",
+    },
+    itineraryTime: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: "#1C1C1E",
+      marginBottom: 4,
+    },
+    itineraryDuration: {
+      fontSize: 13,
+      color: "#3A3A3C",
+      marginBottom: 2,
+    },
+    itineraryTransfers: {
+      fontSize: 12,
+      color: "#8E8E93",
+      marginBottom: 8,
+    },
+    itineraryLegsRow: {
+      flexDirection: "row",
+      gap: 6,
+      flexWrap: "wrap",
+    },
+    legPill: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    legPillWalk: {
+      backgroundColor: "#E8F5E9",
+      color: "#2E7D32",
+    },
+    legPillBus: {
+      backgroundColor: "#FFF3E0",
+      color: "#E65100",
+    },
+    legPillSubway: {
+      backgroundColor: "#E3F2FD",
+      color: "#1565C0",
+    },
+    legPillTram: {
+      backgroundColor: "#F3E5F5",
+      color: "#6A1B9A",
+    },
+    legDetailRow: {
+      flexDirection: "row",
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: "#F0F0F0",
+    },
+    legDetailTime: {
+      width: 60,
+      fontSize: 13,
+      fontWeight: "600",
+      color: "#1C1C1E",
+    },
+    legDetailLine: {
+      width: 20,
+      alignItems: "center",
+      marginRight: 8,
+    },
+    legDetailContent: {
+      flex: 1,
+      fontSize: 13,
+      color: "#3A3A3C",
+    },
+    timelineContainer: {
+      flexDirection: "row",
+      marginBottom: 8,
+    },
+    timelineLeft: {
+      width: 60,
+      alignItems: "flex-end",
+      paddingRight: 12,
+    },
+    timelineCenter: {
+      width: 40,
+      alignItems: "center",
+      position: "relative",
+    },
+    timelineIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "white",
+      borderWidth: 2,
+      zIndex: 2,
+    },
+    timelineIconWalk: {
+      borderColor: "#2E7D32",
+      backgroundColor: "#E8F5E9",
+    },
+    timelineIconTransit: {
+      borderColor: "#007AFF",
+      backgroundColor: "#E3F2FD",
+    },
+    timelineLine: {
+      position: "absolute",
+      width: 3,
+      top: 32,
+      bottom: -8,
+      backgroundColor: "#E5E5EA",
+      left: "50%",
+      marginLeft: -1.5,
+    },
+    timelineLineWalk: {
+      backgroundColor: "#2E7D32",
+    },
+    timelineLineTransit: {
+      backgroundColor: "#007AFF",
+    },
+    timelineRight: {
+      flex: 1,
+      paddingLeft: 8,
+    },
+    timelineTime: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: "#1C1C1E",
+      marginBottom: 4,
+    },
+    timelineStopName: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#1C1C1E",
+      marginBottom: 6,
+    },
+    timelineWalkDetail: {
+      fontSize: 13,
+      color: "#6A6A75",
+      marginBottom: 4,
+    },
+    timelineRoutePill: {
+      alignSelf: "flex-start",
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 6,
+      marginBottom: 6,
+    },
+    timelineRoutePillBus: {
+      backgroundColor: "#007AFF",
+    },
+    timelineRoutePillSubway: {
+      backgroundColor: "#007AFF",
+    },
+    timelineRoutePillTram: {
+      backgroundColor: "#9C27B0",
+    },
+    timelineRouteText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: "white",
+      marginLeft: 6,
+    },
+    timelineHeadsign: {
+      fontSize: 13,
+      color: "#3A3A3C",
+      marginTop: 2,
+    },
+    sameCampusHint: {
+      color: "rgba(255,255,255,0.55)",
+      fontSize: 11,
+      fontStyle: "italic",
+      alignSelf: "center",
+      flex: 1,
+      marginLeft: 8,
+    },
+    modeSelectorGrid: {
+      marginTop: 10,
+      gap: 8,
+    },
+    modeSelectorRow: {
+      flexDirection: "row",
+      gap: 8,
+      alignItems: "center",
+    },
+    modePill: {
+      flex: 1,
+      paddingVertical: 9,
+      paddingHorizontal: 10,
+      borderRadius: 22,
+      borderWidth: 1.5,
+      borderColor: "rgba(255,255,255,0.28)",
+      backgroundColor: "rgba(255,255,255,0.10)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    modePillActive: {
+      backgroundColor: "#D2E9FF",
+      borderColor: "#95C6F3",
+    },
+    modePillText: {
+      color: "white",
+      fontSize: 13,
+      fontWeight: "700",
+    },
+    modePillTextActive: {
+      color: "#123B5D",
+    },
+    modePillSpacer: {
+      flex: 1,
+    },
+    modePillGroup: {
+      flex: 1,
+      flexDirection: "row",
+      gap: 8,
+    },
+    modeActionButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 9,
+      borderRadius: 22,
+      backgroundColor: "rgba(255,255,255,0.15)",
+      borderWidth: 1.5,
+      borderColor: "rgba(255,255,255,0.35)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    modeActionButtonText: {
+      color: "white",
+      fontSize: 13,
+      fontWeight: "700",
+    },
     e2eControls: {
       position: "absolute",
       right: 12,
@@ -475,6 +711,7 @@ export default function MapScreen() {
   let MapCalloutComponent: React.ComponentType<any> | null = null;
   let MapPolygonComponent: React.ComponentType<any> | null = null;
   let MapPolylineComponent: React.ComponentType<any> | null = null;
+
   useEffect(() => {
     if (Platform.OS !== "web") return;
 
@@ -490,7 +727,7 @@ export default function MapScreen() {
           setSelectedBuilding(null);
         }
       } catch {
-        // ignore non-JSON messages
+        // ignore
       }
     };
 
@@ -563,11 +800,28 @@ export default function MapScreen() {
 
   const handleLocationUpdate = useCallback(
     (location: Location.LocationObject) => {
-      const { latitude, longitude } = location.coords;
+      //const { latitude, longitude } = location.coords;
+
+      const latitude = 45.497092;
+      const longitude = -73.5788;
+
+
+      const fakeLocation = {
+        ...location,
+        coords: {
+          ...location.coords,
+          latitude,
+          longitude,
+        }
+      };
+
+      setUserLocation(fakeLocation);
+      setLocationPermissionDenied(false);
+
       const detected = detectBuildingFromLocation(latitude, longitude);
 
-      setUserLocation(location);
-      setLocationPermissionDenied(false);
+      //setUserLocation(location);
+      //setLocationPermissionDenied(false);
       applyDetectedLocationState(detected, {
         syncOriginWhenAuto: true,
         syncCampusMode: "once",
@@ -576,7 +830,6 @@ export default function MapScreen() {
     [applyDetectedLocationState],
   );
 
-  // Start tracking user location
   useEffect(() => {
     async function setupLocation() {
       const permission = await hasLocationPermission();
@@ -628,10 +881,40 @@ export default function MapScreen() {
     () => (campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS),
     [campus],
   );
+
+  const getTransitColor = (mode: string, route?: string) => {
+    if (mode === "WALK") return "#2E7D32";
+    if (mode === "BUS") return "#007AFF";
+    if (mode === "TRAM") return "#9C27B0";
+
+    // STM metro colors
+    if (mode === "SUBWAY" || mode === "RAIL" || mode === "METRO") {
+      const line = (route ?? "").trim();
+      if (line === "1") return "#009E60"; // GREEN LINE
+      if (line === "2") return "#FF6600"; // ORANGE LINE
+      if (line === "4") return "#FFD700"; // YELLOW LINE
+      if (line === "5") return "#0075BF"; // BLUE LINE
+      return "#007AFF"; // fallback: blue
+    }
+
+    return "#1668C7";
+  };
+
+  // Tracks the selected origin building (or null if using current location)
+  const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
+    null,
+  );
+
   const campusBuildings = useMemo(
     () => BUILDINGS.filter((building) => building.campus === campus),
     [campus],
   );
+
+  const defaultSgwRegion = useMemo(
+    () => getCampusRegion("SGW", SGW_POLYGONS.features),
+    [],
+  );
+
   const actualOriginPoint = useMemo(() => {
     // If user selected a building as origin, use that building's coordinates
     if (originBuildingCode) {
@@ -663,8 +946,83 @@ export default function MapScreen() {
     [originBuildingCode],
   );
 
+  const isSameCampus = useMemo(() => {
+    if (!originBuilding || !destinationBuilding) return true;
+    return originBuilding.campus === destinationBuilding.campus;
+  }, [originBuilding, destinationBuilding]);
+
+  useEffect(() => {
+    if (isSameCampus) setRouteMode("walking");
+  }, [isSameCampus]);
+
+  useEffect(() => {
+    if (!destinationBuilding || !actualOriginPoint) {
+      setModeDurations({ walking: null, driving: null, transit: null });
+      return;
+    }
+    let cancelled = false;
+    const go = async () => {
+      // For same campus: walk. For different campus: bike      
+      const walkOrBikeProfile = isSameCampus ? "walking" : "cycling";
+      const [walkOrBike, drive] = await Promise.allSettled([
+        fetchOsrmRoute(actualOriginPoint, destinationBuilding, walkOrBikeProfile),
+        fetchOsrmRoute(actualOriginPoint, destinationBuilding, "driving"),
+      ]);
+      if (cancelled) return;
+      setModeDurations((p) => ({
+        ...p,
+        walking:
+          walkOrBike.status === "fulfilled"
+            ? Math.round(walkOrBike.value.durationSeconds / 60)
+            : null,
+        driving:
+          drive.status === "fulfilled"
+            ? Math.round(drive.value.durationSeconds / 60)
+            : null,
+      }));
+      if (!isSameCampus) {
+        try {
+          const itins = await fetchTransitItineraries(
+            actualOriginPoint,
+            destinationBuilding,
+          );
+          if (!cancelled)
+            setModeDurations((p) => ({
+              ...p,
+              transit: itins[0]
+                ? Math.round(itins[0].durationSeconds / 60)
+                : null,
+            }));
+        } catch {
+          if (!cancelled) setModeDurations((p) => ({ ...p, transit: null }));
+        }
+      }
+    };
+    go();
+    return () => {
+      cancelled = true;
+    };
+  }, [actualOriginPoint, destinationBuilding, isSameCampus]);
+
+  const resetRouteState = () => {
+    setRouteCoordinates([]);
+    setRouteDurationMinutes(null);
+    setRouteDistanceMeters(null);
+    setRouteError(null);
+    setRouteInstructions([]);
+    setShowRouteInstructions(false);
+    setTransitItineraries([]);
+    setSelectedItineraryIndex(0);
+    setExpandedItineraries([]);
+    setExpandedIntermediateStops(new Set());
+    setRouteStarted(false);
+    routeInstructionsDismissedRef.current = false;
+  };
+
   const exitDirectionsMode = () => {
     setIsDirectionsMode(false);
+    setRouteLoading(false);
+    resetRouteState();
     setRouteCoordinates([]);
     setRouteInstructions([]);
     setShowRouteInstructions(false);
@@ -748,6 +1106,7 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (!isDirectionsMode || !destinationBuilding || !actualOriginPoint) {
+      resetRouteState();
       setRouteCoordinates([]);
       setRouteInstructions([]);
       setShowRouteInstructions(false);
@@ -759,27 +1118,60 @@ export default function MapScreen() {
 
     const loadRoute = async () => {
       try {
-        const route = await fetchOsrmRoute(
-          actualOriginPoint,
-          destinationBuilding,
-          routeMode,
-        );
+        setRouteLoading(true);
+        setRouteError(null);
 
-        if (cancelled) return;
-        setRouteCoordinates(route.coordinates);
-        setRouteInstructions(route.instructions);
-        if (
-          route.instructions.length > 0 &&
-          !routeInstructionsDismissedRef.current
-        ) {
-          setShowRouteInstructions(true);
+        if (routeMode === "transit") {
+          const itineraries = await fetchTransitItineraries(
+            actualOriginPoint,
+            destinationBuilding,
+            new Date().toISOString(),
+          );
+          if (cancelled) return;
+          setTransitItineraries(itineraries);
+          setSelectedItineraryIndex(0);
+          setExpandedItineraries([]);
+          setRouteStarted(false);
+
+          // Set route from first itinerary
+          const firstRoute = itineraries[0];
+          setRouteCoordinates([]);
+          setRouteDurationMinutes(Math.round(firstRoute.durationSeconds / 60));
+          setRouteDistanceMeters(firstRoute.distanceMeters);
+          setRouteInstructions(firstRoute.instructions);
+          if (
+            firstRoute.instructions.length > 0 &&
+            !routeInstructionsDismissedRef.current
+          ) {
+            setShowRouteInstructions(true);
+          }
+        } else {
+          // Use cycling mode for intercampus "walking", otherwise use the selected mode
+          const actualMode = routeMode === "walking" && !isSameCampus ? "cycling" : routeMode;
+
+          const route = await fetchOsrmRoute(
+            actualOriginPoint,
+            destinationBuilding,
+            actualMode,
+          );
+          if (cancelled) return;
+          setRouteCoordinates(route.coordinates);
+          setRouteDurationMinutes(Math.round(route.durationSeconds / 60));
+          setRouteDistanceMeters(route.distanceMeters);
+          setRouteInstructions(route.instructions);
+          if (
+            route.instructions.length > 0 &&
+            !routeInstructionsDismissedRef.current
+          ) {
+            setShowRouteInstructions(true);
+          }
         }
       } catch {
         if (cancelled) return;
-        setRouteCoordinates([]);
-        setRouteInstructions([]);
-        setShowRouteInstructions(false);
-        routeInstructionsDismissedRef.current = false;
+        resetRouteState();
+        setRouteError("Could not load route for this selection.");
+      } finally {
+        if (!cancelled) setRouteLoading(false);
       }
     };
 
@@ -794,8 +1186,7 @@ export default function MapScreen() {
   const buildingsWithPolygons = useMemo(() => {
     const buildingHasPolygon = (building: { code: string }) => {
       const hasExact = campusPolygons.features.some(
-        (f: { properties: { code: string } }) =>
-          f.properties.code === building.code,
+        (f: { properties: { code: string } }) => f.properties.code === building.code,
       );
       const hasParent = campusPolygons.features.some(
         (f: { properties: { code: string } }) =>
@@ -818,18 +1209,13 @@ export default function MapScreen() {
   let buildingPhotoLink = b?.photoLink;
 
   useEffect(() => {
-    if (
-      webViewRef.current &&
-      Platform.OS !== "web" &&
-      userLocation &&
-      webMapReady
-    ) {
+    if (webViewRef.current && Platform.OS !== "web" && userLocation && webMapReady) {
       const { latitude, longitude } = userLocation.coords;
 
       const script = `
       (function() {
         try {
-            if (typeof L !== 'undefined' && window.map) {
+          if (typeof L !== 'undefined' && window.map) {
             if (window.userMarker) {
               window.userMarker.setLatLng([${latitude}, ${longitude}]);
               console.log('User marker updated to:', ${latitude}, ${longitude});
@@ -892,8 +1278,8 @@ export default function MapScreen() {
               });
             }
           } else {
-              window.currentBuildingPolygon = null;
-              window.currentBuildingCode = null;
+            window.currentBuildingPolygon = null;
+            window.currentBuildingCode = null;
           }
         } catch (e) {
           console.log('Current building highlight error:', e);
@@ -904,6 +1290,27 @@ export default function MapScreen() {
 
     webViewRef.current?.injectJavaScript(script);
   }, [currentBuilding, userLocation, selectedBuilding, webMapReady]);
+
+  // Precompute per-leg transit segments for Leaflet
+  const webTransitSegments = useMemo(() => {
+    if (routeMode !== "transit") return [];
+    const itin = transitItineraries[selectedItineraryIndex];
+    if (!itin) return [];
+
+    return itin.legs
+      .filter((leg) => !!leg.legGeometry?.points)
+      .map((leg) => {
+        const precision = (leg.legGeometry as any)?.precision ?? 7;
+        const coords = decodePolyline(leg.legGeometry!.points, precision).map(
+          (p) => [p.latitude, p.longitude],
+        );
+        return {
+          mode: leg.mode,
+          route: leg.route ?? "",
+          coords,
+        };
+      });
+  }, [routeMode, transitItineraries, selectedItineraryIndex]);
 
   // Generate HTML for web map
   const mapHTML = useMemo(() => {
@@ -931,10 +1338,7 @@ export default function MapScreen() {
           <style>
               body { margin: 0; padding: 0; }
               #map { width: 100%; height: 100vh; }
-              .building-marker {
-                  background: transparent;
-                  border: none;
-              }
+              .building-marker { background: transparent; border: none; }
               .marker-badge {
                   min-width: 30px;
                   height: 28px;
@@ -959,80 +1363,103 @@ export default function MapScreen() {
                   border-top: 8px solid #A32638;
                   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
               }
-              .user-marker {
-                  background: transparent;
-                  border: none;
-              }
+              .user-marker { background: transparent; border: none; }
           </style>
       </head>
       <body>
           <div id="map"></div>
           <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
           <script>
-              const map = L.map('map', {
-                maxZoom: 22
-              }).setView([${latitude}, ${longitude}], 20);
-              window.map = map; 
+              const map = L.map('map', { maxZoom: 22 }).setView([${latitude}, ${longitude}], 20);
+              window.map = map;
+
               const buildings = ${JSON.stringify(buildingData)};
               const polygonData = ${JSON.stringify(campusPolygons)};
               const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               const routeMode = ${JSON.stringify(routeMode)};
               const routeCoordinates = ${JSON.stringify(
-                routeCoordinates.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      routeCoordinates.map((point) => [point.latitude, point.longitude]),
+    )};
+
+              // Per-leg transit segments for Leaflet
+              const transitSegments = ${JSON.stringify(webTransitSegments)};
+
               let selectedPolygon = null;
               window.polygonMap = {};
               window.currentBuildingPolygon = null;
               window.currentBuildingCode = null;
               window.selectedBuildingCode = null;
               window.selectedPolygon = null;
-              window.userMarker = null;  
+              window.userMarker = null;
               window.followUser = false;
               window.hasCenteredOnUser = false;
 
               L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                   attribution: '© OpenStreetMap contributors',
                   maxZoom: 22,
-                  maxNativeZoom: 19  
+                  maxNativeZoom: 19
               }).addTo(map);
 
-              const defaultPolygonStyle = {
-                  color: '#A32638',
-                  fillColor: '#A32638',
-                  fillOpacity: 0.2,
-                  weight: 2
-              };
-
-              const currentPolygonStyle = {
-                  color: '#FFA500',
-                  fillColor: '#FFA500',
-                  fillOpacity: 0.5,
-                  weight: 3
-              };
-
-              const selectedPolygonStyle = {
-                  color: '#238c51',
-                  fillColor: '#238c51',
-                  fillOpacity: 0.5,
-                  weight: 3
-              };
+              const defaultPolygonStyle = { color: '#A32638', fillColor: '#A32638', fillOpacity: 0.2, weight: 2 };
+              const currentPolygonStyle = { color: '#FFA500', fillColor: '#FFA500', fillOpacity: 0.5, weight: 3 };
+              const selectedPolygonStyle = { color: '#238c51', fillColor: '#238c51', fillOpacity: 0.5, weight: 3 };
 
               const resetPolygonStyle = (polygon) => {
                   if (!polygon) return;
                   const code = polygon.__buildingCode || null;
-                  if (code && window.currentBuildingCode === code) {
-                      polygon.setStyle(currentPolygonStyle);
-                  } else {
-                      polygon.setStyle(defaultPolygonStyle);
-                  }
+                  if (code && window.currentBuildingCode === code) polygon.setStyle(currentPolygonStyle);
+                  else polygon.setStyle(defaultPolygonStyle);
               };
 
               const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
-              let routePolyline = null;
-              if (routeCoordinates.length > 1) {
+
+             const segmentColor = (mode, route) => {
+                  if (mode === "WALK") return "#2E7D32";
+                  if (mode === "BUS") return "#007AFF";    
+                  if (mode === "TRAM") return "#9C27B0";  
+
+                  // STM metro colours
+                  if (mode === "SUBWAY" || mode === "RAIL" || mode === "METRO") {
+                    const line = (route || "").trim();
+                    if (line === "1") return "#009E60"; // GREEN LINE
+                    if (line === "2") return "#FF6600"; // ORANGE LINE
+                    if (line === "4") return "#FFD700"; // YELLOW LINE
+                    if (line === "5") return "#0075BF"; // BLUE LINE
+                    return "#007AFF";
+                  }
+
+                  return "#1668C7";
+                };
+
+
+              let routeLayers = [];
+              let hasAnyRoute = false;
+
+              if (routeMode === "transit" && Array.isArray(transitSegments) && transitSegments.length) {
+                transitSegments.forEach((seg) => {
+                  if (!seg.coords || seg.coords.length < 2) return;
+
+                  const poly = L.polyline(seg.coords, {
+                    color: segmentColor(seg.mode, seg.route),
+                    weight: 6,
+                    opacity: 0.9,
+                    lineCap: "round",
+                    lineJoin: "round",
+                    dashArray: seg.mode === "WALK" ? "2 12" : undefined
+                  }).addTo(map);
+
+                  routeLayers.push(poly);
+                });
+
+                if (routeLayers.length) {
+                  hasAnyRoute = true;
+                  const group = L.featureGroup(routeLayers);
+                  map.fitBounds(group.getBounds(), { padding: [50, 50] });
+                }
+              }
+
+              // Existing non-transit behavior (walking/driving): draw single polyline
+              if (!hasAnyRoute && routeCoordinates.length > 1) {
                   const routeStyle = {
                       color: '#1668C7',
                       weight: routeMode === 'walking' ? 7 : 6,
@@ -1045,7 +1472,8 @@ export default function MapScreen() {
                       routeStyle.dashArray = '1 12';
                   }
 
-                  routePolyline = L.polyline(routeCoordinates, routeStyle).addTo(map);
+                  const routePolyline = L.polyline(routeCoordinates, routeStyle).addTo(map);
+                  routeLayers.push(routePolyline);
 
                   L.circleMarker(routeCoordinates[0], {
                       radius: 6,
@@ -1062,18 +1490,16 @@ export default function MapScreen() {
                       fillOpacity: 1,
                       weight: 2
                   }).addTo(map);
+
+                  map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
+                  hasAnyRoute = true;
               }
 
-              if (routePolyline) {
-                  map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
-              } else {
+              if (!hasAnyRoute) {
                   map.fitBounds(bounds, { padding: [20, 20] });
               }
 
-              const disableFollow = () => {
-                  window.followUser = false;
-              };
-
+              const disableFollow = () => { window.followUser = false; };
               map.on('dragstart', disableFollow);
               map.on('zoomstart', disableFollow);
               map.on('movestart', disableFollow);
@@ -1088,10 +1514,7 @@ export default function MapScreen() {
                   polygon.__buildingCode = buildingCode;
 
                   polygon.on('click', function(e) {
-                      if (selectedPolygon) {
-                          resetPolygonStyle(selectedPolygon);
-                      }
-
+                      if (selectedPolygon) resetPolygonStyle(selectedPolygon);
                       this.setStyle(selectedPolygonStyle);
                       selectedPolygon = this;
                       window.selectedBuildingCode = buildingCode;
@@ -1101,15 +1524,11 @@ export default function MapScreen() {
                   });
 
                   polygon.on('mouseover', function() {
-                      if (this !== selectedPolygon) {
-                          this.setStyle({ fillOpacity: 0.3 });
-                      }
+                      if (this !== selectedPolygon) this.setStyle({ fillOpacity: 0.3 });
                   });
 
                   polygon.on('mouseout', function() {
-                      if (this !== selectedPolygon) {
-                          this.setStyle({ fillOpacity: 0.2 });
-                      }
+                      if (this !== selectedPolygon) this.setStyle({ fillOpacity: 0.2 });
                   });
               });
 
@@ -1138,9 +1557,7 @@ export default function MapScreen() {
               });
 
               buildings.forEach((building) => {
-                  const marker = L.marker([building.latitude, building.longitude], {
-                      icon: createBuildingIcon(building.code)
-                  }).addTo(map);
+                  const marker = L.marker([building.latitude, building.longitude], { icon: createBuildingIcon(building.code) }).addTo(map);
 
                   marker.on('click', function(e) {
                       let polygon = window.polygonMap[building.code];
@@ -1150,9 +1567,7 @@ export default function MapScreen() {
                       }
 
                       if (polygon) {
-                          if (selectedPolygon) {
-                              resetPolygonStyle(selectedPolygon);
-                          }
+                          if (selectedPolygon) resetPolygonStyle(selectedPolygon);
 
                           if (selectedPolygon === polygon) {
                               resetPolygonStyle(selectedPolygon);
@@ -1162,22 +1577,23 @@ export default function MapScreen() {
                               selectedPolygon = polygon;
                           }
                       }
-                          if(selectedPolygon){
-                            window.selectedBuildingCode = building.code;
-                            window.selectedPolygon = selectedPolygon;
-                            (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type:'buildingSelected', buildingCode: building.code}), '*');
-                          } else {
-                            window.selectedBuildingCode = null;
-                            window.selectedPolygon = null;
-                            (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
-                          }
+
+                      if (selectedPolygon) {
+                        window.selectedBuildingCode = building.code;
+                        window.selectedPolygon = selectedPolygon;
+                        (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type:'buildingSelected', buildingCode: building.code}), '*');
+                      } else {
+                        window.selectedBuildingCode = null;
+                        window.selectedPolygon = null;
+                        (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
+                      }
+
                       L.DomEvent.stopPropagation(e);
                   });
               });
 
-              ${
-                userLat && userLng
-                  ? `
+              ${userLat && userLng
+        ? `
               console.log('Adding user marker at:', ${userLat}, ${userLng});
               const userIcon = L.divIcon({
                   className: 'user-marker',
@@ -1187,8 +1603,8 @@ export default function MapScreen() {
               });
               window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
               `
-                  : 'console.log("No user location available");'
-              }
+        : 'console.log("No user location available");'
+      }
           </script>
       </body>
       </html>
@@ -1202,6 +1618,7 @@ export default function MapScreen() {
     routeMode,
     userLat,
     userLng,
+    webTransitSegments,
   ]);
 
   const webViewSource = useMemo(() => ({ html: mapHTML }), [mapHTML]);
@@ -1257,9 +1674,8 @@ export default function MapScreen() {
                 );
                 if (data?.type === "buildingSelected")
                   setSelectedBuilding(data.buildingCode);
-                if (data?.type === "buildingDeselected")
-                  setSelectedBuilding(null);
-              } catch {}
+                if (data?.type === "buildingDeselected") setSelectedBuilding(null);
+              } catch { }
               return false;
             }
             return true;
@@ -1275,9 +1691,9 @@ export default function MapScreen() {
 
   const nativeMapContent =
     MapViewComponent &&
-    MapMarkerComponent &&
-    MapCalloutComponent &&
-    MapPolygonComponent ? (
+      MapMarkerComponent &&
+      MapCalloutComponent &&
+      MapPolygonComponent ? (
       <MapViewComponent
         key={campus}
         ref={mapRef}
@@ -1288,18 +1704,44 @@ export default function MapScreen() {
         showsMyLocationButton
         onPress={() => setSelectedBuilding(null)}
       >
+
         {isDirectionsMode &&
           MapPolylineComponent &&
-          routeCoordinates.length > 1 && (
-            <MapPolylineComponent
-              testID="route-polyline"
-              coordinates={routeCoordinates}
-              strokeColor="#1668C7"
-              strokeWidth={routeMode === "walking" ? 6 : 5}
-              lineDashPattern={routeMode === "walking" ? [1, 12] : undefined}
-              lineCap="round"
-            />
-          )}
+          routeMode === "transit" &&
+          transitItineraries[selectedItineraryIndex] ? (
+          <>
+            {transitItineraries[selectedItineraryIndex].legs.map((leg, index) => {
+              console.log(`Rendering leg ${index}:`, leg.mode);
+
+              if (!leg.legGeometry?.points) return null;
+              const precision = (leg.legGeometry as any)?.precision ?? 7;
+              const coordinates = decodePolyline(leg.legGeometry.points, precision);
+              if (coordinates.length < 2) return null;
+
+              const strokeColor = getTransitColor(leg.mode, leg.route);
+
+              return (
+                <MapPolylineComponent
+                  key={`leg-${index}`}
+                  coordinates={coordinates}
+                  strokeColor={strokeColor}
+                  strokeWidth={leg.mode === "WALK" ? 4 : 6}
+                  lineDashPattern={leg.mode === "WALK" ? [2, 8] : undefined}
+                  lineCap="round"
+                />
+              );
+            })}
+          </>
+        ) : isDirectionsMode && MapPolylineComponent && routeCoordinates.length > 1 ? (
+          <MapPolylineComponent
+            testID="route-polyline"
+            coordinates={routeCoordinates}
+            strokeColor="#1668C7"
+            strokeWidth={routeMode === "walking" ? 6 : 5}
+            lineDashPattern={routeMode === "walking" ? [1, 12] : undefined}
+            lineCap="round"
+          />
+        ) : null}
 
         {campusPolygons.features.map((feature: any) => {
           const coordinates = feature.geometry.coordinates[0].map(
@@ -1336,9 +1778,7 @@ export default function MapScreen() {
               fillOpacity={fillOpacity}
               tappable
               onPress={() =>
-                setSelectedBuilding(
-                  selectedBuilding === buildingCode ? null : buildingCode,
-                )
+                setSelectedBuilding(selectedBuilding === buildingCode ? null : buildingCode)
               }
             />
           );
@@ -1349,9 +1789,10 @@ export default function MapScreen() {
             (f: any) => f.properties.code === building.code,
           );
 
-          const polygonCode = hasExactPolygon
-            ? building.code
-            : campusPolygons.features.find(
+          const polygonCode =
+            hasExactPolygon
+              ? building.code
+              : campusPolygons.features.find(
                 (f: any) =>
                   building.code.startsWith(f.properties.code) &&
                   f.properties.code.length >= 2,
@@ -1370,9 +1811,7 @@ export default function MapScreen() {
                 longitude: building.longitude,
               }}
               onPress={() =>
-                setSelectedBuilding(
-                  selectedBuilding === polygonCode ? null : polygonCode,
-                )
+                setSelectedBuilding(selectedBuilding === polygonCode ? null : polygonCode)
               }
             >
               <View
@@ -1393,11 +1832,10 @@ export default function MapScreen() {
       </MapViewComponent>
     ) : (
       <View style={styles.webFallback}>
-        <Text style={styles.webFallbackText}>
-          Map view is unavailable in this environment.
-        </Text>
+        <Text style={styles.webFallbackText}>Map view is unavailable in this environment.</Text>
       </View>
     );
+
   const searchInputRef = useRef<TextInput>(null);
 
   return (
@@ -1412,9 +1850,7 @@ export default function MapScreen() {
 
       {searchResults.length > 0 && (
         <View style={styles.searchResultsContainer} testID="search-results">
-          <Text style={styles.searchResultsHint}>
-            Tap a building to set destination (To).
-          </Text>
+          <Text style={styles.searchResultsHint}>Tap a building to set destination (To).</Text>
           {searchResults.map((building) => (
             <Pressable
               key={building.code}
@@ -1475,12 +1911,118 @@ export default function MapScreen() {
           </Pressable>
 
           {/* GO / CANCEL BUTTON */}
-          <Pressable onPress={clearDirections} style={styles.clearRouteButton}>
-            <Text style={styles.clearRouteText}>
-              {isDirectionsMode ? "Cancel" : "Go"}
-            </Text>
+          <Pressable
+            testID="direction-go-button"
+            onPress={clearDirections}
+            style={styles.clearRouteButton}
+          >
+            <Text style={styles.clearRouteText}>{isDirectionsMode ? "Cancel" : "Go"}</Text>
           </Pressable>
         </View>
+
+        {/* TRANSPORT MODE BUTTONS — different campus only */}
+        {isDirectionsMode && !isSameCampus && (
+          <View style={styles.modeSelectorGrid}>
+            <View style={styles.modeSelectorRow}>
+              <View style={styles.modePillGroup}>
+                <Pressable
+                  testID="route-mode-walking"
+                  style={[styles.modePill, routeMode === "walking" && styles.modePillActive]}
+                  onPress={() => setRouteMode("walking")}
+                >
+                  <Text
+                    style={[
+                      styles.modePillText,
+                      routeMode === "walking" && styles.modePillTextActive,
+                    ]}
+                  >
+                    Bike - {" "}
+                    {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  testID="route-mode-driving"
+                  style={[styles.modePill, routeMode === "driving" && styles.modePillActive]}
+                  onPress={() => setRouteMode("driving")}
+                >
+                  <Text
+                    style={[
+                      styles.modePillText,
+                      routeMode === "driving" && styles.modePillTextActive,
+                    ]}
+                  >
+                    Car -{" "}
+                    {modeDurations.driving !== null ? formatDuration(modeDurations.driving) : "—"}
+                  </Text>
+                </Pressable>
+              </View>
+              <Pressable
+                testID="direction-start-button"
+                style={styles.modeActionButton}
+                onPress={() => {
+                  setRouteStarted(true);
+                  routeInstructionsDismissedRef.current = false;
+                  setShowRouteInstructions(true);
+                }}
+              >
+                <Text style={styles.modeActionButtonText}>Start</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.modeSelectorRow}>
+              <View style={styles.modePillGroup}>
+                <Pressable
+                  testID="route-mode-transit"
+                  style={[styles.modePill, routeMode === "transit" && styles.modePillActive]}
+                  onPress={() => setRouteMode("transit")}
+                >
+                  <Text
+                    style={[
+                      styles.modePillText,
+                      routeMode === "transit" && styles.modePillTextActive,
+                    ]}
+                  >
+                    Public Transit -{" "}
+                    {modeDurations.transit !== null ? formatDuration(modeDurations.transit) : "—"}
+                  </Text>
+                </Pressable>
+                <Pressable testID="route-mode-shuttle" style={[styles.modePill]} disabled>
+                  <Text style={[styles.modePillText, { opacity: 0.45 }]}>
+                    Shuttle — Temporarily unavailable
+                  </Text>
+                </Pressable>
+              </View>
+              <Pressable
+                testID="direction-exit-button"
+                style={styles.modeActionButton}
+                onPress={clearDirections}
+              >
+                <Text style={styles.modeActionButtonText}>Exit</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* WALK ONLY — same campus */}
+        {isDirectionsMode && isSameCampus && (
+          <View style={styles.modeSelectorGrid}>
+            <View style={styles.modeSelectorRow}>
+              <Pressable testID="route-mode-walking" style={[styles.modePill, styles.modePillActive]}>
+                <Text style={[styles.modePillText, styles.modePillTextActive]}>
+                  Walk {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
+                </Text>
+              </Pressable>
+              <Text style={styles.sameCampusHint}>Same campus</Text>
+              <Pressable
+                testID="direction-exit-button"
+                style={styles.modeActionButton}
+                onPress={clearDirections}
+              >
+                <Text style={styles.modeActionButtonText}>Exit</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
       </View>
 
       {currentBuilding &&
@@ -1488,17 +2030,11 @@ export default function MapScreen() {
           const building = BUILDINGS.find((b) => b.code === currentBuilding);
           return building ? (
             <View
-              style={[
-                styles.buildingInfo,
-                !isWebPlatform && { top: insets.top + 44 },
-              ]}
+              style={[styles.buildingInfo, !isWebPlatform && { top: insets.top + 44 }]}
               testID="current-building-info"
             >
               <Text style={styles.buildingInfoTitle}>Current Building:</Text>
-              <Text
-                style={styles.buildingInfoText}
-                testID="current-building-name"
-              >
+              <Text style={styles.buildingInfoText} testID="current-building-name">
                 {building.longName} ({building.shortName}) - [{building.code}]
               </Text>
             </View>
@@ -1508,13 +2044,9 @@ export default function MapScreen() {
       {locationPermissionDenied && (
         <TouchableOpacity
           testID="location-permission-banner"
-          style={[
-            styles.permissionBanner,
-            { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 },
-          ]}
+          style={[styles.permissionBanner, { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 }]}
           onPress={async () => {
-            const { canAskAgain } =
-              await Location.getForegroundPermissionsAsync();
+            const { canAskAgain } = await Location.getForegroundPermissionsAsync();
             if (canAskAgain) {
               await requestLocationPermission();
             } else {
@@ -1524,12 +2056,13 @@ export default function MapScreen() {
           activeOpacity={0.7}
         >
           <Text style={styles.permissionText}>
-            Enable location permissions to see where you are on campus. Tap
-            here.
+            Enable location permissions to see where you are on campus. Tap here.
           </Text>
         </TouchableOpacity>
       )}
+
       {shouldUseWebFallback ? webMapContent : nativeMapContent}
+
       {showE2EHooks && (
         <View style={styles.e2eControls} pointerEvents="box-none">
           <TouchableOpacity
@@ -1553,61 +2086,190 @@ export default function MapScreen() {
         </View>
       )}
 
-      {isDirectionsMode &&
-        showRouteInstructions &&
-        routeInstructions.length > 0 && (
-          <View style={styles.routeStepsPopup} testID="route-steps-popup">
-            <Pressable
-              {...routeSheetPanResponder.panHandlers}
-              style={styles.routeStepsHandle}
-              onPress={() => {
-                routeInstructionsDismissedRef.current = true;
-                setShowRouteInstructions(false);
-              }}
-            >
-              <ChevronDown size={24} color="#1F1F24" strokeWidth={2.5} />
-            </Pressable>
-            <Pressable
-              style={styles.routeStepsCloseButton}
-              onPress={() => {
-                routeInstructionsDismissedRef.current = true;
-                setShowRouteInstructions(false);
-              }}
-            >
-              <X size={26} color="#1F1F24" strokeWidth={2.5} />
-            </Pressable>
-
-            <ScrollView
-              style={styles.routeStepsList}
-              contentContainerStyle={styles.routeStepsListContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {routeInstructions.map((instruction, index) => (
-                <Text
-                  key={`${index}-${instruction.text}`}
-                  style={styles.routeStepText}
-                >
-                  {`${index + 1}. ${instruction.text}`}
-                </Text>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-      {isDirectionsMode &&
-        !showRouteInstructions &&
-        routeInstructions.length > 0 && (
+      {isDirectionsMode && showRouteInstructions && routeInstructions.length > 0 && (
+        <View style={styles.routeStepsPopup} testID="route-steps-popup">
           <Pressable
             {...routeSheetPanResponder.panHandlers}
-            style={styles.routeStepsCollapsedTab}
-            testID="route-steps-collapsed-tab"
+            style={styles.routeStepsHandle}
             onPress={() => {
-              routeInstructionsDismissedRef.current = false;
-              setShowRouteInstructions(true);
+              routeInstructionsDismissedRef.current = true;
+              setShowRouteInstructions(false);
             }}
           >
-            <ChevronUp size={24} color="#1F1F24" strokeWidth={2.5} />
+            <ChevronDown size={24} color="#1F1F24" strokeWidth={2.5} />
           </Pressable>
-        )}
+          <Pressable
+            style={styles.routeStepsCloseButton}
+            onPress={() => {
+              routeInstructionsDismissedRef.current = true;
+              setShowRouteInstructions(false);
+            }}
+          >
+            <X size={26} color="#1F1F24" strokeWidth={2.5} />
+          </Pressable>
+
+          <ScrollView
+            style={styles.routeStepsList}
+            contentContainerStyle={styles.routeStepsListContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {routeMode === "transit" && transitItineraries.length > 0 ? (
+              routeStarted ? (
+                <>
+                  <Text
+                    style={{
+                      fontSize: 17,
+                      fontWeight: "700",
+                      marginBottom: 20,
+                      color: "#1C1C1E",
+                    }}
+                  >
+                    Journey Details
+                  </Text>
+
+                  {transitItineraries[selectedItineraryIndex] && (
+                    <TransitLegTimeline
+                      itinerary={transitItineraries[selectedItineraryIndex]}
+                      styles={styles}
+                      formatTime={formatTime}
+                      alwaysShowIntermediateStops
+                      stopKeyPrefix={`journey-${selectedItineraryIndex}`}
+                    />
+                  )}
+                </>
+              ) : (
+                <>
+                  {transitItineraries.map((itinerary, index) => {
+                    const isExpanded = expandedItineraries.includes(index);
+                    const isSelected = index === selectedItineraryIndex;
+
+                    return (
+                      <View key={index} style={{ marginBottom: 12 }}>
+                        <Pressable
+                          style={[styles.itineraryCard, isSelected && styles.itineraryCardActive]}
+                          onPress={() => {
+                            setSelectedItineraryIndex(index);
+                            setRouteDurationMinutes(Math.round(itinerary.durationSeconds / 60));
+                            setRouteDistanceMeters(itinerary.distanceMeters);
+                            setRouteInstructions(itinerary.instructions);
+                          }}
+                        >
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              justifyContent: "space-between",
+                              alignItems: "flex-start",
+                            }}
+                          >
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.itineraryTime}>
+                                {formatTime(itinerary.departureTime)} → {formatTime(itinerary.arrivalTime)}
+                              </Text>
+                              <Text style={styles.itineraryDuration}>
+                                {Math.round(itinerary.durationSeconds / 60)} min
+                              </Text>
+                              <Text style={styles.itineraryTransfers}>
+                                {itinerary.transfers === 0
+                                  ? "Direct"
+                                  : `${itinerary.transfers} transfer${itinerary.transfers > 1 ? "s" : ""}`}
+                              </Text>
+                              <View style={styles.itineraryLegsRow}>
+                                {itinerary.legs.map((leg, legIndex) => {
+                                  const getLegColor = () => {
+                                    if (leg.mode === "WALK") return styles.legPillWalk;
+                                    if (leg.mode === "BUS") return styles.legPillBus;
+                                    if (leg.mode === "SUBWAY") return styles.legPillSubway;
+                                    if (leg.mode === "TRAM") return styles.legPillTram;
+                                    return styles.legPillBus;
+                                  };
+
+                                  return (
+                                    <Text key={legIndex} style={[styles.legPill, getLegColor()]}>
+                                      {leg.mode === "WALK" ? "Walk" : leg.route || leg.mode}
+                                    </Text>
+                                  );
+                                })}
+                              </View>
+                            </View>
+
+                            <Pressable
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                setExpandedItineraries((prev) =>
+                                  prev.includes(index)
+                                    ? prev.filter((i) => i !== index)
+                                    : [...prev, index],
+                                );
+                              }}
+                              style={{ padding: 8, marginLeft: 8 }}
+                            >
+                              {isExpanded ? (
+                                <ChevronUp size={20} color="#007AFF" strokeWidth={2.5} />
+                              ) : (
+                                <ChevronDown size={20} color="#8E8E93" strokeWidth={2.5} />
+                              )}
+                            </Pressable>
+                          </View>
+                        </Pressable>
+
+                        {isExpanded && (
+                          <View
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingTop: 16,
+                              paddingBottom: 12,
+                              backgroundColor: "#FAFAFA",
+                              borderRadius: 12,
+                              marginTop: 8,
+                            }}
+                          >
+                            <TransitLegTimeline
+                              itinerary={itinerary}
+                              styles={styles}
+                              formatTime={formatTime}
+                              canToggleIntermediateStops
+                              expandedStops={expandedIntermediateStops}
+                              onToggleStops={(stopKey) => {
+                                setExpandedIntermediateStops((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(stopKey)) next.delete(stopKey);
+                                  else next.add(stopKey);
+                                  return next;
+                                });
+                              }}
+                              stopKeyPrefix={`itin-${index}`}
+                            />
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </>
+              )
+            ) : (
+              routeInstructions.map((instruction, index) => (
+                <Text key={`${index}-${instruction.text}`} style={styles.routeStepText}>
+                  {`${index + 1}. ${instruction.text}`}
+                </Text>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      )}
+
+      {isDirectionsMode && !showRouteInstructions && routeInstructions.length > 0 && (
+        <Pressable
+          {...routeSheetPanResponder.panHandlers}
+          style={styles.routeStepsCollapsedTab}
+          testID="route-steps-collapsed-tab"
+          onPress={() => {
+            routeInstructionsDismissedRef.current = false;
+            setShowRouteInstructions(true);
+          }}
+        >
+          <ChevronUp size={24} color="#1F1F24" strokeWidth={2.5} />
+        </Pressable>
+      )}
 
       <BuildingInformation
         buildingCode={selectedBuilding}
