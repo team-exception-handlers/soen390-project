@@ -3,9 +3,6 @@ import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import { ChevronDown, ChevronUp, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, Linking, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { ChevronDown, ChevronUp, X } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
   Linking,
@@ -903,10 +900,6 @@ export default function MapScreen() {
     return "#1668C7";
   };
 
-  // Tracks the selected origin building (or null if using current location)
-  const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
-    null,
-  );
 
   const campusBuildings = useMemo(
     () => BUILDINGS.filter((building) => building.campus === campus),
