@@ -88,6 +88,15 @@ function formatDuration(seconds: number): string {
     return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
 
+function formatRouteAndHeadsign(leg: TransitLeg): string {
+    const route = leg.route ? `${leg.route}` : "";
+    const headsign = leg.headsign ? ` towards ${leg.headsign}` : "";
+    return `${route}${headsign}`;
+}
+
+function formatTransitTake(modeLabel: string, leg: TransitLeg): string {
+    return `Take ${modeLabel}${formatRouteAndHeadsign(leg)} to ${leg.to.name}.`
+}
 function formatLegInstruction(leg: TransitLeg): string {
     const dist =
         leg.distance >= 1000
@@ -99,13 +108,13 @@ function formatLegInstruction(leg: TransitLeg): string {
         case "WALK":
             return `Walk ${dur} (${dist}) to ${leg.to.name}.`;
         case "BUS":
-            return `Take Bus ${leg.route ?? ""}${leg.headsign ? ` towards ${leg.headsign}` : ""} to ${leg.to.name}.`;
+            return formatTransitTake("Bus",leg);
         case "SUBWAY":
-            return `Take Metro ${leg.route ?? ""}${leg.headsign ? ` towards ${leg.headsign}` : ""} to ${leg.to.name}.`;
+            return formatTransitTake("Metro", leg);
         case "TRAM":
-            return `Take Tram ${leg.route ?? ""}${leg.headsign ? ` towards ${leg.headsign}` : ""} to ${leg.to.name}.`;
+            return formatTransitTake("Tram", leg);
         case "RAIL":
-            return `Take Train ${leg.route ?? ""}${leg.headsign ? ` towards ${leg.headsign}` : ""} to ${leg.to.name}.`;
+            return formatTransitTake("Train", leg);
         default:
             return `Take ${leg.mode} to ${leg.to.name} (${dist}).`;
     }
@@ -174,35 +183,6 @@ function parseItinerary(itinerary: any): TransitItinerary {
 }
 
 // Main fetch: returns up to 3 itineraries
-
-export async function fetchTransitRoute(
-    origin: { latitude: number; longitude: number },
-    destination: { latitude: number; longitude: number },
-    departureTime?: string,
-): Promise<TransitItinerary> {
-    const url = buildTransitousUrl(origin, destination, departureTime);
-
-    const response = await fetch(url, {
-        headers: {
-            "User-Agent": USER_AGENT,
-            Accept: "application/json",
-        },
-    });
-
-    if (!response.ok) {
-        throw new Error(`Transitous request failed with ${response.status}.`);
-    }
-
-    const data = await response.json();
-
-    const itineraries = data?.itineraries;
-    if (!itineraries || itineraries.length === 0) {
-        throw new Error("No transit route available for the selected locations.");
-    }
-
-    return parseItinerary(itineraries[0]);
-}
-
 export async function fetchTransitItineraries(
     origin: { latitude: number; longitude: number },
     destination: { latitude: number; longitude: number },
@@ -229,4 +209,13 @@ export async function fetchTransitItineraries(
     }
 
     return itineraries.map(parseItinerary);
+}
+
+export async function fetchTransitRoute(
+    origin: { latitude: number; longitude: number },
+    destination: { latitude: number; longitude: number },
+    departureTime?: string,
+): Promise<TransitItinerary> {
+    const itineraries = await fetchTransitItineraries(origin, destination, departureTime);
+    return itineraries[0];
 }
