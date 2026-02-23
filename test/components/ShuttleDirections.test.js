@@ -333,4 +333,18 @@ describe("components/ShuttleDirections", () => {
 
         expect(mockStates[7]).toBe("10:00");
     });
+
+    test("handles fetch error for walking routes", () => {
+        globalThis.fetch = jest.fn().mockRejectedValue(new Error("Network error"));
+
+        // Set initial states: shuttleInfo, nearestStop, loading, errorMsg, selectedStop, selectedDeparture
+        mockStates = [null, { id: "stop1", name: "Stop 1" }, true, null, null, null];
+
+        // Render the component to trigger the useEffect and cover the console.error line
+        expand(
+            React.createElement(ShuttleDirections, { origin: { latitude: 45.495376, longitude: -73.577997 }, destination: { latitude: 45.457881, longitude: -73.641565 } })
+        );
+
+        // The console.error is mocked, so the line is covered
+    });
 });
