@@ -3,9 +3,22 @@ import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import { ChevronDown, ChevronUp, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, Linking, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  Keyboard,
+  Linking,
+  PanResponder,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader, { Campus } from "../../components/AppHeader";
+import ShuttleDirections from "../../components/ShuttleDirections";
 import TransitLegTimeline from "../../components/TransitLegTimeline";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
@@ -83,9 +96,12 @@ export default function MapScreen() {
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const [destinationBuildingCode, setDestinationBuildingCode] =
     useState<string>(DEFAULT_DESTINATION_BUILDING_CODE);
-
+  // Tracks the selected origin building (or null if using current location)
+  const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
+    null,
+  );
   const [isDirectionsMode, setIsDirectionsMode] = useState(false);
-  const [routeMode, setRouteMode] = useState<RouteProfile | "transit">(
+  const [routeMode, setRouteMode] = useState<RouteProfile | "transit" | "shuttle">(
     "walking",
   );
   const [routeCoordinates, setRouteCoordinates] = useState<
@@ -800,28 +816,11 @@ export default function MapScreen() {
 
   const handleLocationUpdate = useCallback(
     (location: Location.LocationObject) => {
-      //const { latitude, longitude } = location.coords;
-
-      const latitude = 45.497092;
-      const longitude = -73.5788;
-
-
-      const fakeLocation = {
-        ...location,
-        coords: {
-          ...location.coords,
-          latitude,
-          longitude,
-        }
-      };
-
-      setUserLocation(fakeLocation);
-      setLocationPermissionDenied(false);
-
+      const { latitude, longitude } = location.coords;
       const detected = detectBuildingFromLocation(latitude, longitude);
 
-      //setUserLocation(location);
-      //setLocationPermissionDenied(false);
+      setUserLocation(location);
+      setLocationPermissionDenied(false);
       applyDetectedLocationState(detected, {
         syncOriginWhenAuto: true,
         syncCampusMode: "once",
@@ -830,6 +829,7 @@ export default function MapScreen() {
     [applyDetectedLocationState],
   );
 
+  // Start tracking user location
   useEffect(() => {
     async function setupLocation() {
       const permission = await hasLocationPermission();
@@ -900,10 +900,6 @@ export default function MapScreen() {
     return "#1668C7";
   };
 
-  // Tracks the selected origin building (or null if using current location)
-  const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
-    null,
-  );
 
   const campusBuildings = useMemo(
     () => BUILDINGS.filter((building) => building.campus === campus),
@@ -1121,6 +1117,19 @@ export default function MapScreen() {
         setRouteLoading(true);
         setRouteError(null);
 
+        if (routeMode === "shuttle") {
+          setRouteCoordinates([]);
+          setRouteDurationMinutes(30);
+          setRouteDistanceMeters(null);
+          setRouteInstructions([{ text: "Shuttle Journey", distanceMeters: 0 }]); // Dummy instruction to help trigger popup checks
+          setTransitItineraries([]);
+          setRouteLoading(false);
+          if (!routeInstructionsDismissedRef.current) {
+            setShowRouteInstructions(true);
+          }
+          return;
+        }
+
         if (routeMode === "transit") {
           const itineraries = await fetchTransitItineraries(
             actualOriginPoint,
@@ -1146,8 +1155,15 @@ export default function MapScreen() {
             setShowRouteInstructions(true);
           }
         } else {
+          if ((routeMode as string) === "shuttle") {
+            setRouteCoordinates([]);
+            setRouteInstructions([]);
+            setRouteDurationMinutes(30);
+            return;
+          }
+
           // Use cycling mode for intercampus "walking", otherwise use the selected mode
-          const actualMode = routeMode === "walking" && !isSameCampus ? "cycling" : routeMode;
+          const actualMode = (routeMode === "walking" && !isSameCampus ? "cycling" : routeMode) as RouteProfile;
 
           const route = await fetchOsrmRoute(
             actualOriginPoint,
@@ -1168,7 +1184,15 @@ export default function MapScreen() {
         }
       } catch {
         if (cancelled) return;
-        resetRouteState();
+        setRouteCoordinates([]);
+        setRouteInstructions([]);
+        setShowRouteInstructions(false);
+        setTransitItineraries([]);
+        setSelectedItineraryIndex(0);
+        setExpandedItineraries([]);
+        setExpandedIntermediateStops(new Set());
+        setRouteStarted(false);
+        routeInstructionsDismissedRef.current = false;
         setRouteError("Could not load route for this selection.");
       } finally {
         if (!cancelled) setRouteLoading(false);
@@ -1986,9 +2010,18 @@ export default function MapScreen() {
                     {modeDurations.transit !== null ? formatDuration(modeDurations.transit) : "—"}
                   </Text>
                 </Pressable>
-                <Pressable testID="route-mode-shuttle" style={[styles.modePill]} disabled>
-                  <Text style={[styles.modePillText, { opacity: 0.45 }]}>
-                    Shuttle — Temporarily unavailable
+                <Pressable
+                  testID="route-mode-shuttle"
+                  style={[styles.modePill, routeMode === "shuttle" && styles.modePillActive]}
+                  onPress={() => setRouteMode("shuttle")}
+                >
+                  <Text
+                    style={[
+                      styles.modePillText,
+                      routeMode === "shuttle" && styles.modePillTextActive,
+                    ]}
+                  >
+                    Shuttle
                   </Text>
                 </Pressable>
               </View>
@@ -2023,6 +2056,8 @@ export default function MapScreen() {
             </View>
           </View>
         )}
+
+        {/* REMOVED INLINE SHUTTLE DIRECTIONS */}
       </View>
 
       {currentBuilding &&
@@ -2086,7 +2121,7 @@ export default function MapScreen() {
         </View>
       )}
 
-      {isDirectionsMode && showRouteInstructions && routeInstructions.length > 0 && (
+      {isDirectionsMode && showRouteInstructions && (routeInstructions.length > 0 || routeMode === "shuttle") && (
         <View style={styles.routeStepsPopup} testID="route-steps-popup">
           <Pressable
             {...routeSheetPanResponder.panHandlers}
@@ -2113,7 +2148,12 @@ export default function MapScreen() {
             contentContainerStyle={styles.routeStepsListContent}
             showsVerticalScrollIndicator={false}
           >
-            {routeMode === "transit" && transitItineraries.length > 0 ? (
+            {routeMode === "shuttle" ? (
+              <ShuttleDirections
+                origin={actualOriginPoint}
+                destination={destinationBuilding}
+              />
+            ) : routeMode === "transit" && transitItineraries.length > 0 ? (
               routeStarted ? (
                 <>
                   <Text
@@ -2257,7 +2297,7 @@ export default function MapScreen() {
         </View>
       )}
 
-      {isDirectionsMode && !showRouteInstructions && routeInstructions.length > 0 && (
+      {isDirectionsMode && !showRouteInstructions && (routeInstructions.length > 0 || routeMode === "shuttle") && (
         <Pressable
           {...routeSheetPanResponder.panHandlers}
           style={styles.routeStepsCollapsedTab}

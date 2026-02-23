@@ -126,6 +126,10 @@ export const fetchOsrmRoute = async (
     throw new Error("No route available for the selected buildings.");
   }
 
+  // just for testing, want to see the steps given from the api
+  // some steps seem unnecessary, should look into a fix for that
+  // console.log("Raw route steps", route.legs?.flatMap((leg) => leg.steps ?? []));
+
   const instructions: RouteInstruction[] = (route.legs ?? []).flatMap((leg) =>
     (leg.steps ?? []).map((step) => ({
       text: buildStepInstruction(step),

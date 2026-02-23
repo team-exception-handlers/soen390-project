@@ -92,6 +92,18 @@ describe('utils/locationUtils', () => {
     expect(isPointInPolygon(0, 0, poly)).toBeFalsy();
   });
 
+  test('isPointInPolygon works with triangle', () => {
+    const { isPointInPolygon } = require('../../utils/locationUtils.ts');
+    const poly = [
+      [0, 0],
+      [2, 0],
+      [1, 2],
+    ];
+
+    expect(isPointInPolygon(1, 1, poly)).toBeTruthy();
+    expect(isPointInPolygon(3, 1, poly)).toBeFalsy();
+  });
+
   test('findUserBuilding returns code for point inside polygon and null otherwise', () => {
     const path = require('path');
     const { findUserBuilding } = require(path.join(__dirname, '..', '..', 'utils', 'locationUtils.ts'));
@@ -104,5 +116,29 @@ describe('utils/locationUtils', () => {
 
     expect(findUserBuilding(1.5, 1.5, fc)).toBe('X1');
     expect(findUserBuilding(0, 0, fc)).toBeNull();
+  });
+
+  test('findUserBuilding returns null when feature has no code', () => {
+    const { findUserBuilding } = require('../../utils/locationUtils.ts');
+    const feature = {
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: [[ [1,1],[2,1],[2,2],[1,2],[1,1] ]] },
+      properties: {},
+    };
+    const fc = { type: 'FeatureCollection', features: [feature] };
+
+    expect(findUserBuilding(1.5, 1.5, fc)).toBeNull();
+  });
+
+  test('findUserBuilding skips non-Polygon features', () => {
+    const { findUserBuilding } = require('../../utils/locationUtils.ts');
+    const feature = {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [1.5, 1.5] },
+      properties: { code: 'X1' },
+    };
+    const fc = { type: 'FeatureCollection', features: [feature] };
+
+    expect(findUserBuilding(1.5, 1.5, fc)).toBeNull();
   });
 });

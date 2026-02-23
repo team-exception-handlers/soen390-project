@@ -137,6 +137,36 @@ describe("components/BuildingInformation", () => {
     expect(onSelectDestination).toHaveBeenCalledWith("B1");
   });
 
+  test("shows 'Start Here' when editingField is 'from'", () => {
+    const el = BuildingInformation({
+      buildingCode: "B1",
+      onClose: jest.fn(),
+      buildingName: "Start Here Test",
+      buildingInfo: "x",
+      buildingPhotoLink: undefined,
+      editingField: "from",
+      onSelectDestination: jest.fn(),
+    });
+
+    const directionsBtn = findByTestID(el, "building-info-directions");
+    const text = directionsBtn.props.children;
+    expect(text.props.children).toBe("Start Here");
+  });
+
+  test("does not render directions button when buildingCode is null", () => {
+    const el = BuildingInformation({
+      buildingCode: null,
+      onClose: jest.fn(),
+      buildingName: "No Code",
+      buildingInfo: "x",
+      buildingPhotoLink: undefined,
+      onSelectDestination: jest.fn(),
+    });
+
+    const directionsBtn = findByTestID(el, "building-info-directions");
+    expect(directionsBtn).toBeNull();
+  });
+
   test("directions button style changes when pressed", () => {
     const el = BuildingInformation({
       buildingCode: "B1",
