@@ -65,6 +65,15 @@ describe("utils/osrmDirections", () => {
                     maneuver: { type: "turn", modifier: "left" },
                   },
                   {
+                    distance: 800,
+                    name: "Main St",
+                    maneuver: { type: "fork", modifier: "right" },
+                  },
+                  {
+                    distance: 500,
+                    maneuver: { type: "depart" }, // no modifier
+                  },
+                  {
                     distance: 8,
                     maneuver: { type: "continue" },
                   },
@@ -104,6 +113,14 @@ describe("utils/osrmDirections", () => {
         {
           text: "Turn left onto A-10, for 1.2 km.",
           distanceMeters: 1200,
+        },
+        {
+          text: "Keep right onto Main St, for 800 m.",
+          distanceMeters: 800,
+        },
+        {
+          text: "Head forward on the path, for 500 m.",
+          distanceMeters: 500,
         },
         {
           text: "Continue on the path, for a few meters.",

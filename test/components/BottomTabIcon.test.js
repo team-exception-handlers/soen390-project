@@ -110,4 +110,15 @@ describe('components/BottomTabIcon', () => {
     expect(icon).toBeTruthy();
     expect(icon.props.color).toBe('#007AFF');
   });
+
+  test('renders person-outline icon when profile not focused', () => {
+    const path = require('path');
+    const BottomTabIcon = require(path.join(__dirname, '..', '..', 'components', 'BottomTabIcon')).default;
+
+    const el = BottomTabIcon({ focused: false, label: 'Me', type: 'profile' });
+
+    const icon = findByType(el, 'Ionicons') || findByTestID(el, 'ionicon-person-outline');
+    expect(icon).toBeTruthy();
+    expect(icon.props.color).toBe('#8E8E93');
+  });
 });

@@ -509,4 +509,100 @@ describe("utils/transitousDirections", () => {
 
         expect(result[0].coordinates).toEqual([]);
     });
+
+    test("fetchTransitItineraries handles unknown transit mode", async () => {
+        globalThis.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+                itineraries: [
+                    {
+                        duration: 600,
+                        legs: [
+                            {
+                                mode: "FERRY",
+                                from: { name: "A" },
+                                to: { name: "B" },
+                                startTime: "2026-02-19T17:00:00Z",
+                                endTime: "2026-02-19T17:10:00Z",
+                                distance: 1000,
+                                duration: 600,
+                                legGeometry: { points: "abc" },
+                            },
+                        ],
+                    },
+                ],
+            }),
+        });
+
+        const result = await fetchTransitItineraries(
+            { latitude: 45.5, longitude: -73.6 },
+            { latitude: 45.6, longitude: -73.7 },
+        );
+
+        expect(result[0].instructions[0].text).toContain("Take FERRY to B (1.0 km).");
+    });
+
+    test("fetchTransitItineraries handles all walk itinerary", async () => {
+        globalThis.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+                itineraries: [
+                    {
+                        duration: 1200,
+                        legs: [
+                            {
+                                mode: "WALK",
+                                from: { name: "A" },
+                                to: { name: "B" },
+                                startTime: "2026-02-19T17:00:00Z",
+                                endTime: "2026-02-19T17:20:00Z",
+                                distance: 1000,
+                                duration: 1200,
+                                legGeometry: { points: "abc" },
+                            },
+                        ],
+                    },
+                ],
+            }),
+        });
+
+        const result = await fetchTransitItineraries(
+            { latitude: 45.5, longitude: -73.6 },
+            { latitude: 45.6, longitude: -73.7 },
+        );
+
+        expect(result[0].transfers).toBe(0);
+    });
+
+    test("fetchTransitItineraries handles leg without route", async () => {
+        globalThis.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+                itineraries: [
+                    {
+                        duration: 600,
+                        legs: [
+                            {
+                                mode: "BUS",
+                                from: { name: "A" },
+                                to: { name: "B" },
+                                startTime: "2026-02-19T17:00:00Z",
+                                endTime: "2026-02-19T17:10:00Z",
+                                distance: 1000,
+                                duration: 600,
+                                legGeometry: { points: "abc" },
+                            },
+                        ],
+                    },
+                ],
+            }),
+        });
+
+        const result = await fetchTransitItineraries(
+            { latitude: 45.5, longitude: -73.6 },
+            { latitude: 45.6, longitude: -73.7 },
+        );
+
+        expect(result[0].instructions[0].text).toContain("Take Bus to B.");
+    });
 });
