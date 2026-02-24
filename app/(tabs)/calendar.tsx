@@ -158,11 +158,36 @@ export default function CalendarScreen() {
 
                 const data = await res.json();
 
-                const list: GoogleCalendar[] = ((data.items ?? []) as any[]).map((c) => ({
-                    id: c.id,
-                    summary: c.summary ?? "(Untitled calendar)",
-                    primary: !!c.primary,
-                }));
+                console.log(
+                    "WHOAMI (token account):",
+                    await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }).then((r) => r.json())
+                );
+
+                console.log(
+                    "CALENDARLIST NAMES:",
+                    (data.items ?? []).map((c: any) => ({
+                        id: c.id,
+                        summary: c.summary,
+                        summaryOverride: c.summaryOverride,
+                        primary: c.primary,
+                    }))
+                );
+
+                const list: GoogleCalendar[] = ((data.items ?? []) as any[]).map((c) => {
+                    let name = c.summaryOverride ?? c.summary ?? "(Untitled calendar)";
+
+                    if (c.primary && typeof name === "string" && name.includes("@")) {
+                        name = "Primary Calendar";
+                    }
+
+                    return {
+                        id: c.id,
+                        summary: name,
+                        primary: !!c.primary,
+                    };
+                });
 
                 // Put primary first
                 list.sort((a, b) => Number(!!b.primary) - Number(!!a.primary));
