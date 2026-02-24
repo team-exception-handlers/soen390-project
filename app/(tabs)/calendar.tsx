@@ -118,7 +118,7 @@ export default function CalendarScreen() {
         }
     }, [response]);
 
-    // Fetch events
+    // Fetch events that are stored in the Calender API
     useEffect(() => {
         if (accessToken) {
             loadEvents(accessToken, false);
