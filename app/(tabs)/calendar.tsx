@@ -12,23 +12,11 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CALENDAR_BASE, CLIENT_ID, SCOPES } from "../../constants/googleCalendar";
 import { CalendarEvent, GoogleCalendar, formatEventTime, isToday } from "../../utils/calendarHelpers";
 
 WebBrowser.maybeCompleteAuthSession();
 
-// Config
-const CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? "";
-
-const SCOPES = [
-    "https://www.googleapis.com/auth/calendar.readonly",
-    "openid",
-    "profile",
-    "email",
-];
-
-const CALENDAR_BASE = "https://www.googleapis.com/calendar/v3";
-
-// Component
 export default function CalendarScreen() {
     const [accessToken, setAccessToken] = useState<string | null>(null);
 
