@@ -16,7 +16,6 @@ appId: host.exp.Exponent
 - assertVisible:
     id: "direction-go-button"
 
-# ----- Scenario: Type start and destination -> both marked -----
 - tapOn:
     id: "direction-from-button"
 - tapOn:
