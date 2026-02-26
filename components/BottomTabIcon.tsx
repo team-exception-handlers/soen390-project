@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 
-type TabType = "map" | "profile";
+type TabType = "map" | "profile" | "calendar";
 
 type Props = {
   focused: boolean;
@@ -9,14 +9,26 @@ type Props = {
   type: TabType;
 };
 
-function getIconName(type: TabType, focused: boolean): "map" | "map-outline" | "person" | "person-outline" {
-  if (type === "map") {
-    return focused ? "map" : "map-outline";
-  }
+function getIconName(
+  type: TabType,
+  focused: boolean
+):
+  | "map"
+  | "map-outline"
+  | "person"
+  | "person-outline"
+  | "calendar"
+  | "calendar-outline" {
+  if (type === "map") return focused ? "map" : "map-outline";
+  if (type === "calendar") return focused ? "calendar" : "calendar-outline";
   return focused ? "person" : "person-outline";
 }
 
-export default function BottomTabIcon({ focused, label, type }: Readonly<Props>) {
+export default function BottomTabIcon({
+  focused,
+  label,
+  type,
+}: Readonly<Props>) {
   const iconName = getIconName(type, focused);
 
   return (

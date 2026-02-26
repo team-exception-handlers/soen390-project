@@ -121,4 +121,54 @@ describe('components/BottomTabIcon', () => {
     expect(icon).toBeTruthy();
     expect(icon.props.color).toBe('#8E8E93');
   });
+
+  // ✅ ADDED TESTS BELOW (nothing above changed)
+
+  test('renders calendar icon when focused', () => {
+    const path = require('path');
+    const BottomTabIcon = require(path.join(__dirname, '..', '..', 'components', 'BottomTabIcon')).default;
+
+    const el = BottomTabIcon({ focused: true, label: 'Calendar', type: 'calendar' });
+
+    const icon = findByType(el, 'Ionicons') || findByTestID(el, 'ionicon-calendar');
+    expect(icon).toBeTruthy();
+    expect(icon.props.size).toBe(22);
+    expect(icon.props.color).toBe('#007AFF');
+
+    const text = findTextNode(el, 'Calendar');
+    expect(text).toBeTruthy();
+    const style = text.props.style;
+    const styles = Array.isArray(style) ? style : [style];
+    expect(styles.some(s => s && s.color === '#007AFF')).toBeTruthy();
+  });
+
+  test('renders calendar-outline icon when not focused', () => {
+    const path = require('path');
+    const BottomTabIcon = require(path.join(__dirname, '..', '..', 'components', 'BottomTabIcon')).default;
+
+    const el = BottomTabIcon({ focused: false, label: 'Calendar', type: 'calendar' });
+
+    const icon = findByType(el, 'Ionicons') || findByTestID(el, 'ionicon-calendar-outline');
+    expect(icon).toBeTruthy();
+    expect(icon.props.size).toBe(22);
+    expect(icon.props.color).toBe('#8E8E93');
+
+    const text = findTextNode(el, 'Calendar');
+    expect(text).toBeTruthy();
+    const style = text.props.style;
+    const styles = Array.isArray(style) ? style : [style];
+    expect(styles.some(s => s && s.color === '#8E8E93')).toBeTruthy();
+  });
+
+  test('Text receives numberOfLines=1 and ellipsizeMode="clip"', () => {
+    const path = require('path');
+    const BottomTabIcon = require(path.join(__dirname, '..', '..', 'components', 'BottomTabIcon')).default;
+
+    const el = BottomTabIcon({ focused: false, label: 'Map', type: 'map' });
+
+    const text = findTextNode(el, 'Map');
+    expect(text).toBeTruthy();
+    expect(text.props.numberOfLines).toBe(1);
+    expect(text.props.ellipsizeMode).toBe('clip');
+  });
 });
