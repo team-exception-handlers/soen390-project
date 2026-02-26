@@ -2145,6 +2145,7 @@ export default function MapScreen() {
             <ChevronDown size={24} color="#1F1F24" strokeWidth={2.5} />
           </Pressable>
           <Pressable
+            testID="route-steps-close-button"
             style={styles.routeStepsCloseButton}
             onPress={() => {
               routeInstructionsDismissedRef.current = true;
