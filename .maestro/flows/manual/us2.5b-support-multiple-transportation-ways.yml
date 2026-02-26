@@ -105,3 +105,10 @@ appId: host.exp.Exponent
     id: "route-mode-transit"
 - tapOn:
     id: "route-mode-transit"
+- tapOn:
+    id: "route-steps-collapsed-tab"
+
+- extendedWaitUntil:
+    visible:
+      id: "route-steps-popup"
+    timeout: 10000
