@@ -14,7 +14,7 @@ describe('utils/locationUtils', () => {
   test('requestLocationPermission returns true when granted', async () => {
     const Location = require('expo-location');
     Location.requestForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
-    const path = require('path');
+    const path = require('node:path');
     const { requestLocationPermission } = require(path.join(__dirname, '..', '..', 'utils', 'locationUtils.ts'));
     await expect(requestLocationPermission()).resolves.toBe(true);
   });
@@ -22,7 +22,7 @@ describe('utils/locationUtils', () => {
   test('hasLocationPermission returns false when not granted', async () => {
     const Location = require('expo-location');
     Location.getForegroundPermissionsAsync.mockResolvedValue({ status: 'denied' });
-    const path = require('path');
+    const path = require('node:path');
     const { hasLocationPermission } = require(path.join(__dirname, '..', '..', 'utils', 'locationUtils.ts'));
     await expect(hasLocationPermission()).resolves.toBe(false);
   });
@@ -32,7 +32,7 @@ describe('utils/locationUtils', () => {
     Location.getForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
     Location.watchPositionAsync.mockResolvedValue({ unsubscribe: () => {} });
 
-    const path = require('path');
+    const path = require('node:path');
     const { startWatchingLocation } = require(path.join(__dirname, '..', '..', 'utils', 'locationUtils.ts'));
     const cb = jest.fn();
     const sub = await startWatchingLocation(cb);
@@ -46,7 +46,7 @@ describe('utils/locationUtils', () => {
     Location.requestForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
     Location.watchPositionAsync.mockResolvedValue('sub');
 
-    const path = require('path');
+    const path = require('node:path');
     const { startWatchingLocation } = require(path.join(__dirname, '..', '..', 'utils', 'locationUtils.ts'));
     const sub = await startWatchingLocation(() => {});
     expect(Location.requestForegroundPermissionsAsync).toHaveBeenCalled();
@@ -59,7 +59,7 @@ describe('utils/locationUtils', () => {
     Location.getForegroundPermissionsAsync.mockResolvedValue({ status: 'denied' });
     Location.requestForegroundPermissionsAsync.mockResolvedValue({ status: 'denied' });
 
-    const path = require('path');
+    const path = require('node:path');
     const { startWatchingLocation } = require(path.join(__dirname, '..', '..', 'utils', 'locationUtils.ts'));
     const sub = await startWatchingLocation(() => {});
     expect(Location.watchPositionAsync).not.toHaveBeenCalled();
@@ -78,7 +78,7 @@ describe('utils/locationUtils', () => {
   });
 
   test('isPointInPolygon detects inside and outside points', () => {
-    const path = require('path');
+    const path = require('node:path');
     const { isPointInPolygon } = require(path.join(__dirname, '..', '..', 'utils', 'locationUtils.ts'));
     // polygon as [lng, lat] pairs for a unit square from (1,1) to (2,2)
     const poly = [
@@ -105,7 +105,7 @@ describe('utils/locationUtils', () => {
   });
 
   test('findUserBuilding returns code for point inside polygon and null otherwise', () => {
-    const path = require('path');
+    const path = require('node:path');
     const { findUserBuilding } = require(path.join(__dirname, '..', '..', 'utils', 'locationUtils.ts'));
     const feature = {
       type: 'Feature',

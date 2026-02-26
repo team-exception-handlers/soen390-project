@@ -65,7 +65,7 @@ describe('components/BottomTabIcon', () => {
   }
 
   test('renders map icon and focused color when focused', () => {
-    const path = require('path');
+    const path = require('node:path');
     const BottomTabIcon = require(path.join(__dirname, '..', '..', 'components', 'BottomTabIcon')).default;
 
     const el = BottomTabIcon({ focused: true, label: 'Map', type: 'map' });
@@ -84,7 +84,7 @@ describe('components/BottomTabIcon', () => {
   });
 
   test('renders map-outline and unfocused color when not focused', () => {
-    const path = require('path');
+    const path = require('node:path');
     const BottomTabIcon = require(path.join(__dirname, '..', '..', 'components', 'BottomTabIcon')).default;
 
     const el = BottomTabIcon({ focused: false, label: 'Map', type: 'map' });
@@ -101,7 +101,7 @@ describe('components/BottomTabIcon', () => {
   });
 
   test('renders person icon for profile type', () => {
-    const path = require('path');
+    const path = require('node:path');
     const BottomTabIcon = require(path.join(__dirname, '..', '..', 'components', 'BottomTabIcon')).default;
 
     const el = BottomTabIcon({ focused: true, label: 'Me', type: 'profile' });
@@ -112,7 +112,7 @@ describe('components/BottomTabIcon', () => {
   });
 
   test('renders person-outline icon when profile not focused', () => {
-    const path = require('path');
+    const path = require('node:path');
     const BottomTabIcon = require(path.join(__dirname, '..', '..', 'components', 'BottomTabIcon')).default;
 
     const el = BottomTabIcon({ focused: false, label: 'Me', type: 'profile' });

@@ -1,5 +1,4 @@
 const React = require("react");
-const path = require("path");
 
 // Mock Lucide Icons and components as strings
 jest.mock("lucide-react-native", () => ({
@@ -142,7 +141,7 @@ describe("components/ShuttleDirections", () => {
     test("handles missing origin/destination early return", () => {
         mockStates = [null, null, "", true, null];
 
-        const tree = expand(
+        expand(
             React.createElement(ShuttleDirections, { origin: null, destination: {} })
         );
 
@@ -156,7 +155,7 @@ describe("components/ShuttleDirections", () => {
 
         mockStates = [null, null, "", true, null, null, null, null];
 
-        const tree = expand(
+        expand(
             React.createElement(ShuttleDirections, { origin, destination })
         );
 
