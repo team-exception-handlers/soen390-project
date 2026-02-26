@@ -1,0 +1,69 @@
+# US-2.1: Select start and destination (click and/or type)
+
+appId: host.exp.Exponent
+
+---
+- runFlow:
+    file: _launch-expo-go.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+- assertVisible: "Where to?"
+- assertVisible:
+    id: "directions-panel"
+- assertVisible:
+    id: "direction-go-button"
+
+- tapOn:
+    id: "direction-from-button"
+- tapOn:
+    id: "search-input"
+- inputText: "John molson"
+- extendedWaitUntil:
+    visible:
+      id: "search-results"
+    timeout: 5000
+- tapOn:
+    id: "search-result-MB"
+- extendedWaitUntil:
+    visible:
+      id: "building-info-directions"
+    timeout: 5000
+- tapOn:
+    id: "building-info-directions"
+
+- tapOn:
+    id: "campus-toggle-loyola"
+- extendedWaitUntil:
+    visible:
+      text: "Loyola"
+    timeout: 3000
+
+- tapOn:
+    id: "direction-to-button"
+- tapOn:
+    id: "search-input"
+- inputText: "Renaud"
+- extendedWaitUntil:
+    visible:
+      id: "search-results"
+    timeout: 5000
+- tapOn:
+    id: "search-result-SP"
+- extendedWaitUntil:
+    visible:
+      id: "building-info-directions"
+    timeout: 5000
+- tapOn:
+    id: "building-info-directions"
+
+- extendedWaitUntil:
+    visible:
+      id: "direction-from-value-MB"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "direction-to-value-SP"
+    timeout: 5000

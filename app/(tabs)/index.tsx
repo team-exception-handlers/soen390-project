@@ -1878,6 +1878,7 @@ export default function MapScreen() {
           {searchResults.map((building) => (
             <Pressable
               key={building.code}
+              testID={`search-result-${building.code}`}
               style={styles.searchResultItem}
               onPress={() => handleSearchResultPress(building)}
             >
@@ -1897,6 +1898,7 @@ export default function MapScreen() {
         <View style={styles.directionFieldRow}>
           {/* FROM FIELD */}
           <Pressable
+            testID="direction-from-button"
             onPress={() => {
               setEditingField("from");
               searchInputRef.current?.focus?.();
@@ -1907,7 +1909,11 @@ export default function MapScreen() {
             ]}
           >
             <Text style={styles.directionFieldLabel}>From</Text>
-            <Text style={styles.directionFieldValue} numberOfLines={1}>
+            <Text
+              style={styles.directionFieldValue}
+              numberOfLines={1}
+              testID={originBuilding ? `direction-from-value-${originBuilding.code}` : "direction-from-value-empty"}
+            >
               {originBuilding
                 ? `${originBuilding.code} - ${originBuilding.shortName}`
                 : "Current location"}
@@ -1916,6 +1922,7 @@ export default function MapScreen() {
 
           {/* TO FIELD */}
           <Pressable
+            testID="direction-to-button"
             onPress={() => {
               setEditingField("to");
               setSearchText("");
@@ -1927,7 +1934,11 @@ export default function MapScreen() {
             ]}
           >
             <Text style={styles.directionFieldLabel}>To</Text>
-            <Text style={styles.directionFieldValue} numberOfLines={1}>
+            <Text
+              style={styles.directionFieldValue}
+              numberOfLines={1}
+              testID={destinationBuilding ? `direction-to-value-${destinationBuilding.code}` : "direction-to-value-empty"}
+            >
               {destinationBuilding
                 ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
                 : "Where to?"}
@@ -2134,6 +2145,7 @@ export default function MapScreen() {
             <ChevronDown size={24} color="#1F1F24" strokeWidth={2.5} />
           </Pressable>
           <Pressable
+            testID="route-steps-close-button"
             style={styles.routeStepsCloseButton}
             onPress={() => {
               routeInstructionsDismissedRef.current = true;

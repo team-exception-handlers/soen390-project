@@ -1,0 +1,102 @@
+# US-2.4: Directions between SGW and Loyola (and vice versa)
+
+appId: host.exp.Exponent
+
+---
+- runFlow:
+    file: _launch-expo-go.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+
+- assertVisible: "Where to?"
+- assertVisible:
+    id: "directions-panel"
+- assertVisible:
+    id: "direction-go-button"
+
+- tapOn:
+    id: "direction-from-button"
+- tapOn:
+    id: "search-input"
+- inputText: "John molson"
+- extendedWaitUntil:
+    visible:
+      id: "search-results"
+    timeout: 5000
+- tapOn:
+    id: "search-result-MB"
+- extendedWaitUntil:
+    visible:
+      id: "building-info-directions"
+    timeout: 5000
+- tapOn:
+    id: "building-info-directions"
+
+- tapOn:
+    id: "campus-toggle-loyola"
+- extendedWaitUntil:
+    visible:
+      text: "Loyola"
+    timeout: 3000
+
+- tapOn:
+    id: "direction-to-button"
+- tapOn:
+    id: "search-input"
+- inputText: "Recreation"
+- extendedWaitUntil:
+    visible:
+      id: "search-results"
+    timeout: 5000
+- tapOn:
+    id: "search-result-RA"
+- extendedWaitUntil:
+    visible:
+      id: "building-info-directions"
+    timeout: 5000
+- tapOn:
+    id: "building-info-directions"
+
+- extendedWaitUntil:
+    visible:
+      id: "direction-from-value-MB"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "direction-to-value-RA"
+    timeout: 5000
+
+- extendedWaitUntil:
+    visible:
+      id: "route-steps-popup"
+    timeout: 45000
+
+- assertVisible:
+    id: "route-steps-popup"
+
+- tapOn:
+    id: "route-steps-close-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "route-steps-collapsed-tab"
+    timeout: 10000
+
+- assertVisible:
+    id: "route-steps-collapsed-tab"
+
+# Open shuttle tab to view shuttle menu
+- assertVisible:
+    id: "route-mode-shuttle"
+- tapOn:
+    id: "route-mode-shuttle"
+- tapOn:
+    id: "route-steps-collapsed-tab"
+
+- extendedWaitUntil:
+    visible:
+      id: "route-steps-popup"
+    timeout: 10000
