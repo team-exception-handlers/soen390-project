@@ -12,70 +12,17 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CALENDAR_BASE, CLIENT_ID, SCOPES } from "../../constants/googleCalendar";
+import { CalendarEvent, GoogleCalendar, formatEventTime, isToday } from "../../utils/calendarHelpers";
 
 WebBrowser.maybeCompleteAuthSession();
 
-// CONFIG
-const CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? "";
-
-const SCOPES = [
-    "https://www.googleapis.com/auth/calendar.readonly",
-    "openid",
-    "profile",
-    "email",
-];
-
-const CALENDAR_API =
-    "https://www.googleapis.com/calendar/v3/calendars/primary/events";
-
-type CalendarEvent = {
-    id: string;
-    summary?: string;
-    description?: string;
-    location?: string;
-    start: { dateTime?: string; date?: string };
-    end: { dateTime?: string; date?: string };
-};
-
-// Helpers
-function formatEventTime(start: CalendarEvent["start"]): string {
-    if (start.dateTime) {
-        const d = new Date(start.dateTime);
-        return d.toLocaleString("en-CA", {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-        });
-    }
-    if (start.date) {
-        const d = new Date(start.date + "T00:00:00");
-        return d.toLocaleDateString("en-CA", {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-        });
-    }
-    return "Unknown time";
-}
-
-function isToday(event: CalendarEvent): boolean {
-    const raw = event.start.dateTime ?? event.start.date;
-    if (!raw) return false;
-    const d = new Date(raw.includes("T") ? raw : raw + "T00:00:00");
-    const now = new Date();
-    return (
-        d.getFullYear() === now.getFullYear() &&
-        d.getMonth() === now.getMonth() &&
-        d.getDate() === now.getDate()
-    );
-}
-
-// Component
 export default function CalendarScreen() {
     const [accessToken, setAccessToken] = useState<string | null>(null);
+
+    const [calendars, setCalendars] = useState<GoogleCalendar[]>([]);
+    const [selectedCalendarId, setSelectedCalendarId] = useState<string>("primary");
+
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
@@ -91,8 +38,6 @@ export default function CalendarScreen() {
         return AuthSession.makeRedirectUri({ scheme: "concordiaclassfinder" });
     }, []);
 
-    console.log("Redirect URI:", redirectUri);
-
     const [request, response, promptAsync] = AuthSession.useAuthRequest(
         {
             clientId: CLIENT_ID,
@@ -107,6 +52,11 @@ export default function CalendarScreen() {
         discovery
     );
 
+    useEffect(() => {
+        console.log("redirectUri var:", redirectUri);
+        console.log("Auth request URL:", request?.url);
+    }, [redirectUri, request]);
+
     // Handle OAuth response
     useEffect(() => {
         console.log("Auth response:", JSON.stringify(response));
@@ -118,55 +68,138 @@ export default function CalendarScreen() {
         }
     }, [response]);
 
-    // Fetch events that are stored in the Calender API
+    const handleTokenExpired = useCallback(() => {
+        setAccessToken(null);
+        setCalendars([]);
+        setSelectedCalendarId("primary");
+        setEvents([]);
+        setError("Your session expired. Please sign in again.");
+    }, []);
+
+    // Load calendars (once token is available)
+    const loadCalendars = useCallback(
+        async (token: string) => {
+            try {
+                setError(null);
+
+                const res = await fetch(`${CALENDAR_BASE}/users/me/calendarList`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        handleTokenExpired();
+                        return;
+                    }
+                    throw new Error(`CalendarList error: ${res.status}`);
+                }
+
+                const data = await res.json();
+
+                console.log(
+                    "WHOAMI (token account):",
+                    await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }).then((r) => r.json())
+                );
+
+                console.log(
+                    "CALENDARLIST NAMES:",
+                    (data.items ?? []).map((c: any) => ({
+                        id: c.id,
+                        summary: c.summary,
+                        summaryOverride: c.summaryOverride,
+                        primary: c.primary,
+                    }))
+                );
+
+                const list: GoogleCalendar[] = ((data.items ?? []) as any[]).map((c) => {
+                    let name = c.summaryOverride ?? c.summary ?? "(Untitled calendar)";
+
+                    if (c.primary && typeof name === "string" && name.includes("@")) {
+                        name = "Primary Calendar";
+                    }
+
+                    return {
+                        id: c.id,
+                        summary: name,
+                        primary: !!c.primary,
+                    };
+                });
+
+                // Put primary first
+                list.sort((a, b) => Number(!!b.primary) - Number(!!a.primary));
+                setCalendars(list);
+
+                const primary = list.find((c) => c.primary);
+                if (primary) setSelectedCalendarId(primary.id);
+                else if (list.length > 0) setSelectedCalendarId(list[0].id);
+            } catch {
+                setError("Failed to load your calendars.");
+            }
+        },
+        [handleTokenExpired]
+    );
+
+    // Load events 
+    const loadEvents = useCallback(
+        async (token: string, isRefresh: boolean) => {
+            isRefresh ? setRefreshing(true) : setLoading(true);
+            setError(null);
+
+            try {
+                const now = new Date().toISOString();
+                const twoWeeksOut = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+
+                const params = new URLSearchParams({
+                    timeMin: now,
+                    timeMax: twoWeeksOut,
+                    singleEvents: "true",
+                    orderBy: "startTime",
+                    maxResults: "50",
+                });
+
+                const url = `${CALENDAR_BASE}/calendars/${encodeURIComponent(
+                    selectedCalendarId
+                )}/events?${params.toString()}`;
+
+                const res = await fetch(url, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        handleTokenExpired();
+                        return;
+                    }
+                    throw new Error(`Calendar API error: ${res.status}`);
+                }
+
+                const data = await res.json();
+                setEvents((data.items as CalendarEvent[]) ?? []);
+            } catch {
+                setError("Failed to load events. Pull down to retry.");
+            } finally {
+                setLoading(false);
+                setRefreshing(false);
+            }
+        },
+        [selectedCalendarId, handleTokenExpired]
+    );
+
+    // Fetch calendars whenever we have a token
+    useEffect(() => {
+        if (accessToken) {
+            loadCalendars(accessToken);
+        }
+    }, [accessToken, loadCalendars]);
+
+    // Fetch events when token or selected calendar changes
     useEffect(() => {
         if (accessToken) {
             loadEvents(accessToken, false);
         }
-    }, [accessToken]);
-
-    const loadEvents = useCallback(async (token: string, isRefresh: boolean) => {
-        isRefresh ? setRefreshing(true) : setLoading(true);
-        setError(null);
-
-        try {
-            const now = new Date().toISOString();
-            const twoWeeksOut = new Date(
-                Date.now() + 14 * 24 * 60 * 60 * 1000
-            ).toISOString();
-
-            const params = new URLSearchParams({
-                timeMin: now,
-                timeMax: twoWeeksOut,
-                singleEvents: "true",
-                orderBy: "startTime",
-                maxResults: "50",
-            });
-
-            const res = await fetch(`${CALENDAR_API}?${params.toString()}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (!res.ok) {
-                if (res.status === 401) {
-                    // Token expired: sign the user out so they can re-authenticate
-                    setAccessToken(null);
-                    setEvents([]);
-                    setError("Your session expired. Please sign in again.");
-                    return;
-                }
-                throw new Error(`Calendar API error: ${res.status}`);
-            }
-
-            const data = await res.json();
-            setEvents((data.items as CalendarEvent[]) ?? []);
-        } catch (err) {
-            setError("Failed to load events. Pull down to retry.");
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    }, []);
+    }, [accessToken, selectedCalendarId, loadEvents]);
 
     const handleRefresh = () => {
         if (accessToken) loadEvents(accessToken, true);
@@ -174,23 +207,20 @@ export default function CalendarScreen() {
 
     const handleSignOut = () => {
         setAccessToken(null);
+        setCalendars([]);
+        setSelectedCalendarId("primary");
         setEvents([]);
     };
 
-    // Not logged in
+    // Not logged in 
     if (!accessToken) {
         return (
             <SafeAreaView style={styles.centered}>
                 <Text style={styles.welcomeTitle}>Google Calendar</Text>
-                <Text style={styles.welcomeSub}>
-                    See your upcoming events right inside the app.
-                </Text>
+                <Text style={styles.welcomeSub}>See your upcoming events right inside the app.</Text>
                 {error && <Text style={styles.errorText}>{error}</Text>}
                 <Pressable
-                    style={({ pressed }) => [
-                        styles.signInButton,
-                        pressed && styles.signInButtonPressed,
-                    ]}
+                    style={({ pressed }) => [styles.signInButton, pressed && styles.signInButtonPressed]}
                     onPress={() => promptAsync()}
                     disabled={!request}
                 >
@@ -209,14 +239,66 @@ export default function CalendarScreen() {
         );
     }
 
+    const selectedCalendar =
+        calendars.find((c) => c.id === selectedCalendarId) ??
+        calendars.find((c) => c.primary);
+
+    const selectedName =
+        (selectedCalendar as any)?.summaryOverride ??
+        selectedCalendar?.summary ??
+        (selectedCalendarId === "primary" ? "Primary" : "Selected calendar");
+
+    // List of events
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Upcoming Events</Text>
                 <Pressable onPress={handleSignOut}>
                     <Text style={styles.signOutText}>Sign out</Text>
                 </Pressable>
+            </View>
+
+            {/* Calendar Selector */}
+            <View style={styles.pickerWrap}>
+                <Text style={styles.pickerLabel}>Calendar</Text>
+
+                <Text style={styles.selectedCalendarName} numberOfLines={1}>
+                    {selectedName}
+                </Text>
+
+                <View style={styles.pickerRow}>
+                    {calendars.slice(0, 3).map((c) => (
+                        <Pressable
+                            key={c.id}
+                            onPress={() => setSelectedCalendarId(c.id)}
+                            style={[styles.pill, selectedCalendarId === c.id && styles.pillActive]}
+                        >
+                            <Text
+                                style={[styles.pillText, selectedCalendarId === c.id && styles.pillTextActive]}
+                                numberOfLines={1}
+                            >
+                                {c.summary}
+                            </Text>
+                        </Pressable>
+                    ))}
+                </View>
+
+                {calendars.length > 3 && (
+                    <View style={styles.moreList}>
+                        {calendars.slice(3).map((c) => (
+                            <Pressable key={c.id} onPress={() => setSelectedCalendarId(c.id)} style={styles.moreItem}>
+                                <Text style={styles.moreItemText} numberOfLines={1}>
+                                    {selectedCalendarId === c.id ? "✓ " : ""}
+                                    {c.summary}
+                                </Text>
+                            </Pressable>
+                        ))}
+                    </View>
+                )}
+
+                {calendars.length === 0 && (
+                    <Text style={styles.noCalendarsText}>No calendars found. Try signing out and signing back in.</Text>
+                )}
             </View>
 
             {error && (
@@ -227,9 +309,7 @@ export default function CalendarScreen() {
 
             {events.length === 0 ? (
                 <View style={styles.centered}>
-                    <Text style={styles.emptyText}>
-                        No upcoming events in the next two weeks.
-                    </Text>
+                    <Text style={styles.emptyText}>No upcoming events in the next two weeks.</Text>
                 </View>
             ) : (
                 <FlatList
@@ -237,11 +317,7 @@ export default function CalendarScreen() {
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.listContent}
                     refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={handleRefresh}
-                            tintColor="#912338"
-                        />
+                        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#912338" />
                     }
                     renderItem={({ item }) => (
                         <View style={[styles.card, isToday(item) && styles.cardToday]}>
@@ -304,6 +380,75 @@ const styles = StyleSheet.create({
         color: "#912338",
         fontWeight: "600",
     },
+
+    pickerWrap: {
+        marginHorizontal: 16,
+        marginBottom: 8,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        padding: 12,
+        shadowColor: "#000",
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 1,
+    },
+    pickerLabel: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#6C6C70",
+        marginBottom: 6,
+    },
+    selectedCalendarName: {
+        fontSize: 14,
+        fontWeight: "800",
+        color: "#1C1C1E",
+        marginBottom: 10,
+    },
+    pickerRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+    },
+    pill: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 999,
+        backgroundColor: "#F2F2F7",
+        maxWidth: "100%",
+    },
+    pillActive: {
+        backgroundColor: "#912338",
+    },
+    pillText: {
+        fontSize: 13,
+        fontWeight: "700",
+        color: "#1C1C1E",
+    },
+    pillTextActive: {
+        color: "#FFFFFF",
+    },
+    moreList: {
+        marginTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: "#EFEFF4",
+        paddingTop: 8,
+    },
+    moreItem: {
+        paddingVertical: 8,
+    },
+    moreItemText: {
+        fontSize: 13,
+        color: "#1C1C1E",
+        fontWeight: "600",
+    },
+    noCalendarsText: {
+        marginTop: 10,
+        fontSize: 13,
+        color: "#8E8E93",
+        lineHeight: 18,
+    },
+
     listContent: {
         paddingHorizontal: 16,
         paddingBottom: 100,
