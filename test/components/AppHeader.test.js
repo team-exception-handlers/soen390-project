@@ -47,8 +47,8 @@ describe("components/AppHeader", () => {
       }
       return null;
     }
-    if (node && node.props && node.props.testID === id) return node;
-    if (node && node.props && node.props.children)
+    if (node?.props && node.props.testID === id) return node;
+    if (node?.props && node.props.children)
       return findByTestID(node.props.children, id);
     return null;
   }
