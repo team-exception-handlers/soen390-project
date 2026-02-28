@@ -1,0 +1,31 @@
+# US-2.2: Use current location building as start – CI
+
+appId: com.anonymous.concordiaclassfinder
+
+---
+- setPermissions:
+    permissions:
+      location: inuse
+
+# Mock user location to LB building (J.W. McConnell)
+- setLocation:
+    latitude: 45.49705
+    longitude: -73.578009
+
+- runFlow:
+    file: _launch-app.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+
+- assertVisible: "Where to?"
+
+- extendedWaitUntil:
+    visible:
+      id: "direction-from-value-LB"
+    timeout: 25000
+
+- assertNotVisible: "Current location"
+- assertVisible: "LB"
