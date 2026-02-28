@@ -1,7 +1,7 @@
 import BuildingInformation from "@/components/BuildingInformation";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
-import { ChevronDown, ChevronUp, X } from "lucide-react-native";
+import { ChevronDown, ChevronUp, Map, X } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -219,6 +219,42 @@ export default function MapScreen() {
 
   // Styles defined inside component
   const styles = StyleSheet.create({
+    roomInput: {
+      flex: 1,
+      height: 30,
+      backgroundColor: "rgba(255,255,255,0.06)",
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.15)",
+      color: "white",
+      paddingHorizontal: 8,
+      fontSize: 12,
+    },
+    // NEW: Container to hold the input and button side-by-side
+    roomInputContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 4,
+      gap: 6,
+    },
+    // NEW: Disabled floor plan button styling
+    floorPlanButtonDisabled: {
+      height: 30,
+      paddingHorizontal: 10,
+      backgroundColor: "rgba(255,255,255,0.03)",
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.08)",
+      justifyContent: "center",
+      alignItems: "center",
+      flexDirection: "row",
+      gap: 4,
+    },
+    floorPlanButtonTextDisabled: {
+      color: "rgba(255,255,255,0.3)",
+      fontSize: 11,
+      fontWeight: "700",
+    },
     container: {
       flex: 1,
     },
@@ -399,17 +435,6 @@ export default function MapScreen() {
       fontSize: 13,
       marginTop: 3,
       fontWeight: "600",
-    },
-    roomInput: {
-      height: 30,
-      marginTop: 4,
-      backgroundColor: "rgba(255,255,255,0.06)",
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.15)",
-      color: "white",
-      paddingHorizontal: 8,
-      fontSize: 12,
     },
     clearRouteButton: {
       paddingHorizontal: 10,
@@ -2007,16 +2032,25 @@ export default function MapScreen() {
                   : "Current location"}
               </Text>
             </Pressable>
-            {/* Origin Room Input */}
+            {/* Origin Room Input + Floor Plan Button */}
             {originBuilding && (
-              <TextInput
-                style={styles.roomInput}
-                placeholder="Room (e.g. 820)"
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                value={originRoom}
-                onChangeText={setOriginRoom}
-                keyboardType="default"
-              />
+              <View style={styles.roomInputContainer}>
+                <TextInput
+                  style={styles.roomInput}
+                  placeholder="Room (e.g. 820)"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  value={originRoom}
+                  onChangeText={setOriginRoom}
+                  keyboardType="default"
+                />
+                <Pressable
+                  style={styles.floorPlanButtonDisabled}
+                  disabled={true}
+                >
+                  <Map size={14} color="rgba(255,255,255,0.3)" />
+                  <Text style={styles.floorPlanButtonTextDisabled}>Plan</Text>
+                </Pressable>
+              </View>
             )}
           </View>
 
@@ -2049,16 +2083,25 @@ export default function MapScreen() {
                   : "Where to?"}
               </Text>
             </Pressable>
-            {/* Destination Room Input */}
+            {/* Destination Room Input + Floor Plan Button */}
             {destinationBuilding && (
-              <TextInput
-                style={styles.roomInput}
-                placeholder="Room (e.g. 900)"
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                value={destinationRoom}
-                onChangeText={setDestinationRoom}
-                keyboardType="default"
-              />
+              <View style={styles.roomInputContainer}>
+                <TextInput
+                  style={styles.roomInput}
+                  placeholder="Room (e.g. 900)"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  value={destinationRoom}
+                  onChangeText={setDestinationRoom}
+                  keyboardType="default"
+                />
+                <Pressable
+                  style={styles.floorPlanButtonDisabled}
+                  disabled={true}
+                >
+                  <Map size={14} color="rgba(255,255,255,0.3)" />
+                  <Text style={styles.floorPlanButtonTextDisabled}>Plan</Text>
+                </Pressable>
+              </View>
             )}
           </View>
 
