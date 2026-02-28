@@ -12,8 +12,6 @@ appId: com.anonymous.concordiaclassfinder
 - runFlow:
     file: us2.1-select-start-and-destination.yml
 - runFlow:
-    file: us2.2-current-location-as-start.yml
-- runFlow:
     file: us2.4-directions-sgw-loyola.yml
 - runFlow:
     file: us2.5a-transport-walking-same-campus.yml

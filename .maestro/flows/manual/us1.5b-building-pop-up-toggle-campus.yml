@@ -11,7 +11,7 @@ appId: host.exp.Exponent
     id: "campus-toggle-sgw"
 
 - tapOn:
-    point: "45%,50%"
+    point: "50%,40%"
 
 - extendedWaitUntil:
     visible: "Henry F. Hall Building"
