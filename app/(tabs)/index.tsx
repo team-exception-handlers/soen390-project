@@ -10,8 +10,10 @@ import React, {
   useState,
 } from "react";
 import {
+  Image,
   Keyboard,
   Linking,
+  Modal,
   PanResponder,
   Platform,
   Pressable,
@@ -29,6 +31,7 @@ import TransitLegTimeline from "../../components/TransitLegTimeline";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
+import { getRoomDetails } from "../../constants/rooms"; // Adjust path if needed
 import {
   findUserBuilding,
   hasLocationPermission,
@@ -112,13 +115,24 @@ const detectBuildingFromLocation = (
 
   return { code: null, campus: null };
 };
-
+const FLOOR_PLAN_ASSETS: Record<string, any> = {
+  "H-8": require("../../assets/floor_plans/Hall-8.svg"),
+  "H-9": require("../../assets/floor_plans/Hall-9.svg"),
+  "MB-1": require("../../assets/floor_plans/MB-1.svg"),
+  "MB--2": require("../../assets/floor_plans/MB-S2.svg"),
+  "VE-1": require("../../assets/floor_plans/VE-1.svg"),
+  "VE-2": require("../../assets/floor_plans/VE-2.svg"),
+  "VL-1": require("../../assets/floor_plans/VL-1.svg"),
+  "VL-2": require("../../assets/floor_plans/VL-2.svg"),
+};
 /* these make it so we can view selected campus and building from the map level */
 export default function MapScreen() {
   // Tracks whether the user is editing the start or destination
   const [editingField, setEditingField] = useState<"from" | "to" | undefined>(
     undefined,
   );
+  const [floorPlanModalVisible, setFloorPlanModalVisible] = useState(false);
+  const [activeFloorPlan, setActiveFloorPlan] = useState<any>(null);
   const [campus, setCampus] = useState<Campus>("SGW");
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
@@ -219,6 +233,55 @@ export default function MapScreen() {
 
   // Styles defined inside component
   const styles = StyleSheet.create({
+    floorPlanButtonActive: {
+      width: 34,
+      height: 30,
+      backgroundColor: "rgba(35, 140, 81, 0.8)",
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: "#238c51",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    floorPlanButtonTextActive: {
+      color: "#FFFFFF",
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.85)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    modalContent: {
+      width: "90%",
+      height: "75%",
+      backgroundColor: "white",
+      borderRadius: 20,
+      overflow: "hidden",
+      position: "relative",
+    },
+    modalCloseButton: {
+      position: "absolute",
+      top: 16,
+      right: 16,
+      zIndex: 10,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "#F5F5F6",
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 2 },
+    },
+    floorPlanImage: {
+      width: "100%",
+      height: "100%",
+    },
     roomInput: {
       flex: 1,
       height: 30,
@@ -230,25 +293,21 @@ export default function MapScreen() {
       paddingHorizontal: 8,
       fontSize: 12,
     },
-    // NEW: Container to hold the input and button side-by-side
     roomInputContainer: {
       flexDirection: "row",
       alignItems: "center",
       marginTop: 4,
       gap: 6,
     },
-    // NEW: Disabled floor plan button styling
     floorPlanButtonDisabled: {
+      width: 34,
       height: 30,
-      paddingHorizontal: 10,
       backgroundColor: "rgba(255,255,255,0.03)",
       borderRadius: 8,
       borderWidth: 1,
       borderColor: "rgba(255,255,255,0.08)",
       justifyContent: "center",
       alignItems: "center",
-      flexDirection: "row",
-      gap: 4,
     },
     floorPlanButtonTextDisabled: {
       color: "rgba(255,255,255,0.3)",
@@ -2032,26 +2091,50 @@ export default function MapScreen() {
                   : "Current location"}
               </Text>
             </Pressable>
-            {/* Origin Room Input + Floor Plan Button */}
-            {originBuilding && (
-              <View style={styles.roomInputContainer}>
-                <TextInput
-                  style={styles.roomInput}
-                  placeholder="Room (e.g. 820)"
-                  placeholderTextColor="rgba(255,255,255,0.4)"
-                  value={originRoom}
-                  onChangeText={setOriginRoom}
-                  keyboardType="default"
-                />
-                <Pressable
-                  style={styles.floorPlanButtonDisabled}
-                  disabled={true}
-                >
-                  <Map size={14} color="rgba(255,255,255,0.3)" />
-                  <Text style={styles.floorPlanButtonTextDisabled}>Plan</Text>
-                </Pressable>
-              </View>
-            )}
+            {/* Origin Room Input + Icon Button */}
+            {originBuilding &&
+              (() => {
+                const details = getRoomDetails(originBuilding.code, originRoom);
+                const floorKey = details
+                  ? `${details.buildingCode}-${details.floor}`
+                  : null;
+                const hasPlan = floorKey
+                  ? !!FLOOR_PLAN_ASSETS[floorKey]
+                  : false;
+
+                return (
+                  <View style={styles.roomInputContainer}>
+                    <TextInput
+                      style={styles.roomInput}
+                      placeholder="Room #"
+                      placeholderTextColor="rgba(255,255,255,0.4)"
+                      value={originRoom}
+                      onChangeText={setOriginRoom}
+                      keyboardType="default"
+                    />
+                    <Pressable
+                      style={
+                        hasPlan
+                          ? styles.floorPlanButtonActive
+                          : styles.floorPlanButtonDisabled
+                      }
+                      disabled={!hasPlan}
+                      accessibilityLabel="View Floor Plan"
+                      onPress={() => {
+                        if (floorKey) {
+                          setActiveFloorPlan(FLOOR_PLAN_ASSETS[floorKey]);
+                          setFloorPlanModalVisible(true);
+                        }
+                      }}
+                    >
+                      <Map
+                        size={16}
+                        color={hasPlan ? "#FFFFFF" : "rgba(255,255,255,0.3)"}
+                      />
+                    </Pressable>
+                  </View>
+                );
+              })()}
           </View>
 
           {/* TO FIELD */}
@@ -2083,26 +2166,53 @@ export default function MapScreen() {
                   : "Where to?"}
               </Text>
             </Pressable>
-            {/* Destination Room Input + Floor Plan Button */}
-            {destinationBuilding && (
-              <View style={styles.roomInputContainer}>
-                <TextInput
-                  style={styles.roomInput}
-                  placeholder="Room (e.g. 900)"
-                  placeholderTextColor="rgba(255,255,255,0.4)"
-                  value={destinationRoom}
-                  onChangeText={setDestinationRoom}
-                  keyboardType="default"
-                />
-                <Pressable
-                  style={styles.floorPlanButtonDisabled}
-                  disabled={true}
-                >
-                  <Map size={14} color="rgba(255,255,255,0.3)" />
-                  <Text style={styles.floorPlanButtonTextDisabled}>Plan</Text>
-                </Pressable>
-              </View>
-            )}
+            {/* Destination Room Input + Icon Button */}
+            {destinationBuilding &&
+              (() => {
+                const details = getRoomDetails(
+                  destinationBuilding.code,
+                  destinationRoom,
+                );
+                const floorKey = details
+                  ? `${details.buildingCode}-${details.floor}`
+                  : null;
+                const hasPlan = floorKey
+                  ? !!FLOOR_PLAN_ASSETS[floorKey]
+                  : false;
+
+                return (
+                  <View style={styles.roomInputContainer}>
+                    <TextInput
+                      style={styles.roomInput}
+                      placeholder="Room #"
+                      placeholderTextColor="rgba(255,255,255,0.4)"
+                      value={destinationRoom}
+                      onChangeText={setDestinationRoom}
+                      keyboardType="default"
+                    />
+                    <Pressable
+                      style={
+                        hasPlan
+                          ? styles.floorPlanButtonActive
+                          : styles.floorPlanButtonDisabled
+                      }
+                      disabled={!hasPlan}
+                      accessibilityLabel="View Floor Plan"
+                      onPress={() => {
+                        if (floorKey) {
+                          setActiveFloorPlan(FLOOR_PLAN_ASSETS[floorKey]);
+                          setFloorPlanModalVisible(true);
+                        }
+                      }}
+                    >
+                      <Map
+                        size={16}
+                        color={hasPlan ? "#FFFFFF" : "rgba(255,255,255,0.3)"}
+                      />
+                    </Pressable>
+                  </View>
+                );
+              })()}
           </View>
 
           {/* GO / CANCEL BUTTON */}
@@ -2570,6 +2680,30 @@ export default function MapScreen() {
           setEditingField(undefined);
         }}
       />
+      <Modal
+        visible={floorPlanModalVisible}
+        animationType="fade"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Pressable
+              style={styles.modalCloseButton}
+              onPress={() => setFloorPlanModalVisible(false)}
+            >
+              <X size={24} color="#1F1F24" strokeWidth={2.5} />
+            </Pressable>
+
+            {activeFloorPlan && (
+              <Image
+                source={activeFloorPlan}
+                style={styles.floorPlanImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
