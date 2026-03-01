@@ -1,0 +1,53 @@
+# US-2.5b: Support multiple transportation ways – Bike, Car, Transit (cross campus) – CI
+
+appId: com.anonymous.concordiaclassfinder
+
+---
+- runFlow:
+    file: _launch-app.yaml
+- runFlow:
+    file: _hook-select-mb-to-sp.yml
+
+- extendedWaitUntil:
+    visible:
+      id: "route-steps-popup"
+    timeout: 45000
+
+- assertVisible:
+    id: "route-steps-popup"
+
+- tapOn:
+    id: "route-steps-close-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "route-steps-collapsed-tab"
+    timeout: 10000
+
+- assertVisible:
+    id: "route-steps-collapsed-tab"
+
+# Walking mode (default)
+- assertVisible:
+    id: "route-mode-walking"
+- tapOn:
+    id: "route-mode-walking"
+
+# Car mode
+- assertVisible:
+    id: "route-mode-driving"
+- tapOn:
+    id: "route-mode-driving"
+
+# Public transit mode
+- assertVisible:
+    id: "route-mode-transit"
+- tapOn:
+    id: "route-mode-transit"
+- tapOn:
+    id: "route-steps-collapsed-tab"
+
+- extendedWaitUntil:
+    visible:
+      id: "route-steps-popup"
+    timeout: 10000
