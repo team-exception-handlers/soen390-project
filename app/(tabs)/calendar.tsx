@@ -329,9 +329,9 @@ export default function CalendarScreen() {
                             <Text style={styles.cardTitle} numberOfLines={2}>
                                 {item.summary ?? "(No title)"}
                             </Text>
-                            <Text style={styles.cardLocation} numberOfLines={2}>
-                                 {item.location?.trim() ? item.location : "No location provided"}
-                            </Text>
+                            <Text style={styles.cardLocation} numberOfLines={1}>
+  {item.location && item.location.trim().length > 0 ? item.location : "Location not provided"}
+</Text>
                             {item.description ? (
                                 <Text style={styles.cardDescription} numberOfLines={2}>
                                     {item.description}
