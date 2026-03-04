@@ -337,7 +337,7 @@ export default function CalendarScreen() {
                                     {item.description}
                                 </Text>
                             ) : null}
-                            // test commit
+                            // US 3.3 test 
                         </View>
                     )}
                 />
