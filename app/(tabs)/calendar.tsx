@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CALENDAR_BASE, CLIENT_ID, SCOPES } from "../../constants/googleCalendar";
-import { CalendarEvent, GoogleCalendar, formatEventTime, isToday } from "../../utils/calendarHelpers";
+import { CalendarEvent, GoogleCalendar, isToday } from "../../utils/calendarHelpers";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -329,12 +329,9 @@ export default function CalendarScreen() {
                             <Text style={styles.cardTitle} numberOfLines={2}>
                                 {item.summary ?? "(No title)"}
                             </Text>
-                            <Text style={styles.cardTime}>{formatEventTime(item.start)}</Text>
-                            {item.location ? (
-                                <Text style={styles.cardLocation} numberOfLines={1}>
-                                    {item.location}
-                                </Text>
-                            ) : null}
+                            <Text style={styles.cardLocation} numberOfLines={2}>
+                                 {item.location?.trim() ? item.location : "No location provided"}
+                            </Text>
                             {item.description ? (
                                 <Text style={styles.cardDescription} numberOfLines={2}>
                                     {item.description}
