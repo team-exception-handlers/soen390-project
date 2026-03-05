@@ -1,8 +1,10 @@
 import * as AuthSession from "expo-auth-session";
+import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     Platform,
     Pressable,
@@ -13,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CALENDAR_BASE, CLIENT_ID, SCOPES } from "../../constants/googleCalendar";
-import { CalendarEvent, GoogleCalendar, isToday } from "../../utils/calendarHelpers";
+import { CalendarEvent, formatEventTime, GoogleCalendar, isToday } from "../../utils/calendarHelpers";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -27,6 +29,7 @@ export default function CalendarScreen() {
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+  
 
     // Build the auth request
     const discovery = AuthSession.useAutoDiscovery("https://accounts.google.com");
@@ -216,6 +219,7 @@ export default function CalendarScreen() {
     if (!accessToken) {
         return (
             <SafeAreaView style={styles.centered}>
+                
                 <Text style={styles.welcomeTitle}>Google Calendar</Text>
                 <Text style={styles.welcomeSub}>See your upcoming events right inside the app.</Text>
                 {error && <Text style={styles.errorText}>{error}</Text>}
@@ -247,7 +251,64 @@ export default function CalendarScreen() {
         (selectedCalendar as any)?.summaryOverride ??
         selectedCalendar?.summary ??
         (selectedCalendarId === "primary" ? "Primary" : "Selected calendar");
+        const now = new Date();
 
+        const nextEvent =
+        (events ?? [])
+          .filter((e) => {
+            const start = e?.start?.dateTime ?? e?.start?.date;
+            return start ? new Date(start) >= now : false;
+          })
+          .sort((a, b) => {
+            const aStart = new Date(a?.start?.dateTime ?? a?.start?.date ?? 0).getTime();
+            const bStart = new Date(b?.start?.dateTime ?? b?.start?.date ?? 0).getTime();
+            return aStart - bStart;
+          })[0] ?? null;
+
+          const parseClassLocation = (raw?: string | null) => {
+            if (!raw) return null;
+          
+            const s = raw.trim();
+          
+            // Common pattern: H-510, H 510, MB-1.210, etc.
+            const match = s.match(/\b([A-Za-z]{1,4})\s*[-]?\s*([0-9]{1,4}[A-Za-z]?)\b/);
+          
+            if (!match) return s; // fallback: show original text
+          
+            const building = match[1].toUpperCase();
+            const room = match[2].toUpperCase();
+          
+            return `${building}-${room}`;
+          };
+
+          const parseBuilding = (location?: string) => {
+            
+            const raw = location?.trim();
+            if (!raw) return null;
+          
+            const building = raw.split("-")[0]?.trim();
+            return building?.length ? building : null;
+          };
+          
+          const handleDirectionsPress = () => {
+            const building = parseBuilding(nextEvent?.location);
+          
+            
+            if (!building) {
+              Alert.alert(
+                "Directions unavailable",
+                "This class has no location saved. Please add a building/room (ex: H-510) in your Google Calendar event."
+              );
+              return;
+            }
+          
+            // If we have a building, go to Map and set destination
+            // (we'll handle the Map screen in a minute)
+            router.push({
+              pathname: "/(tabs)",
+              params: { toBuilding: building }, 
+            });
+          };
     // List of events
     return (
         <SafeAreaView style={styles.container}>
@@ -312,12 +373,37 @@ export default function CalendarScreen() {
                     <Text style={styles.emptyText}>No upcoming events in the next two weeks.</Text>
                 </View>
             ) : (
+                <>
+                {nextEvent && (
+  <View style={styles.nextClassCard}>
+    <Text style={styles.nextClassTitle}>Next Class</Text>
+
+    <Text style={styles.nextClassCourse}>
+      {nextEvent?.summary ?? "Untitled class"}
+    </Text>
+
+    <Text style={styles.nextClassTime}>
+      {nextEvent?.start ? formatEventTime(nextEvent.start) : "Time not provided"}
+    </Text>
+
+    <Text style={styles.nextClassLocation}>
+  {nextEvent?.location?.trim()
+    ? parseClassLocation(nextEvent.location)
+    : "Location not provided"}
+</Text>
+<Pressable style={styles.directionsButton} onPress={handleDirectionsPress}>
+  <Text style={styles.directionsButtonText}>Directions</Text>
+</Pressable>
+  </View>
+)}
                 <FlatList
                     data={events}
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.listContent}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#912338" />
+                        
+                        
                     }
                     renderItem={({ item }) => (
                         <View style={[styles.card, isToday(item) && styles.cardToday]}>
@@ -330,8 +416,10 @@ export default function CalendarScreen() {
                                 {item.summary ?? "(No title)"}
                             </Text>
                             <Text style={styles.cardLocation} numberOfLines={1}>
-  {item.location && item.location.trim().length > 0 ? item.location : "Location not provided"}
-</Text>
+                                  {item.location?.trim()
+                                  ? parseClassLocation(item.location)
+                                      : "Location not provided"}
+                            </Text>
                             {item.description ? (
                                 <Text style={styles.cardDescription} numberOfLines={2}>
                                     {item.description}
@@ -341,6 +429,7 @@ export default function CalendarScreen() {
                         </View>
                     )}
                 />
+                </>
             )}
         </SafeAreaView>
     );
@@ -559,4 +648,42 @@ const styles = StyleSheet.create({
         fontSize: 13,
         textAlign: "center",
     },
+    nextClassCard: {
+        borderWidth: 1,
+        borderColor: "#ddd",
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 10,
+      },
+      
+      nextClassTitle: {
+        fontWeight: "700",
+        fontSize: 16,
+        marginBottom: 4,
+      },
+      
+      nextClassCourse: {
+        fontWeight: "600",
+        fontSize: 14,
+      },
+      
+      nextClassLocation: {
+        marginTop: 4,
+      },
+      nextClassTime: {
+        fontSize: 14,
+        color: "#666",
+        marginTop: 4,
+      },
+      directionsButton: {
+        marginTop: 10,
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignItems: "center",
+        backgroundColor: "#912338",
+      },
+      directionsButtonText: {
+        color: "white",
+        fontWeight: "600",
+      },
 });

@@ -1,6 +1,7 @@
 import BuildingInformation from "@/components/BuildingInformation";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
+import { useLocalSearchParams } from "expo-router";
 import { ChevronDown, ChevronUp, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -28,15 +29,10 @@ import { getCampusRegion } from "../../utils/mapRegions";
 import { fetchOsrmRoute, type RouteInstruction, type RouteProfile } from "../../utils/osrmDirections";
 import { decodePolyline, fetchTransitItineraries, formatTime, type TransitItinerary } from "../../utils/transitousDirections";
 
-let WebView: React.ComponentType<any> | null = null;
-if (Platform.OS !== "web") {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    WebView = require("react-native-webview").WebView;
-  } catch {
-    WebView = null;
-  }
-}
+const WebViewComponent = Platform.OS === "web" ? null : require("react-native-webview").WebView;
+  
+
+const [to, setTo] = useState("");
 
 const roundCoord = (value: number) => Number(value.toFixed(4));
 
@@ -91,11 +87,17 @@ export default function MapScreen() {
   const [editingField, setEditingField] = useState<"from" | "to" | undefined>(
     undefined,
   );
+  const { toBuilding } = useLocalSearchParams<{ toBuilding?: string }>();
   const [campus, setCampus] = useState<Campus>("SGW");
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const [destinationBuildingCode, setDestinationBuildingCode] =
     useState<string>(DEFAULT_DESTINATION_BUILDING_CODE);
+    useEffect(() => {
+      if (toBuilding) {
+        setTo(`${toBuilding} - ${toBuilding} Building`);
+      }
+    }, [toBuilding]);
   // Tracks the selected origin building (or null if using current location)
   const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
     null,
@@ -1668,48 +1670,43 @@ export default function MapScreen() {
       );
     }
 
-    if (WebView) {
-      return (
-        <WebView
-          key={campus}
-          testID="map-webview"
-          ref={webViewRef}
-          source={webViewSource}
-          style={styles.map}
-          javaScriptEnabled
-          domStorageEnabled
-          startInLoadingState
-          scalesPageToFit
-          originWhitelist={["*"]}
-          injectedJavaScriptBeforeContentLoaded={`
-            window.ReactNativeWebView = {
-              postMessage: function(data) {
-                window.location.href = 'rnmsg://' + encodeURIComponent(data);
-              }
-            };
-            true;
-          `}
-          onLoadEnd={() => setWebMapReady(true)}
-          onShouldStartLoadWithRequest={(request: { url: string }) => {
-            if (request.url.startsWith("rnmsg://")) {
-              try {
-                const data = JSON.parse(
-                  decodeURIComponent(request.url.replace("rnmsg://", "")),
-                );
-                if (data?.type === "buildingSelected")
-                  setSelectedBuilding(data.buildingCode);
-                if (data?.type === "buildingDeselected") setSelectedBuilding(null);
-              } catch { }
-              return false;
+    {WebViewComponent && (
+      <WebViewComponent
+        key={campus}
+        testID="map-webview"
+        source={{ uri: webViewSource }}
+        style={styles.map}
+        javaScriptEnabled
+        domStorageEnabled
+        startInLoadingState
+        scalesPageToFit
+        originWhitelist={["*"]}
+        injectedJavaScriptBeforeContentLoaded={`
+          window.ReactNativeWebView = {
+            postMessage: function(data) {
+              window.location.href = 'rnmsg://' + encodeURIComponent(data);
             }
-            return true;
-          }}
-        />
-      );
-    }
-
-    return null;
-  };
+          };
+          true;
+        `}
+        onLoadEnd={() => setWebMapReady(true)}
+        onShouldStartLoadWithRequest={(request: { url: string }) => {
+          if (request.url.startsWith("rnmsg://")) {
+            const data = JSON.parse(
+              decodeURIComponent(request.url.replace("rnmsg://", ""))
+            );
+            if (data?.type === "buildingSelected") {
+              setSelectedBuilding(data.buildingCode);
+            } else if (data?.type === "buildingDeselected") {
+              setSelectedBuilding(null);
+            }
+            return false;
+          }
+          return true;
+        }}
+      />
+    )}
+  }
 
   const webMapContent = renderWebMapContent();
 
