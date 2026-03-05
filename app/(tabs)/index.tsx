@@ -86,6 +86,387 @@ const detectBuildingFromLocation = (
 };
 
 /* these make it so we can view selected campus and building from the map level */
+const getTransitColor = (mode: string, route?: string) => {
+  if (mode === "WALK") return "#2E7D32";
+  if (mode === "BUS") return "#007AFF";
+  if (mode === "TRAM") return "#9C27B0";
+
+  // STM metro colors
+  if (mode === "SUBWAY" || mode === "RAIL" || mode === "METRO") {
+    const line = (route ?? "").trim();
+    if (line === "1") return "#009E60"; // GREEN LINE
+    if (line === "2") return "#FF6600"; // ORANGE LINE
+    if (line === "4") return "#FFD700"; // YELLOW LINE
+    if (line === "5") return "#0075BF"; // BLUE LINE
+    return "#007AFF"; // fallback: blue
+  }
+
+  return "#1668C7";
+};
+
+
+const RouteStepsPopup = (props: any) => {
+  const { styles, routeSheetPanResponder, formatTime, routeInstructionsDismissedRef, setShowRouteInstructions, routeMode, actualOriginPoint, destinationBuilding, transitItineraries, routeStarted, selectedItineraryIndex, expandedItineraries, setSelectedItineraryIndex, setRouteDurationMinutes, setRouteDistanceMeters, setRouteInstructions, setExpandedItineraries, expandedIntermediateStops, setExpandedIntermediateStops, routeInstructions } = props;
+  return (
+    <View style={styles.routeStepsPopup} testID="route-steps-popup">
+      <Pressable
+        {...routeSheetPanResponder.panHandlers}
+        style={styles.routeStepsHandle}
+        onPress={() => {
+          routeInstructionsDismissedRef.current = true;
+          setShowRouteInstructions(false);
+        }}
+      >
+        <ChevronDown size={24} color="#1F1F24" strokeWidth={2.5} />
+      </Pressable>
+      <Pressable
+        testID="route-steps-close-button"
+        style={styles.routeStepsCloseButton}
+        onPress={() => {
+          routeInstructionsDismissedRef.current = true;
+          setShowRouteInstructions(false);
+        }}
+      >
+        <X size={26} color="#1F1F24" strokeWidth={2.5} />
+      </Pressable>
+
+      <ScrollView
+        style={styles.routeStepsList}
+        contentContainerStyle={styles.routeStepsListContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {routeMode === "shuttle" ? (
+          <ShuttleDirections
+            origin={actualOriginPoint}
+            destination={destinationBuilding}
+          />
+        ) : routeMode === "transit" && transitItineraries.length > 0 ? (
+          routeStarted ? (
+            <>
+              <Text
+                style={{
+                  fontSize: 17,
+                  fontWeight: "700",
+                  marginBottom: 20,
+                  color: "#1C1C1E",
+                }}
+              >
+                Journey Details
+              </Text>
+
+              {transitItineraries[selectedItineraryIndex] && (
+                <TransitLegTimeline
+                  itinerary={transitItineraries[selectedItineraryIndex]}
+                  styles={styles}
+                  formatTime={formatTime}
+                  alwaysShowIntermediateStops
+                  stopKeyPrefix={`journey-${selectedItineraryIndex}`}
+                />
+              )}
+            </>
+          ) : (
+            <>
+              {transitItineraries.map((itinerary: any, index: any) => {
+                const isExpanded = expandedItineraries.includes(index);
+                const isSelected = index === selectedItineraryIndex;
+
+                return (
+                  <View key={index} style={{ marginBottom: 12 }}>
+                    <Pressable
+                      style={[styles.itineraryCard, isSelected && styles.itineraryCardActive]}
+                      onPress={() => {
+                        setSelectedItineraryIndex(index);
+                        setRouteDurationMinutes(Math.round(itinerary.durationSeconds / 60));
+                        setRouteDistanceMeters(itinerary.distanceMeters);
+                        setRouteInstructions(itinerary.instructions);
+                      }}
+                    >
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.itineraryTime}>
+                            {formatTime(itinerary.departureTime)} → {formatTime(itinerary.arrivalTime)}
+                          </Text>
+                          <Text style={styles.itineraryDuration}>
+                            {Math.round(itinerary.durationSeconds / 60)} min
+                          </Text>
+                          <Text style={styles.itineraryTransfers}>
+                            {itinerary.transfers === 0
+                              ? "Direct"
+                              : `${itinerary.transfers} transfer${itinerary.transfers > 1 ? "s" : ""}`}
+                          </Text>
+                          <View style={styles.itineraryLegsRow}>
+                            {itinerary.legs.map((leg: any, legIndex: any) => {
+                              const getLegColor = () => {
+                                if (leg.mode === "WALK") return styles.legPillWalk;
+                                if (leg.mode === "BUS") return styles.legPillBus;
+                                if (leg.mode === "SUBWAY") return styles.legPillSubway;
+                                if (leg.mode === "TRAM") return styles.legPillTram;
+                                return styles.legPillBus;
+                              };
+
+                              return (
+                                <Text key={legIndex} style={[styles.legPill, getLegColor()]}>
+                                  {leg.mode === "WALK" ? "Walk" : leg.route || leg.mode}
+                                </Text>
+                              );
+                            })}
+                          </View>
+                        </View>
+
+                        <Pressable
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            setExpandedItineraries((prev: any) =>
+                              prev.includes(index)
+                                ? prev.filter((i: any) => i !== index)
+                                : [...prev, index],
+                            );
+                          }}
+                          style={{ padding: 8, marginLeft: 8 }}
+                        >
+                          {isExpanded ? (
+                            <ChevronUp size={20} color="#007AFF" strokeWidth={2.5} />
+                          ) : (
+                            <ChevronDown size={20} color="#8E8E93" strokeWidth={2.5} />
+                          )}
+                        </Pressable>
+                      </View>
+                    </Pressable>
+
+                    {isExpanded && (
+                      <View
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingTop: 16,
+                          paddingBottom: 12,
+                          backgroundColor: "#FAFAFA",
+                          borderRadius: 12,
+                          marginTop: 8,
+                        }}
+                      >
+                        <TransitLegTimeline
+                          itinerary={itinerary}
+                          styles={styles}
+                          formatTime={formatTime}
+                          canToggleIntermediateStops
+                          expandedStops={expandedIntermediateStops}
+                          onToggleStops={(stopKey) => {
+                            setExpandedIntermediateStops((prev: any) => {
+                              const next = new Set(prev);
+                              if (next.has(stopKey)) next.delete(stopKey);
+                              else next.add(stopKey);
+                              return next;
+                            });
+                          }}
+                          stopKeyPrefix={`itin-${index}`}
+                        />
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </>
+          )
+        ) : (
+          routeInstructions.map((instruction: any, index: any) => (
+            <Text key={`${index}-${instruction.text}`} style={styles.routeStepText}>
+              {`${index + 1}. ${instruction.text}`}
+            </Text>
+          ))
+        )}
+      </ScrollView>
+    </View>
+  );
+};
+
+
+const DirectionsPanel = ({ setSearchText, setEditingField, searchInputRef, editingField, originBuilding, destinationBuilding, clearDirections, isDirectionsMode, isSameCampus, routeMode, setRouteMode, modeDurations, setRouteStarted, routeInstructionsDismissedRef, setShowRouteInstructions, styles, formatDuration }: any) => {
+  return (
+    <View style={styles.directionsPanel} testID="directions-panel">
+      <View style={styles.directionFieldRow}>
+        {/* FROM FIELD */}
+        <Pressable
+          testID="direction-from-button"
+          onPress={() => {
+            setEditingField("from");
+            searchInputRef.current?.focus?.();
+          }}
+          style={[
+            styles.directionFieldButton,
+            editingField === "from" && styles.directionFieldButtonActive,
+          ]}
+        >
+          <Text style={styles.directionFieldLabel}>From</Text>
+          <Text
+            style={styles.directionFieldValue}
+            numberOfLines={1}
+            testID={originBuilding ? `direction-from-value-${originBuilding.code}` : "direction-from-value-empty"}
+          >
+            {originBuilding
+              ? `${originBuilding.code} - ${originBuilding.shortName}`
+              : "Current location"}
+          </Text>
+        </Pressable>
+
+        {/* TO FIELD */}
+        <Pressable
+          testID="direction-to-button"
+          onPress={() => {
+            setEditingField("to");
+            setSearchText("");
+            searchInputRef.current?.focus?.();
+          }}
+          style={[
+            styles.directionFieldButton,
+            editingField === "to" && styles.directionFieldButtonActive,
+          ]}
+        >
+          <Text style={styles.directionFieldLabel}>To</Text>
+          <Text
+            style={styles.directionFieldValue}
+            numberOfLines={1}
+            testID={destinationBuilding ? `direction-to-value-${destinationBuilding.code}` : "direction-to-value-empty"}
+          >
+            {destinationBuilding
+              ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
+              : "Where to?"}
+          </Text>
+        </Pressable>
+
+        {/* GO / CANCEL BUTTON */}
+        <Pressable
+          testID="direction-go-button"
+          onPress={clearDirections}
+          style={styles.clearRouteButton}
+        >
+          <Text style={styles.clearRouteText}>{isDirectionsMode ? "Cancel" : "Go"}</Text>
+        </Pressable>
+      </View>
+
+      {/* TRANSPORT MODE BUTTONS — different campus only */}
+      {isDirectionsMode && !isSameCampus && (
+        <View style={styles.modeSelectorGrid}>
+          <View style={styles.modeSelectorRow}>
+            <View style={styles.modePillGroup}>
+              <Pressable
+                testID="route-mode-walking"
+                style={[styles.modePill, routeMode === "walking" && styles.modePillActive]}
+                onPress={() => setRouteMode("walking")}
+              >
+                <Text
+                  style={[
+                    styles.modePillText,
+                    routeMode === "walking" && styles.modePillTextActive,
+                  ]}
+                >
+                  Bike - {" "}
+                  {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
+                </Text>
+              </Pressable>
+              <Pressable
+                testID="route-mode-driving"
+                style={[styles.modePill, routeMode === "driving" && styles.modePillActive]}
+                onPress={() => setRouteMode("driving")}
+              >
+                <Text
+                  style={[
+                    styles.modePillText,
+                    routeMode === "driving" && styles.modePillTextActive,
+                  ]}
+                >
+                  Car -{" "}
+                  {modeDurations.driving !== null ? formatDuration(modeDurations.driving) : "—"}
+                </Text>
+              </Pressable>
+            </View>
+            <Pressable
+              testID="direction-start-button"
+              style={styles.modeActionButton}
+              onPress={() => {
+                setRouteStarted(true);
+                routeInstructionsDismissedRef.current = false;
+                setShowRouteInstructions(true);
+              }}
+            >
+              <Text style={styles.modeActionButtonText}>Start</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.modeSelectorRow}>
+            <View style={styles.modePillGroup}>
+              <Pressable
+                testID="route-mode-transit"
+                style={[styles.modePill, routeMode === "transit" && styles.modePillActive]}
+                onPress={() => setRouteMode("transit")}
+              >
+                <Text
+                  style={[
+                    styles.modePillText,
+                    routeMode === "transit" && styles.modePillTextActive,
+                  ]}
+                >
+                  Public Transit -{" "}
+                  {modeDurations.transit !== null ? formatDuration(modeDurations.transit) : "—"}
+                </Text>
+              </Pressable>
+              <Pressable
+                testID="route-mode-shuttle"
+                style={[styles.modePill, routeMode === "shuttle" && styles.modePillActive]}
+                onPress={() => setRouteMode("shuttle")}
+              >
+                <Text
+                  style={[
+                    styles.modePillText,
+                    routeMode === "shuttle" && styles.modePillTextActive,
+                  ]}
+                >
+                  Shuttle
+                </Text>
+              </Pressable>
+            </View>
+            <Pressable
+              testID="direction-exit-button"
+              style={styles.modeActionButton}
+              onPress={clearDirections}
+            >
+              <Text style={styles.modeActionButtonText}>Exit</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      {/* WALK ONLY — same campus */}
+      {isDirectionsMode && isSameCampus && (
+        <View style={styles.modeSelectorGrid}>
+          <View style={styles.modeSelectorRow}>
+            <Pressable testID="route-mode-walking" style={[styles.modePill, styles.modePillActive]}>
+              <Text style={[styles.modePillText, styles.modePillTextActive]}>
+                Walk {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
+              </Text>
+            </Pressable>
+            <Text style={styles.sameCampusHint}>Same campus</Text>
+            <Pressable
+              testID="direction-exit-button"
+              style={styles.modeActionButton}
+              onPress={clearDirections}
+            >
+              <Text style={styles.modeActionButtonText}>Exit</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      {/* REMOVED INLINE SHUTTLE DIRECTIONS */}
+    </View>
+  );
+};
+
 export default function MapScreen() {
   // Tracks whether the user is editing the start or destination
   const [editingField, setEditingField] = useState<"from" | "to" | undefined>(
@@ -882,23 +1263,6 @@ export default function MapScreen() {
     [campus],
   );
 
-  const getTransitColor = (mode: string, route?: string) => {
-    if (mode === "WALK") return "#2E7D32";
-    if (mode === "BUS") return "#007AFF";
-    if (mode === "TRAM") return "#9C27B0";
-
-    // STM metro colors
-    if (mode === "SUBWAY" || mode === "RAIL" || mode === "METRO") {
-      const line = (route ?? "").trim();
-      if (line === "1") return "#009E60"; // GREEN LINE
-      if (line === "2") return "#FF6600"; // ORANGE LINE
-      if (line === "4") return "#FFD700"; // YELLOW LINE
-      if (line === "5") return "#0075BF"; // BLUE LINE
-      return "#007AFF"; // fallback: blue
-    }
-
-    return "#1668C7";
-  };
 
 
   const campusBuildings = useMemo(
@@ -1112,75 +1476,71 @@ export default function MapScreen() {
 
     let cancelled = false;
 
+    const handleShuttleRoute = () => {
+      setRouteCoordinates([]);
+      setRouteDurationMinutes(30);
+      setRouteDistanceMeters(null);
+      setRouteInstructions([{ text: "Shuttle Journey", distanceMeters: 0 }]);
+      setTransitItineraries([]);
+      setRouteLoading(false);
+      if (!routeInstructionsDismissedRef.current) {
+        setShowRouteInstructions(true);
+      }
+    };
+
+    const handleTransitRoute = async () => {
+      const itineraries = await fetchTransitItineraries(
+        actualOriginPoint,
+        destinationBuilding,
+        new Date().toISOString(),
+      );
+      if (cancelled) return;
+      setTransitItineraries(itineraries);
+      setSelectedItineraryIndex(0);
+      setExpandedItineraries([]);
+      setRouteStarted(false);
+
+      const firstRoute = itineraries[0];
+      setRouteCoordinates([]);
+      setRouteDurationMinutes(Math.round(firstRoute.durationSeconds / 60));
+      setRouteDistanceMeters(firstRoute.distanceMeters);
+      setRouteInstructions(firstRoute.instructions);
+      if (firstRoute.instructions.length > 0 && !routeInstructionsDismissedRef.current) {
+        setShowRouteInstructions(true);
+      }
+    };
+
+    const handleOsrmRoute = async () => {
+      const actualMode = (routeMode === "walking" && !isSameCampus ? "cycling" : routeMode) as RouteProfile;
+      const route = await fetchOsrmRoute(
+        actualOriginPoint,
+        destinationBuilding,
+        actualMode,
+      );
+      if (cancelled) return;
+      setRouteCoordinates(route.coordinates);
+      setRouteDurationMinutes(Math.round(route.durationSeconds / 60));
+      setRouteDistanceMeters(route.distanceMeters);
+      setRouteInstructions(route.instructions);
+      if (route.instructions.length > 0 && !routeInstructionsDismissedRef.current) {
+        setShowRouteInstructions(true);
+      }
+    };
+
     const loadRoute = async () => {
       try {
         setRouteLoading(true);
         setRouteError(null);
 
         if (routeMode === "shuttle") {
-          setRouteCoordinates([]);
-          setRouteDurationMinutes(30);
-          setRouteDistanceMeters(null);
-          setRouteInstructions([{ text: "Shuttle Journey", distanceMeters: 0 }]); // Dummy instruction to help trigger popup checks
-          setTransitItineraries([]);
-          setRouteLoading(false);
-          if (!routeInstructionsDismissedRef.current) {
-            setShowRouteInstructions(true);
-          }
+          handleShuttleRoute();
           return;
         }
 
         if (routeMode === "transit") {
-          const itineraries = await fetchTransitItineraries(
-            actualOriginPoint,
-            destinationBuilding,
-            new Date().toISOString(),
-          );
-          if (cancelled) return;
-          setTransitItineraries(itineraries);
-          setSelectedItineraryIndex(0);
-          setExpandedItineraries([]);
-          setRouteStarted(false);
-
-          // Set route from first itinerary
-          const firstRoute = itineraries[0];
-          setRouteCoordinates([]);
-          setRouteDurationMinutes(Math.round(firstRoute.durationSeconds / 60));
-          setRouteDistanceMeters(firstRoute.distanceMeters);
-          setRouteInstructions(firstRoute.instructions);
-          if (
-            firstRoute.instructions.length > 0 &&
-            !routeInstructionsDismissedRef.current
-          ) {
-            setShowRouteInstructions(true);
-          }
+          await handleTransitRoute();
         } else {
-          if ((routeMode as string) === "shuttle") {
-            setRouteCoordinates([]);
-            setRouteInstructions([]);
-            setRouteDurationMinutes(30);
-            return;
-          }
-
-          // Use cycling mode for intercampus "walking", otherwise use the selected mode
-          const actualMode = (routeMode === "walking" && !isSameCampus ? "cycling" : routeMode) as RouteProfile;
-
-          const route = await fetchOsrmRoute(
-            actualOriginPoint,
-            destinationBuilding,
-            actualMode,
-          );
-          if (cancelled) return;
-          setRouteCoordinates(route.coordinates);
-          setRouteDurationMinutes(Math.round(route.durationSeconds / 60));
-          setRouteDistanceMeters(route.distanceMeters);
-          setRouteInstructions(route.instructions);
-          if (
-            route.instructions.length > 0 &&
-            !routeInstructionsDismissedRef.current
-          ) {
-            setShowRouteInstructions(true);
-          }
+          await handleOsrmRoute();
         }
       } catch {
         if (cancelled) return;
@@ -1894,182 +2254,7 @@ export default function MapScreen() {
         </View>
       )}
 
-      <View style={styles.directionsPanel} testID="directions-panel">
-        <View style={styles.directionFieldRow}>
-          {/* FROM FIELD */}
-          <Pressable
-            testID="direction-from-button"
-            onPress={() => {
-              setEditingField("from");
-              searchInputRef.current?.focus?.();
-            }}
-            style={[
-              styles.directionFieldButton,
-              editingField === "from" && styles.directionFieldButtonActive,
-            ]}
-          >
-            <Text style={styles.directionFieldLabel}>From</Text>
-            <Text
-              style={styles.directionFieldValue}
-              numberOfLines={1}
-              testID={originBuilding ? `direction-from-value-${originBuilding.code}` : "direction-from-value-empty"}
-            >
-              {originBuilding
-                ? `${originBuilding.code} - ${originBuilding.shortName}`
-                : "Current location"}
-            </Text>
-          </Pressable>
-
-          {/* TO FIELD */}
-          <Pressable
-            testID="direction-to-button"
-            onPress={() => {
-              setEditingField("to");
-              setSearchText("");
-              searchInputRef.current?.focus?.();
-            }}
-            style={[
-              styles.directionFieldButton,
-              editingField === "to" && styles.directionFieldButtonActive,
-            ]}
-          >
-            <Text style={styles.directionFieldLabel}>To</Text>
-            <Text
-              style={styles.directionFieldValue}
-              numberOfLines={1}
-              testID={destinationBuilding ? `direction-to-value-${destinationBuilding.code}` : "direction-to-value-empty"}
-            >
-              {destinationBuilding
-                ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
-                : "Where to?"}
-            </Text>
-          </Pressable>
-
-          {/* GO / CANCEL BUTTON */}
-          <Pressable
-            testID="direction-go-button"
-            onPress={clearDirections}
-            style={styles.clearRouteButton}
-          >
-            <Text style={styles.clearRouteText}>{isDirectionsMode ? "Cancel" : "Go"}</Text>
-          </Pressable>
-        </View>
-
-        {/* TRANSPORT MODE BUTTONS — different campus only */}
-        {isDirectionsMode && !isSameCampus && (
-          <View style={styles.modeSelectorGrid}>
-            <View style={styles.modeSelectorRow}>
-              <View style={styles.modePillGroup}>
-                <Pressable
-                  testID="route-mode-walking"
-                  style={[styles.modePill, routeMode === "walking" && styles.modePillActive]}
-                  onPress={() => setRouteMode("walking")}
-                >
-                  <Text
-                    style={[
-                      styles.modePillText,
-                      routeMode === "walking" && styles.modePillTextActive,
-                    ]}
-                  >
-                    Bike - {" "}
-                    {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  testID="route-mode-driving"
-                  style={[styles.modePill, routeMode === "driving" && styles.modePillActive]}
-                  onPress={() => setRouteMode("driving")}
-                >
-                  <Text
-                    style={[
-                      styles.modePillText,
-                      routeMode === "driving" && styles.modePillTextActive,
-                    ]}
-                  >
-                    Car -{" "}
-                    {modeDurations.driving !== null ? formatDuration(modeDurations.driving) : "—"}
-                  </Text>
-                </Pressable>
-              </View>
-              <Pressable
-                testID="direction-start-button"
-                style={styles.modeActionButton}
-                onPress={() => {
-                  setRouteStarted(true);
-                  routeInstructionsDismissedRef.current = false;
-                  setShowRouteInstructions(true);
-                }}
-              >
-                <Text style={styles.modeActionButtonText}>Start</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.modeSelectorRow}>
-              <View style={styles.modePillGroup}>
-                <Pressable
-                  testID="route-mode-transit"
-                  style={[styles.modePill, routeMode === "transit" && styles.modePillActive]}
-                  onPress={() => setRouteMode("transit")}
-                >
-                  <Text
-                    style={[
-                      styles.modePillText,
-                      routeMode === "transit" && styles.modePillTextActive,
-                    ]}
-                  >
-                    Public Transit -{" "}
-                    {modeDurations.transit !== null ? formatDuration(modeDurations.transit) : "—"}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  testID="route-mode-shuttle"
-                  style={[styles.modePill, routeMode === "shuttle" && styles.modePillActive]}
-                  onPress={() => setRouteMode("shuttle")}
-                >
-                  <Text
-                    style={[
-                      styles.modePillText,
-                      routeMode === "shuttle" && styles.modePillTextActive,
-                    ]}
-                  >
-                    Shuttle
-                  </Text>
-                </Pressable>
-              </View>
-              <Pressable
-                testID="direction-exit-button"
-                style={styles.modeActionButton}
-                onPress={clearDirections}
-              >
-                <Text style={styles.modeActionButtonText}>Exit</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-
-        {/* WALK ONLY — same campus */}
-        {isDirectionsMode && isSameCampus && (
-          <View style={styles.modeSelectorGrid}>
-            <View style={styles.modeSelectorRow}>
-              <Pressable testID="route-mode-walking" style={[styles.modePill, styles.modePillActive]}>
-                <Text style={[styles.modePillText, styles.modePillTextActive]}>
-                  Walk {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
-                </Text>
-              </Pressable>
-              <Text style={styles.sameCampusHint}>Same campus</Text>
-              <Pressable
-                testID="direction-exit-button"
-                style={styles.modeActionButton}
-                onPress={clearDirections}
-              >
-                <Text style={styles.modeActionButtonText}>Exit</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-
-        {/* REMOVED INLINE SHUTTLE DIRECTIONS */}
-      </View>
+      <DirectionsPanel setSearchText={setSearchText} setEditingField={setEditingField} searchInputRef={searchInputRef} editingField={editingField} originBuilding={originBuilding} destinationBuilding={destinationBuilding} clearDirections={clearDirections} isDirectionsMode={isDirectionsMode} isSameCampus={isSameCampus} routeMode={routeMode} setRouteMode={setRouteMode} modeDurations={modeDurations} setRouteStarted={setRouteStarted} routeInstructionsDismissedRef={routeInstructionsDismissedRef} setShowRouteInstructions={setShowRouteInstructions} styles={styles} formatDuration={formatDuration} />
 
       {currentBuilding &&
         (() => {
@@ -2133,180 +2318,7 @@ export default function MapScreen() {
       )}
 
       {isDirectionsMode && showRouteInstructions && (routeInstructions.length > 0 || routeMode === "shuttle") && (
-        <View style={styles.routeStepsPopup} testID="route-steps-popup">
-          <Pressable
-            {...routeSheetPanResponder.panHandlers}
-            style={styles.routeStepsHandle}
-            onPress={() => {
-              routeInstructionsDismissedRef.current = true;
-              setShowRouteInstructions(false);
-            }}
-          >
-            <ChevronDown size={24} color="#1F1F24" strokeWidth={2.5} />
-          </Pressable>
-          <Pressable
-            testID="route-steps-close-button"
-            style={styles.routeStepsCloseButton}
-            onPress={() => {
-              routeInstructionsDismissedRef.current = true;
-              setShowRouteInstructions(false);
-            }}
-          >
-            <X size={26} color="#1F1F24" strokeWidth={2.5} />
-          </Pressable>
-
-          <ScrollView
-            style={styles.routeStepsList}
-            contentContainerStyle={styles.routeStepsListContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {routeMode === "shuttle" ? (
-              <ShuttleDirections
-                origin={actualOriginPoint}
-                destination={destinationBuilding}
-              />
-            ) : routeMode === "transit" && transitItineraries.length > 0 ? (
-              routeStarted ? (
-                <>
-                  <Text
-                    style={{
-                      fontSize: 17,
-                      fontWeight: "700",
-                      marginBottom: 20,
-                      color: "#1C1C1E",
-                    }}
-                  >
-                    Journey Details
-                  </Text>
-
-                  {transitItineraries[selectedItineraryIndex] && (
-                    <TransitLegTimeline
-                      itinerary={transitItineraries[selectedItineraryIndex]}
-                      styles={styles}
-                      formatTime={formatTime}
-                      alwaysShowIntermediateStops
-                      stopKeyPrefix={`journey-${selectedItineraryIndex}`}
-                    />
-                  )}
-                </>
-              ) : (
-                <>
-                  {transitItineraries.map((itinerary, index) => {
-                    const isExpanded = expandedItineraries.includes(index);
-                    const isSelected = index === selectedItineraryIndex;
-
-                    return (
-                      <View key={index} style={{ marginBottom: 12 }}>
-                        <Pressable
-                          style={[styles.itineraryCard, isSelected && styles.itineraryCardActive]}
-                          onPress={() => {
-                            setSelectedItineraryIndex(index);
-                            setRouteDurationMinutes(Math.round(itinerary.durationSeconds / 60));
-                            setRouteDistanceMeters(itinerary.distanceMeters);
-                            setRouteInstructions(itinerary.instructions);
-                          }}
-                        >
-                          <View
-                            style={{
-                              flexDirection: "row",
-                              justifyContent: "space-between",
-                              alignItems: "flex-start",
-                            }}
-                          >
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.itineraryTime}>
-                                {formatTime(itinerary.departureTime)} → {formatTime(itinerary.arrivalTime)}
-                              </Text>
-                              <Text style={styles.itineraryDuration}>
-                                {Math.round(itinerary.durationSeconds / 60)} min
-                              </Text>
-                              <Text style={styles.itineraryTransfers}>
-                                {itinerary.transfers === 0
-                                  ? "Direct"
-                                  : `${itinerary.transfers} transfer${itinerary.transfers > 1 ? "s" : ""}`}
-                              </Text>
-                              <View style={styles.itineraryLegsRow}>
-                                {itinerary.legs.map((leg, legIndex) => {
-                                  const getLegColor = () => {
-                                    if (leg.mode === "WALK") return styles.legPillWalk;
-                                    if (leg.mode === "BUS") return styles.legPillBus;
-                                    if (leg.mode === "SUBWAY") return styles.legPillSubway;
-                                    if (leg.mode === "TRAM") return styles.legPillTram;
-                                    return styles.legPillBus;
-                                  };
-
-                                  return (
-                                    <Text key={legIndex} style={[styles.legPill, getLegColor()]}>
-                                      {leg.mode === "WALK" ? "Walk" : leg.route || leg.mode}
-                                    </Text>
-                                  );
-                                })}
-                              </View>
-                            </View>
-
-                            <Pressable
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                setExpandedItineraries((prev) =>
-                                  prev.includes(index)
-                                    ? prev.filter((i) => i !== index)
-                                    : [...prev, index],
-                                );
-                              }}
-                              style={{ padding: 8, marginLeft: 8 }}
-                            >
-                              {isExpanded ? (
-                                <ChevronUp size={20} color="#007AFF" strokeWidth={2.5} />
-                              ) : (
-                                <ChevronDown size={20} color="#8E8E93" strokeWidth={2.5} />
-                              )}
-                            </Pressable>
-                          </View>
-                        </Pressable>
-
-                        {isExpanded && (
-                          <View
-                            style={{
-                              paddingHorizontal: 12,
-                              paddingTop: 16,
-                              paddingBottom: 12,
-                              backgroundColor: "#FAFAFA",
-                              borderRadius: 12,
-                              marginTop: 8,
-                            }}
-                          >
-                            <TransitLegTimeline
-                              itinerary={itinerary}
-                              styles={styles}
-                              formatTime={formatTime}
-                              canToggleIntermediateStops
-                              expandedStops={expandedIntermediateStops}
-                              onToggleStops={(stopKey) => {
-                                setExpandedIntermediateStops((prev) => {
-                                  const next = new Set(prev);
-                                  if (next.has(stopKey)) next.delete(stopKey);
-                                  else next.add(stopKey);
-                                  return next;
-                                });
-                              }}
-                              stopKeyPrefix={`itin-${index}`}
-                            />
-                          </View>
-                        )}
-                      </View>
-                    );
-                  })}
-                </>
-              )
-            ) : (
-              routeInstructions.map((instruction, index) => (
-                <Text key={`${index}-${instruction.text}`} style={styles.routeStepText}>
-                  {`${index + 1}. ${instruction.text}`}
-                </Text>
-              ))
-            )}
-          </ScrollView>
-        </View>
+        <RouteStepsPopup styles={styles} formatTime={formatTime} routeSheetPanResponder={routeSheetPanResponder} routeInstructionsDismissedRef={routeInstructionsDismissedRef} setShowRouteInstructions={setShowRouteInstructions} routeMode={routeMode} actualOriginPoint={actualOriginPoint} destinationBuilding={destinationBuilding} transitItineraries={transitItineraries} routeStarted={routeStarted} selectedItineraryIndex={selectedItineraryIndex} expandedItineraries={expandedItineraries} setSelectedItineraryIndex={setSelectedItineraryIndex} setRouteDurationMinutes={setRouteDurationMinutes} setRouteDistanceMeters={setRouteDistanceMeters} setRouteInstructions={setRouteInstructions} setExpandedItineraries={setExpandedItineraries} expandedIntermediateStops={expandedIntermediateStops} setExpandedIntermediateStops={setExpandedIntermediateStops} routeInstructions={routeInstructions} />
       )}
 
       {isDirectionsMode && !showRouteInstructions && (routeInstructions.length > 0 || routeMode === "shuttle") && (
