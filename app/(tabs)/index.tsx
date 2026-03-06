@@ -61,6 +61,20 @@ const formatDistance = (meters: number) => {
 };
 const DEFAULT_START_BUILDING_CODE = "H";
 const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
+type PinVisibilityMode = "all" | "campus-summary";
+
+const getPinVisibilityMode = (
+  zoomOutFactor: number,
+): PinVisibilityMode => {
+  if (zoomOutFactor > 1.08) return "campus-summary";
+  return "all";
+};
+
+const shouldShowBuildingPin = (
+  visibilityMode: PinVisibilityMode,
+): boolean => {
+  return visibilityMode === "all";
+};
 
 const resolveBuildingByCode = (
   code: string | null | undefined,
@@ -136,6 +150,9 @@ export default function MapScreen() {
     Set<string>
   >(new Set());
   const [routeStarted, setRouteStarted] = useState(false);
+  const [mapViewportRegion, setMapViewportRegion] = useState(() =>
+    getCampusRegion("SGW", SGW_POLYGONS.features),
+  );
 
   const routeInstructionsDismissedRef = useRef(false);
   const webIframeRef = useRef<any>(null);
@@ -230,6 +247,32 @@ export default function MapScreen() {
       borderLeftColor: "transparent",
       borderRightColor: "transparent",
       borderTopColor: "#A32638",
+    },
+    campusMarkerContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    campusMarkerBadge: {
+      minWidth: 48,
+      height: 48,
+      paddingHorizontal: 12,
+      backgroundColor: "#A32638",
+      borderWidth: 2,
+      borderColor: "white",
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.22,
+      shadowRadius: 5,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 4,
+      borderRadius: 24,
+    },
+    campusMarkerText: {
+      color: "white",
+      fontSize: 13,
+      fontWeight: "800",
+      letterSpacing: 0.4,
     },
     webFallback: {
       flex: 1,
@@ -919,6 +962,11 @@ export default function MapScreen() {
     [],
   );
 
+  const defaultLoyRegion = useMemo(
+    () => getCampusRegion("LOY", LOY_POLYGONS.features),
+    [],
+  );
+
   const actualOriginPoint = useMemo(() => {
     // If user selected a building as origin, use that building's coordinates
     if (originBuildingCode) {
@@ -1235,6 +1283,38 @@ export default function MapScreen() {
     [campus, campusPolygons],
   );
 
+  const pinVisibilityMode = useMemo(() => {
+    const zoomOutFactor = Math.max(
+      mapViewportRegion.latitudeDelta / region.latitudeDelta,
+      mapViewportRegion.longitudeDelta / region.longitudeDelta,
+    );
+    return getPinVisibilityMode(zoomOutFactor);
+  }, [mapViewportRegion, region]);
+
+  const visibleBuildingsWithPolygons = useMemo(
+    () =>
+      buildingsWithPolygons.filter(() => shouldShowBuildingPin(pinVisibilityMode)),
+    [buildingsWithPolygons, pinVisibilityMode],
+  );
+
+  const showCampusSummaryMarkers = pinVisibilityMode === "campus-summary";
+
+  const campusMarkerData = useMemo(
+    () => [
+      {
+        campus: "SGW" as Campus,
+        latitude: defaultSgwRegion.latitude,
+        longitude: defaultSgwRegion.longitude,
+      },
+      {
+        campus: "LOY" as Campus,
+        latitude: defaultLoyRegion.latitude,
+        longitude: defaultLoyRegion.longitude,
+      },
+    ],
+    [defaultLoyRegion, defaultSgwRegion],
+  );
+
   const campusBounds = useMemo(() => {
     const minLat = region.latitude - region.latitudeDelta / 2;
     const maxLat = region.latitude + region.latitudeDelta / 2;
@@ -1287,6 +1367,8 @@ export default function MapScreen() {
   useEffect(() => {
     if (isDirectionsMode) return;
 
+    setMapViewportRegion(region);
+
     if (!isWebPlatform) {
       mapRef.current?.animateToRegion?.(region, 450);
     }
@@ -1296,6 +1378,7 @@ export default function MapScreen() {
         {
           type: "focusBounds",
           bounds: campusBounds,
+          campus,
           padding: [20, 20],
         },
         "*",
@@ -1307,14 +1390,14 @@ export default function MapScreen() {
       const script = `
         (function() {
           if (window.setMapBounds) {
-            window.setMapBounds(${JSON.stringify(campusBounds)}, [20, 20]);
+            window.setMapBounds(${JSON.stringify(campusBounds)}, [20, 20], ${JSON.stringify(campus)});
           }
         })();
         true;
       `;
       webViewRef.current.injectJavaScript(script);
     }
-  }, [campusBounds, isDirectionsMode, isWebPlatform, region, webMapReady]);
+  }, [campus, campusBounds, isDirectionsMode, isWebPlatform, region, webMapReady]);
 
   useEffect(() => {
     if (Platform.OS === "web" || !webViewRef.current || !webMapReady) return;
@@ -1392,11 +1475,19 @@ export default function MapScreen() {
   const mapHTML = useMemo(() => {
     const { latitude, longitude, latitudeDelta, longitudeDelta } = defaultSgwRegion;
     const buildingData = buildingsWithPolygons.map(
-      ({ latitude: lat, longitude: lng, code, shortName }) => ({
+      ({ latitude: lat, longitude: lng, code, shortName, campus: buildingCampus }) => ({
         latitude: lat,
         longitude: lng,
         code,
         shortName,
+        campus: buildingCampus,
+      }),
+    );
+    const campusSummaryData = campusMarkerData.map(
+      ({ campus: summaryCampus, latitude: lat, longitude: lng }) => ({
+        campus: summaryCampus,
+        latitude: lat,
+        longitude: lng,
       }),
     );
 
@@ -1440,6 +1531,23 @@ export default function MapScreen() {
                   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
               }
               .user-marker { background: transparent; border: none; }
+              .campus-marker { background: transparent; border: none; }
+              .campus-badge {
+                  min-width: 48px;
+                  height: 48px;
+                  padding: 0 12px;
+                  background: #A32638;
+                  color: #ffffff;
+                  border: 2px solid #ffffff;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+                  font-size: 13px;
+                  font-weight: 800;
+                  letter-spacing: 0.4px;
+                  border-radius: 24px;
+              }
           </style>
       </head>
       <body>
@@ -1450,6 +1558,7 @@ export default function MapScreen() {
               window.map = map;
 
               const buildings = ${JSON.stringify(buildingData)};
+              const campusMarkers = ${JSON.stringify(campusSummaryData)};
               const polygonData = ${JSON.stringify(allPolygons)};
               const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               const routeMode = ${JSON.stringify(routeMode)};
@@ -1461,6 +1570,7 @@ export default function MapScreen() {
               const transitSegments = ${JSON.stringify(webTransitSegments)};
 
               let selectedPolygon = null;
+              let markerRecords = [];
               window.polygonMap = {};
               window.currentBuildingPolygon = null;
               window.currentBuildingCode = null;
@@ -1469,6 +1579,8 @@ export default function MapScreen() {
               window.userMarker = null;
               window.followUser = false;
               window.hasCenteredOnUser = false;
+              window.selectedCampus = "SGW";
+              window.defaultCampusZoom = null;
 
               L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                   attribution: '© OpenStreetMap contributors',
@@ -1488,9 +1600,40 @@ export default function MapScreen() {
               };
 
               const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
-              window.setMapBounds = (nextBounds, padding = [20, 20]) => {
+              const getPinVisibilityMode = () => {
+                  const defaultCampusZoom =
+                    typeof window.defaultCampusZoom === 'number'
+                      ? window.defaultCampusZoom
+                      : map.getZoom();
+                  const zoomOutDelta = defaultCampusZoom - map.getZoom();
+                  if (zoomOutDelta > 0.45) return 'campus-summary';
+                  return 'all';
+              };
+              const shouldShowMarker = (record, visibilityMode) => {
+                  if (record.type === 'campus') return visibilityMode === 'campus-summary';
+                  return visibilityMode === 'all';
+              };
+              const updateMarkerVisibility = () => {
+                  const visibilityMode = getPinVisibilityMode();
+                  markerRecords.forEach((record) => {
+                      const shouldShow = shouldShowMarker(record, visibilityMode);
+                      const marker = record.marker;
+                      const isVisible = map.hasLayer(marker);
+                      if (shouldShow && !isVisible) marker.addTo(map);
+                      if (!shouldShow && isVisible) map.removeLayer(marker);
+                  });
+              };
+              window.updateMarkerVisibility = updateMarkerVisibility;
+              window.setMapBounds = (nextBounds, padding = [20, 20], nextCampus = window.selectedCampus) => {
                   if (!Array.isArray(nextBounds) || nextBounds.length !== 2) return;
+                  if (nextCampus) window.selectedCampus = nextCampus;
+                  window.defaultCampusZoom = map.getBoundsZoom(
+                    nextBounds,
+                    false,
+                    L.point(padding[0], padding[1])
+                  );
                   map.fitBounds(nextBounds, { padding });
+                  updateMarkerVisibility();
               };
 
              const segmentColor = (mode, route) => {
@@ -1576,13 +1719,13 @@ export default function MapScreen() {
               }
 
               if (!hasAnyRoute) {
-                  window.setMapBounds(bounds, [20, 20]);
+                  window.setMapBounds(bounds, [20, 20], window.selectedCampus);
               }
 
               window.addEventListener('message', function(event) {
                   const data = event.data;
                   if (data?.type === 'focusBounds') {
-                      window.setMapBounds(data.bounds, data.padding);
+                      window.setMapBounds(data.bounds, data.padding, data.campus);
                   }
               });
 
@@ -1590,6 +1733,8 @@ export default function MapScreen() {
               map.on('dragstart', disableFollow);
               map.on('zoomstart', disableFollow);
               map.on('movestart', disableFollow);
+              map.on('zoomend', updateMarkerVisibility);
+              map.on('moveend', updateMarkerVisibility);
 
               polygonData.features.forEach((feature) => {
                   const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
@@ -1642,9 +1787,18 @@ export default function MapScreen() {
                   iconAnchor: [20, 44],
                   popupAnchor: [0, -40]
               });
+              const createCampusIcon = (campusCode) => {
+                  return L.divIcon({
+                      className: 'campus-marker',
+                      html: '<div class="campus-badge">' + campusCode + '</div>',
+                      iconSize: [52, 52],
+                      iconAnchor: [26, 26],
+                      popupAnchor: [0, -20]
+                  });
+              };
 
               buildings.forEach((building) => {
-                  const marker = L.marker([building.latitude, building.longitude], { icon: createBuildingIcon(building.code) }).addTo(map);
+                  const marker = L.marker([building.latitude, building.longitude], { icon: createBuildingIcon(building.code) });
 
                   marker.on('click', function(e) {
                       let polygon = window.polygonMap[building.code];
@@ -1677,7 +1831,20 @@ export default function MapScreen() {
 
                       L.DomEvent.stopPropagation(e);
                   });
+
+                  markerRecords.push({ type: 'building', building, marker });
               });
+
+              campusMarkers.forEach((campusMarker) => {
+                  const marker = L.marker(
+                    [campusMarker.latitude, campusMarker.longitude],
+                    { icon: createCampusIcon(campusMarker.campus) }
+                  );
+
+                  markerRecords.push({ type: 'campus', campus: campusMarker.campus, marker });
+              });
+
+              updateMarkerVisibility();
 
               ${userLat && userLng
         ? `
@@ -1699,6 +1866,7 @@ export default function MapScreen() {
   }, [
     allPolygons,
     buildingsWithPolygons,
+    campusMarkerData,
     currentBuildingForHTML,
     routeCoordinates,
     routeMode,
@@ -1732,6 +1900,7 @@ export default function MapScreen() {
               {
                 type: "focusBounds",
                 bounds: campusBounds,
+                campus,
                 padding: [20, 20],
               },
               "*",
@@ -1795,6 +1964,7 @@ export default function MapScreen() {
         testID="map-native"
         style={styles.map}
         initialRegion={region}
+        onRegionChangeComplete={setMapViewportRegion}
         showsUserLocation
         showsMyLocationButton
         onPress={() => setSelectedBuilding(null)}
@@ -1879,7 +2049,7 @@ export default function MapScreen() {
           );
         })}
 
-        {buildingsWithPolygons.map((building) => {
+        {visibleBuildingsWithPolygons.map((building) => {
           const hasExactPolygon = allPolygons.features.some(
             (f: any) => f.properties.code === building.code,
           );
@@ -1924,6 +2094,29 @@ export default function MapScreen() {
             </MapMarkerComponent>
           );
         })}
+
+        {showCampusSummaryMarkers &&
+          campusMarkerData.map((campusMarker) => (
+            <MapMarkerComponent
+              key={`campus-marker-${campusMarker.campus}`}
+              testID={`campus-marker-${campusMarker.campus}`}
+              identifier={`campus-marker-${campusMarker.campus}`}
+              accessible={false}
+              accessibilityLabel={`campus-marker-${campusMarker.campus}`}
+              coordinate={{
+                latitude: campusMarker.latitude,
+                longitude: campusMarker.longitude,
+              }}
+            >
+              <View style={styles.campusMarkerContainer}>
+                <View style={styles.campusMarkerBadge}>
+                  <Text style={styles.campusMarkerText}>
+                    {campusMarker.campus}
+                  </Text>
+                </View>
+              </View>
+            </MapMarkerComponent>
+          ))}
       </MapViewComponent>
     ) : (
       <View style={styles.webFallback}>
