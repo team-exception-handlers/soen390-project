@@ -66,49 +66,49 @@ jest.mock("react", () => {
 
 const ShuttleDirections = require("../../components/ShuttleDirections").default;
 
+function expand(node) {
+    if (node == null || typeof node === "boolean") return null;
+    if (typeof node === "string" || typeof node === "number") return node;
+    if (Array.isArray(node)) return node.map(expand).filter(x => x !== null);
+
+    if (typeof node === "object" && node.$$typeof) {
+        const { type, props } = node;
+        if (typeof type === "function") return expand(type(props || {}));
+        if (typeof type === "string") {
+            const newProps = { ...(props) };
+            if (newProps.children !== undefined) newProps.children = expand(newProps.children);
+            return { type, props: newProps };
+        }
+    }
+    return null;
+}
+
+function textFrom(node) {
+    if (node == null) return "";
+    if (typeof node === "string" || typeof node === "number") return String(node);
+    if (Array.isArray(node)) return node.map(textFrom).join("");
+    if (typeof node === "object" && node.props?.children != null) return textFrom(node.props.children);
+    return "";
+}
+
+function findByText(node, regex) {
+    if (!node) return null;
+    if (Array.isArray(node)) {
+        for (const child of node) {
+            const res = findByText(child, regex);
+            if (res) return res;
+        }
+        return null;
+    }
+    if (typeof node === "object") {
+        const t = textFrom(node);
+        if (regex.test(t)) return node;
+        if (node?.props?.children) return findByText(node.props.children, regex);
+    }
+    return null;
+}
+
 describe("components/ShuttleDirections", () => {
-
-    function expand(node) {
-        if (node == null || typeof node === "boolean") return null;
-        if (typeof node === "string" || typeof node === "number") return node;
-        if (Array.isArray(node)) return node.map(expand).filter(x => x !== null);
-
-        if (typeof node === "object" && node.$$typeof) {
-            const { type, props } = node;
-            if (typeof type === "function") return expand(type(props || {}));
-            if (typeof type === "string") {
-                const newProps = { ...(props || {}) };
-                if (newProps.children !== undefined) newProps.children = expand(newProps.children);
-                return { type, props: newProps };
-            }
-        }
-        return null;
-    }
-
-    function textFrom(node) {
-        if (node == null) return "";
-        if (typeof node === "string" || typeof node === "number") return String(node);
-        if (Array.isArray(node)) return node.map(textFrom).join("");
-        if (typeof node === "object" && node.props?.children != null) return textFrom(node.props.children);
-        return "";
-    }
-
-    function findByText(node, regex) {
-        if (!node) return null;
-        if (Array.isArray(node)) {
-            for (const child of node) {
-                const res = findByText(child, regex);
-                if (res) return res;
-            }
-            return null;
-        }
-        if (typeof node === "object") {
-            const t = textFrom(node);
-            if (regex.test(t)) return node;
-            if (node.props && node.props.children) return findByText(node.props.children, regex);
-        }
-        return null;
-    }
 
     beforeEach(() => {
         jest.clearAllMocks();
