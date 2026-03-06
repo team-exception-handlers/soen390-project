@@ -95,14 +95,10 @@ export default function MapScreen() {
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
-  const [, setRouteDurationMinutes] = useState<number | null>(
-    null,
-  );
-  const [, setRouteDistanceMeters] = useState<number | null>(
-    null,
-  );
-  const [, setRouteLoading] = useState(false);
-  const [, setRouteError] = useState<string | null>(null);
+  const routeDurationMinutesRef = useRef<number | null>(null);
+  const routeDistanceMetersRef = useRef<number | null>(null);
+  const routeLoadingRef = useRef(false);
+  const routeErrorRef = useRef<string | null>(null);
   const [routeInstructions, setRouteInstructions] = useState<RouteInstruction[]>(
     [],
   );
@@ -985,9 +981,9 @@ export default function MapScreen() {
 
   const resetRouteState = () => {
     setRouteCoordinates([]);
-    setRouteDurationMinutes(null);
-    setRouteDistanceMeters(null);
-    setRouteError(null);
+    routeDurationMinutesRef.current = null;
+    routeDistanceMetersRef.current = null;
+    routeErrorRef.current = null;
     setRouteInstructions([]);
     setShowRouteInstructions(false);
     setTransitItineraries([]);
@@ -1000,7 +996,7 @@ export default function MapScreen() {
 
   const exitDirectionsMode = () => {
     setIsDirectionsMode(false);
-    setRouteLoading(false);
+    routeLoadingRef.current = false;
     resetRouteState();
     setRouteCoordinates([]);
     setRouteInstructions([]);
@@ -1097,16 +1093,16 @@ export default function MapScreen() {
 
     const loadRoute = async () => {
       try {
-        setRouteLoading(true);
-        setRouteError(null);
+        routeLoadingRef.current = true;
+        routeErrorRef.current = null;
 
         if (routeMode === "shuttle") {
           setRouteCoordinates([]);
-          setRouteDurationMinutes(30);
-          setRouteDistanceMeters(null);
+          routeDurationMinutesRef.current = 30;
+          routeDistanceMetersRef.current = null;
           setRouteInstructions([{ text: "Shuttle Journey", distanceMeters: 0 }]); // Dummy instruction to help trigger popup checks
           setTransitItineraries([]);
-          setRouteLoading(false);
+          routeLoadingRef.current = false;
           if (!routeInstructionsDismissedRef.current) {
             setShowRouteInstructions(true);
           }
@@ -1128,8 +1124,8 @@ export default function MapScreen() {
           // Set route from first itinerary
           const firstRoute = itineraries[0];
           setRouteCoordinates([]);
-          setRouteDurationMinutes(Math.round(firstRoute.durationSeconds / 60));
-          setRouteDistanceMeters(firstRoute.distanceMeters);
+          routeDurationMinutesRef.current = Math.round(firstRoute.durationSeconds / 60);
+          routeDistanceMetersRef.current = firstRoute.distanceMeters;
           setRouteInstructions(firstRoute.instructions);
           if (
             firstRoute.instructions.length > 0 &&
@@ -1141,7 +1137,7 @@ export default function MapScreen() {
           if ((routeMode as string) === "shuttle") {
             setRouteCoordinates([]);
             setRouteInstructions([]);
-            setRouteDurationMinutes(30);
+            routeDurationMinutesRef.current = 30;
             return;
           }
 
@@ -1155,8 +1151,8 @@ export default function MapScreen() {
           );
           if (cancelled) return;
           setRouteCoordinates(route.coordinates);
-          setRouteDurationMinutes(Math.round(route.durationSeconds / 60));
-          setRouteDistanceMeters(route.distanceMeters);
+          routeDurationMinutesRef.current = Math.round(route.durationSeconds / 60);
+          routeDistanceMetersRef.current = route.distanceMeters;
           setRouteInstructions(route.instructions);
           if (
             route.instructions.length > 0 &&
@@ -1176,9 +1172,9 @@ export default function MapScreen() {
         setExpandedIntermediateStops(new Set());
         setRouteStarted(false);
         routeInstructionsDismissedRef.current = false;
-        setRouteError("Could not load route for this selection.");
+        routeErrorRef.current = "Could not load route for this selection.";
       } finally {
-        if (!cancelled) setRouteLoading(false);
+        if (!cancelled) routeLoadingRef.current = false;
       }
     };
 
@@ -2181,8 +2177,8 @@ export default function MapScreen() {
                           style={[styles.itineraryCard, isSelected && styles.itineraryCardActive]}
                           onPress={() => {
                             setSelectedItineraryIndex(index);
-                            setRouteDurationMinutes(Math.round(itinerary.durationSeconds / 60));
-                            setRouteDistanceMeters(itinerary.distanceMeters);
+                            routeDurationMinutesRef.current = Math.round(itinerary.durationSeconds / 60);
+                            routeDistanceMetersRef.current = itinerary.distanceMeters;
                             setRouteInstructions(itinerary.instructions);
                           }}
                         >
