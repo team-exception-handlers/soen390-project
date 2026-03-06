@@ -162,6 +162,121 @@ const getTransitColor = (mode: string, route?: string) => {
 };
 
 
+const getLegColor = (mode: string, styles: any) => {
+  if (mode === "WALK") return styles.legPillWalk;
+  if (mode === "BUS") return styles.legPillBus;
+  if (mode === "SUBWAY") return styles.legPillSubway;
+  if (mode === "TRAM") return styles.legPillTram;
+  return styles.legPillBus;
+};
+
+const TransitItineraryCard = ({
+  itinerary,
+  index,
+  isExpanded,
+  isSelected,
+  setSelectedItineraryIndex,
+  setRouteDurationMinutes,
+  setRouteDistanceMeters,
+  setRouteInstructions,
+  setExpandedItineraries,
+  formatTime,
+  styles,
+  expandedIntermediateStops,
+  setExpandedIntermediateStops,
+}: any) => {
+  return (
+    <View style={{ marginBottom: 12 }}>
+      <Pressable
+        style={[styles.itineraryCard, isSelected && styles.itineraryCardActive]}
+        onPress={() => {
+          setSelectedItineraryIndex(index);
+          setRouteDurationMinutes(Math.round(itinerary.durationSeconds / 60));
+          setRouteDistanceMeters(itinerary.distanceMeters);
+          setRouteInstructions(itinerary.instructions);
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={styles.itineraryTime}>
+              {formatTime(itinerary.departureTime)} → {formatTime(itinerary.arrivalTime)}
+            </Text>
+            <Text style={styles.itineraryDuration}>
+              {Math.round(itinerary.durationSeconds / 60)} min
+            </Text>
+            <Text style={styles.itineraryTransfers}>
+              {itinerary.transfers === 0
+                ? "Direct"
+                : `${itinerary.transfers} transfer${itinerary.transfers > 1 ? "s" : ""}`}
+            </Text>
+            <View style={styles.itineraryLegsRow}>
+              {itinerary.legs.map((leg: any, legIndex: any) => (
+                <Text key={legIndex} style={[styles.legPill, getLegColor(leg.mode, styles)]}>
+                  {leg.mode === "WALK" ? "Walk" : leg.route || leg.mode}
+                </Text>
+              ))}
+            </View>
+          </View>
+
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation();
+              setExpandedItineraries((prev: any) =>
+                prev.includes(index)
+                  ? prev.filter((i: any) => i !== index)
+                  : [...prev, index],
+              );
+            }}
+            style={{ padding: 8, marginLeft: 8 }}
+          >
+            {isExpanded ? (
+              <ChevronUp size={20} color="#007AFF" strokeWidth={2.5} />
+            ) : (
+              <ChevronDown size={20} color="#8E8E93" strokeWidth={2.5} />
+            )}
+          </Pressable>
+        </View>
+      </Pressable>
+
+      {isExpanded && (
+        <View
+          style={{
+            paddingHorizontal: 12,
+            paddingTop: 16,
+            paddingBottom: 12,
+            backgroundColor: "#FAFAFA",
+            borderRadius: 12,
+            marginTop: 8,
+          }}
+        >
+          <TransitLegTimeline
+            itinerary={itinerary}
+            styles={styles}
+            formatTime={formatTime}
+            canToggleIntermediateStops
+            expandedStops={expandedIntermediateStops}
+            onToggleStops={(stopKey: string) => {
+              setExpandedIntermediateStops((prev: any) => {
+                const next = new Set(prev);
+                if (next.has(stopKey)) next.delete(stopKey);
+                else next.add(stopKey);
+                return next;
+              });
+            }}
+            stopKeyPrefix={`itin-${index}`}
+          />
+        </View>
+      )}
+    </View>
+  );
+};
+
 const RouteStepsPopup = (props: any) => {
   const { styles, routeSheetPanResponder, formatTime, routeInstructionsDismissedRef, setShowRouteInstructions, routeMode, actualOriginPoint, destinationBuilding, transitItineraries, routeStarted, selectedItineraryIndex, expandedItineraries, setSelectedItineraryIndex, setRouteDurationMinutes, setRouteDistanceMeters, setRouteInstructions, setExpandedItineraries, expandedIntermediateStops, setExpandedIntermediateStops, routeInstructions } = props;
 
@@ -235,104 +350,22 @@ const RouteStepsPopup = (props: any) => {
                 const isSelected = index === selectedItineraryIndex;
 
                 return (
-                  <View key={index} style={{ marginBottom: 12 }}>
-                    <Pressable
-                      style={[styles.itineraryCard, isSelected && styles.itineraryCardActive]}
-                      onPress={() => {
-                        setSelectedItineraryIndex(index);
-                        setRouteDurationMinutes(Math.round(itinerary.durationSeconds / 60));
-                        setRouteDistanceMeters(itinerary.distanceMeters);
-                        setRouteInstructions(itinerary.instructions);
-                      }}
-                    >
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          justifyContent: "space-between",
-                          alignItems: "flex-start",
-                        }}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.itineraryTime}>
-                            {formatTime(itinerary.departureTime)} → {formatTime(itinerary.arrivalTime)}
-                          </Text>
-                          <Text style={styles.itineraryDuration}>
-                            {Math.round(itinerary.durationSeconds / 60)} min
-                          </Text>
-                          <Text style={styles.itineraryTransfers}>
-                            {itinerary.transfers === 0
-                              ? "Direct"
-                              : `${itinerary.transfers} transfer${itinerary.transfers > 1 ? "s" : ""}`}
-                          </Text>
-                          <View style={styles.itineraryLegsRow}>
-                            {itinerary.legs.map((leg: any, legIndex: any) => {
-                              const getLegColor = () => {
-                                if (leg.mode === "WALK") return styles.legPillWalk;
-                                if (leg.mode === "BUS") return styles.legPillBus;
-                                if (leg.mode === "SUBWAY") return styles.legPillSubway;
-                                if (leg.mode === "TRAM") return styles.legPillTram;
-                                return styles.legPillBus;
-                              };
-
-                              return (
-                                <Text key={legIndex} style={[styles.legPill, getLegColor()]}>
-                                  {leg.mode === "WALK" ? "Walk" : leg.route || leg.mode}
-                                </Text>
-                              );
-                            })}
-                          </View>
-                        </View>
-
-                        <Pressable
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            setExpandedItineraries((prev: any) =>
-                              prev.includes(index)
-                                ? prev.filter((i: any) => i !== index)
-                                : [...prev, index],
-                            );
-                          }}
-                          style={{ padding: 8, marginLeft: 8 }}
-                        >
-                          {isExpanded ? (
-                            <ChevronUp size={20} color="#007AFF" strokeWidth={2.5} />
-                          ) : (
-                            <ChevronDown size={20} color="#8E8E93" strokeWidth={2.5} />
-                          )}
-                        </Pressable>
-                      </View>
-                    </Pressable>
-
-                    {isExpanded && (
-                      <View
-                        style={{
-                          paddingHorizontal: 12,
-                          paddingTop: 16,
-                          paddingBottom: 12,
-                          backgroundColor: "#FAFAFA",
-                          borderRadius: 12,
-                          marginTop: 8,
-                        }}
-                      >
-                        <TransitLegTimeline
-                          itinerary={itinerary}
-                          styles={styles}
-                          formatTime={formatTime}
-                          canToggleIntermediateStops
-                          expandedStops={expandedIntermediateStops}
-                          onToggleStops={(stopKey) => {
-                            setExpandedIntermediateStops((prev: any) => {
-                              const next = new Set(prev);
-                              if (next.has(stopKey)) next.delete(stopKey);
-                              else next.add(stopKey);
-                              return next;
-                            });
-                          }}
-                          stopKeyPrefix={`itin-${index}`}
-                        />
-                      </View>
-                    )}
-                  </View>
+                  <TransitItineraryCard
+                    key={index}
+                    itinerary={itinerary}
+                    index={index}
+                    isExpanded={isExpanded}
+                    isSelected={isSelected}
+                    setSelectedItineraryIndex={setSelectedItineraryIndex}
+                    setRouteDurationMinutes={setRouteDurationMinutes}
+                    setRouteDistanceMeters={setRouteDistanceMeters}
+                    setRouteInstructions={setRouteInstructions}
+                    setExpandedItineraries={setExpandedItineraries}
+                    formatTime={formatTime}
+                    styles={styles}
+                    expandedIntermediateStops={expandedIntermediateStops}
+                    setExpandedIntermediateStops={setExpandedIntermediateStops}
+                  />
                 );
               })}
             </>
@@ -345,6 +378,53 @@ const RouteStepsPopup = (props: any) => {
           ))
         )}
       </ScrollView>
+    </View>
+  );
+};
+
+const RoomInputGroup = ({
+  building,
+  room,
+  setRoom,
+  styles,
+  getRoomDetails,
+  getFloorPlanAsset,
+  setActiveFloorPlan,
+  setFloorPlanModalVisible,
+}: any) => {
+  if (!building) return null;
+
+  const details = getRoomDetails(building.code, room);
+  const floorKey = details ? `${details.buildingCode}-${details.floor}` : null;
+  const hasPlan = !!floorKey && getFloorPlanAsset(floorKey) !== null;
+
+  return (
+    <View style={styles.roomInputContainer}>
+      <TextInput
+        style={styles.roomInput}
+        placeholder="Room #"
+        placeholderTextColor="rgba(255,255,255,0.4)"
+        value={room}
+        onChangeText={setRoom}
+        keyboardType="default"
+      />
+      <Pressable
+        style={
+          hasPlan
+            ? styles.floorPlanButtonActive
+            : styles.floorPlanButtonDisabled
+        }
+        disabled={!hasPlan}
+        accessibilityLabel="View Floor Plan"
+        onPress={() => {
+          if (floorKey) {
+            setActiveFloorPlan(getFloorPlanAsset(floorKey));
+            setFloorPlanModalVisible(true);
+          }
+        }}
+      >
+        <Map size={16} color={hasPlan ? "#FFFFFF" : "rgba(255,255,255,0.3)"} />
+      </Pressable>
     </View>
   );
 };
@@ -409,48 +489,16 @@ const DirectionsPanel = ({
             </Text>
           </Pressable>
           {/* Origin Room Input + Icon Button */}
-          {originBuilding &&
-            (() => {
-              const details = getRoomDetails(originBuilding.code, originRoom);
-              const floorKey = details
-                ? `${details.buildingCode}-${details.floor}`
-                : null;
-              const hasPlan =
-                !!floorKey && getFloorPlanAsset(floorKey) !== null;
-
-              return (
-                <View style={styles.roomInputContainer}>
-                  <TextInput
-                    style={styles.roomInput}
-                    placeholder="Room #"
-                    placeholderTextColor="rgba(255,255,255,0.4)"
-                    value={originRoom}
-                    onChangeText={setOriginRoom}
-                    keyboardType="default"
-                  />
-                  <Pressable
-                    style={
-                      hasPlan
-                        ? styles.floorPlanButtonActive
-                        : styles.floorPlanButtonDisabled
-                    }
-                    disabled={!hasPlan}
-                    accessibilityLabel="View Floor Plan"
-                    onPress={() => {
-                      if (floorKey) {
-                        setActiveFloorPlan(getFloorPlanAsset(floorKey));
-                        setFloorPlanModalVisible(true);
-                      }
-                    }}
-                  >
-                    <Map
-                      size={16}
-                      color={hasPlan ? "#FFFFFF" : "rgba(255,255,255,0.3)"}
-                    />
-                  </Pressable>
-                </View>
-              );
-            })()}
+          <RoomInputGroup
+            building={originBuilding}
+            room={originRoom}
+            setRoom={setOriginRoom}
+            styles={styles}
+            getRoomDetails={getRoomDetails}
+            getFloorPlanAsset={getFloorPlanAsset}
+            setActiveFloorPlan={setActiveFloorPlan}
+            setFloorPlanModalVisible={setFloorPlanModalVisible}
+          />
         </View>
 
         {/* TO FIELD */}
@@ -483,51 +531,16 @@ const DirectionsPanel = ({
             </Text>
           </Pressable>
           {/* Destination Room Input + Icon Button */}
-          {destinationBuilding &&
-            (() => {
-              const details = getRoomDetails(
-                destinationBuilding.code,
-                destinationRoom,
-              );
-              const floorKey = details
-                ? `${details.buildingCode}-${details.floor}`
-                : null;
-              const hasPlan =
-                !!floorKey && getFloorPlanAsset(floorKey) !== null;
-
-              return (
-                <View style={styles.roomInputContainer}>
-                  <TextInput
-                    style={styles.roomInput}
-                    placeholder="Room #"
-                    placeholderTextColor="rgba(255,255,255,0.4)"
-                    value={destinationRoom}
-                    onChangeText={setDestinationRoom}
-                    keyboardType="default"
-                  />
-                  <Pressable
-                    style={
-                      hasPlan
-                        ? styles.floorPlanButtonActive
-                        : styles.floorPlanButtonDisabled
-                    }
-                    disabled={!hasPlan}
-                    accessibilityLabel="View Floor Plan"
-                    onPress={() => {
-                      if (floorKey) {
-                        setActiveFloorPlan(getFloorPlanAsset(floorKey));
-                        setFloorPlanModalVisible(true);
-                      }
-                    }}
-                  >
-                    <Map
-                      size={16}
-                      color={hasPlan ? "#FFFFFF" : "rgba(255,255,255,0.3)"}
-                    />
-                  </Pressable>
-                </View>
-              );
-            })()}
+          <RoomInputGroup
+            building={destinationBuilding}
+            room={destinationRoom}
+            setRoom={setDestinationRoom}
+            styles={styles}
+            getRoomDetails={getRoomDetails}
+            getFloorPlanAsset={getFloorPlanAsset}
+            setActiveFloorPlan={setActiveFloorPlan}
+            setFloorPlanModalVisible={setFloorPlanModalVisible}
+          />
         </View>
 
         {/* GO / CANCEL BUTTON */}
