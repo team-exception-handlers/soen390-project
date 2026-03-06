@@ -1,17 +1,19 @@
 jest.mock("expo-linear-gradient", () => {
   const React = require("react");
-  return {
-    LinearGradient: ({ children, ...props }) =>
-      React.createElement("LinearGradient", props, children),
-  };
+  const PropTypes = require("prop-types");
+  const LinearGradient = ({ children, ...rest }) =>
+    React.createElement("LinearGradient", rest, children);
+  LinearGradient.propTypes = { children: PropTypes.node };
+  return { LinearGradient };
 });
 
 jest.mock("expo-blur", () => {
   const React = require("react");
-  return {
-    BlurView: ({ children, ...props }) =>
-      React.createElement("BlurView", props, children),
-  };
+  const PropTypes = require("prop-types");
+  const BlurView = ({ children, ...rest }) =>
+    React.createElement("BlurView", rest, children);
+  BlurView.propTypes = { children: PropTypes.node };
+  return { BlurView };
 });
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -20,38 +22,47 @@ jest.mock("react-native-safe-area-context", () => ({
 
 jest.mock("react-native", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const Pressable = ({ children, ...rest }) =>
+    React.createElement("Pressable", rest, children);
+  Pressable.propTypes = { children: PropTypes.node };
+  const Text = ({ children, ...rest }) =>
+    React.createElement("Text", rest, children);
+  Text.propTypes = { children: PropTypes.node };
+  const View = ({ children, ...rest }) =>
+    React.createElement("View", rest, children);
+  View.propTypes = { children: PropTypes.node };
   return {
     Platform: { OS: "web" },
-    Pressable: (props) =>
-      React.createElement("Pressable", props, props.children),
+    Pressable,
     StyleSheet: { create: (s) => s },
-    Text: (props) => React.createElement("Text", props, props.children),
+    Text,
     TextInput: (props) => React.createElement("TextInput", props),
-    View: (props) => React.createElement("View", props, props.children),
+    View,
     useWindowDimensions: () => ({ width: 1000, height: 800 }),
   };
 });
+
+function findByTestID(node, id) {
+  if (!node) return null;
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const res = findByTestID(child, id);
+      if (res) return res;
+    }
+    return null;
+  }
+  if (node?.props && node.props.testID === id) return node;
+  if (node?.props?.children)
+    return findByTestID(node.props.children, id);
+  return null;
+}
 
 describe("components/AppHeader", () => {
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
   });
-
-  function findByTestID(node, id) {
-    if (!node) return null;
-    if (Array.isArray(node)) {
-      for (const child of node) {
-        const res = findByTestID(child, id);
-        if (res) return res;
-      }
-      return null;
-    }
-    if (node?.props && node.props.testID === id) return node;
-    if (node?.props && node.props.children)
-      return findByTestID(node.props.children, id);
-    return null;
-  }
 
   test("renders title and search input with provided value", () => {
     const AppHeader = require("../../components/AppHeader").default;
@@ -154,7 +165,7 @@ describe("components/AppHeader", () => {
   });
 
   test("applies correct styles depending on Platform and isWide", () => {
-    const path = require("path");
+    const path = require("node:path");
     const reactNative = require("react-native");
 
     // web + wide
