@@ -115,15 +115,18 @@ const detectBuildingFromLocation = (
 
   return { code: null, campus: null };
 };
-const FLOOR_PLAN_ASSETS: Record<string, any> = {
-  "H-8": require("../../assets/floor_plans/Hall-8.svg"),
-  "H-9": require("../../assets/floor_plans/Hall-9.svg"),
-  "MB-1": require("../../assets/floor_plans/MB-1.svg"),
-  "MB--2": require("../../assets/floor_plans/MB-S2.svg"),
-  "VE-1": require("../../assets/floor_plans/VE-1.svg"),
-  "VE-2": require("../../assets/floor_plans/VE-2.svg"),
-  "VL-1": require("../../assets/floor_plans/VL-1.svg"),
-  "VL-2": require("../../assets/floor_plans/VL-2.svg"),
+const getFloorPlanAsset = (key: string): any | null => {
+  const assets: Record<string, () => any> = {
+    "H-8": () => require("../../assets/floor_plans/Hall-8.svg"),
+    "H-9": () => require("../../assets/floor_plans/Hall-9.svg"),
+    "MB-1": () => require("../../assets/floor_plans/MB-1.svg"),
+    "MB--2": () => require("../../assets/floor_plans/MB-S2.svg"),
+    "VE-1": () => require("../../assets/floor_plans/VE-1.svg"),
+    "VE-2": () => require("../../assets/floor_plans/VE-2.svg"),
+    "VL-1": () => require("../../assets/floor_plans/VL-1.svg"),
+    "VL-2": () => require("../../assets/floor_plans/VL-2.svg"),
+  };
+  return assets[key] ? assets[key]() : null;
 };
 /* these make it so we can view selected campus and building from the map level */
 export default function MapScreen() {
@@ -2098,9 +2101,8 @@ export default function MapScreen() {
                 const floorKey = details
                   ? `${details.buildingCode}-${details.floor}`
                   : null;
-                const hasPlan = floorKey
-                  ? !!FLOOR_PLAN_ASSETS[floorKey]
-                  : false;
+                const hasPlan =
+                  !!floorKey && getFloorPlanAsset(floorKey) !== null;
 
                 return (
                   <View style={styles.roomInputContainer}>
@@ -2122,7 +2124,7 @@ export default function MapScreen() {
                       accessibilityLabel="View Floor Plan"
                       onPress={() => {
                         if (floorKey) {
-                          setActiveFloorPlan(FLOOR_PLAN_ASSETS[floorKey]);
+                          setActiveFloorPlan(getFloorPlanAsset(floorKey));
                           setFloorPlanModalVisible(true);
                         }
                       }}
@@ -2176,9 +2178,8 @@ export default function MapScreen() {
                 const floorKey = details
                   ? `${details.buildingCode}-${details.floor}`
                   : null;
-                const hasPlan = floorKey
-                  ? !!FLOOR_PLAN_ASSETS[floorKey]
-                  : false;
+                const hasPlan =
+                  !!floorKey && getFloorPlanAsset(floorKey) !== null;
 
                 return (
                   <View style={styles.roomInputContainer}>
@@ -2200,7 +2201,7 @@ export default function MapScreen() {
                       accessibilityLabel="View Floor Plan"
                       onPress={() => {
                         if (floorKey) {
-                          setActiveFloorPlan(FLOOR_PLAN_ASSETS[floorKey]);
+                          setActiveFloorPlan(getFloorPlanAsset(floorKey));
                           setFloorPlanModalVisible(true);
                         }
                       }}
