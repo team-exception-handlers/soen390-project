@@ -148,7 +148,8 @@ export default function CalendarScreen() {
     // Load events 
     const loadEvents = useCallback(
         async (token: string, isRefresh: boolean) => {
-            isRefresh ? setRefreshing(true) : setLoading(true);
+            if (isRefresh) setRefreshing(true);
+            else setLoading(true);
             setError(null);
 
             try {
@@ -272,7 +273,8 @@ export default function CalendarScreen() {
             const s = raw.trim();
           
             // Common pattern: H-510, H 510, MB-1.210, etc.
-            const match = s.match(/\b([A-Za-z]{1,4})\s*[-]?\s*([0-9]{1,4}[A-Za-z]?)\b/);
+            const locationPattern = /\b([A-Za-z]{1,4})\s*-?\s*(\d{1,4}[A-Za-z]?)\b/;
+            const match = locationPattern.exec(s);
           
             if (!match) return s; // fallback: show original text
           
@@ -334,7 +336,6 @@ export default function CalendarScreen() {
                 </Pressable>
             </View>
 
-            {/* Calendar Selector */}
             <View style={styles.pickerWrap}>
                 <Text style={styles.pickerLabel}>Calendar</Text>
 

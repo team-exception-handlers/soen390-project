@@ -34,24 +34,11 @@ const WebViewComponent =
 
 const roundCoord = (value: number) => Number(value.toFixed(4));
 
-const TRAVEL_MODES: { value: RouteProfile | "transit"; label: string }[] = [
-  { value: "walking", label: "Walk" },
-  { value: "driving", label: "Drive" },
-  { value: "transit", label: "Transit" },
-];
-
-const HALL_BUILDING_CODE = "H";
-
 const formatDuration = (minutes: number) => {
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   return mins === 0 ? `${hours} h` : `${hours} h ${mins} min`;
-};
-
-const formatDistance = (meters: number) => {
-  if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
-  return `${Math.round(meters)} m`;
 };
 const DEFAULT_START_BUILDING_CODE = "H";
 const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
@@ -108,14 +95,14 @@ export default function MapScreen() {
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
-  const [routeDurationMinutes, setRouteDurationMinutes] = useState<number | null>(
+  const [, setRouteDurationMinutes] = useState<number | null>(
     null,
   );
-  const [routeDistanceMeters, setRouteDistanceMeters] = useState<number | null>(
+  const [, setRouteDistanceMeters] = useState<number | null>(
     null,
   );
-  const [routeLoading, setRouteLoading] = useState(false);
-  const [routeError, setRouteError] = useState<string | null>(null);
+  const [, setRouteLoading] = useState(false);
+  const [, setRouteError] = useState<string | null>(null);
   const [routeInstructions, setRouteInstructions] = useState<RouteInstruction[]>(
     [],
   );
@@ -907,11 +894,6 @@ export default function MapScreen() {
     [campus],
   );
 
-  const defaultSgwRegion = useMemo(
-    () => getCampusRegion("SGW", SGW_POLYGONS.features),
-    [],
-  );
-
   const actualOriginPoint = useMemo(() => {
     // If user selected a building as origin, use that building's coordinates
     if (originBuildingCode) {
@@ -1205,7 +1187,7 @@ export default function MapScreen() {
     return () => {
       cancelled = true;
     };
-  }, [isDirectionsMode, destinationBuilding, actualOriginPoint, routeMode]);
+  }, [isDirectionsMode, destinationBuilding, actualOriginPoint, routeMode, isSameCampus]);
 
   // Only show pins for buildings that have a polygon (exact or parent e.g. CJ for CJA)
   const buildingsWithPolygons = useMemo(() => {
@@ -1669,11 +1651,13 @@ export default function MapScreen() {
       );
     }
 
-    {WebViewComponent && (
+    if (!WebViewComponent) return null;
+
+    return (
       <WebViewComponent
         key={campus}
         testID="map-webview"
-        source={{ uri: webViewSource }}
+        source={webViewSource}
         style={styles.map}
         javaScriptEnabled
         domStorageEnabled
@@ -1704,8 +1688,8 @@ export default function MapScreen() {
           return true;
         }}
       />
-    )}
-  }
+    );
+  };
 
   const webMapContent = renderWebMapContent();
 
