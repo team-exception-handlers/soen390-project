@@ -585,13 +585,3 @@ export const ROOMS: RoomRecord[] = [
   { buildingCode: "VL", floor: 2, roomNumber: "269", coordinates: null },
   { buildingCode: "VL", floor: 2, roomNumber: "270", coordinates: null },
 ];
-
-export const getRoomDetails = (
-  buildingCode: string,
-  roomNumber: string,
-): RoomRecord | undefined => {
-  return ROOMS.find(
-    (room) =>
-      room.buildingCode === buildingCode && room.roomNumber === roomNumber,
-  );
-};

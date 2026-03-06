@@ -31,7 +31,6 @@ import TransitLegTimeline from "../../components/TransitLegTimeline";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
-import { getRoomDetails } from "../../constants/rooms";
 import {
   findUserBuilding,
   hasLocationPermission,
@@ -44,6 +43,7 @@ import {
   type RouteInstruction,
   type RouteProfile,
 } from "../../utils/osrmDirections";
+import { getRoomDetails } from "../../utils/roomUtils";
 import {
   decodePolyline,
   fetchTransitItineraries,
