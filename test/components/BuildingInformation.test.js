@@ -63,26 +63,26 @@ jest.mock("react", () => {
 const BuildingInformation =
   require("../../components/BuildingInformation").default;
 
+function findByTestID(node, id) {
+  if (!node) return null;
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const res = findByTestID(child, id);
+      if (res) return res;
+    }
+    return null;
+  }
+  if (node?.props?.testID === id) return node;
+  if (node?.props?.children)
+    return findByTestID(node.props.children, id);
+  return null;
+}
+
 describe("components/BuildingInformation", () => {
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
   });
-
-  function findByTestID(node, id) {
-    if (!node) return null;
-    if (Array.isArray(node)) {
-      for (const child of node) {
-        const res = findByTestID(child, id);
-        if (res) return res;
-      }
-      return null;
-    }
-    if (node && node.props && node.props.testID === id) return node;
-    if (node && node.props && node.props.children)
-      return findByTestID(node.props.children, id);
-    return null;
-  }
 
   test("renders title, image and description when provided", () => {
     const onClose = jest.fn();
