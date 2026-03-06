@@ -20,55 +20,55 @@ jest.mock('react-native', () => {
   };
 });
 
+function findByTestID(node, id) {
+  if (!node) return null;
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const res = findByTestID(child, id);
+      if (res) return res;
+    }
+    return null;
+  }
+  if (node?.props && node.props.testID === id) return node;
+  if (node?.props?.children) return findByTestID(node.props.children, id);
+  return null;
+}
+
+function findByType(node, typeName) {
+  if (!node) return null;
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const res = findByType(child, typeName);
+      if (res) return res;
+    }
+    return null;
+  }
+  if (node && node.type === typeName) return node;
+  if (node && typeof node.type === 'function' && node.type.name === typeName) return node;
+  if (node?.props && node.props.testID === typeName) return node;
+  if (node?.props?.children) return findByType(node.props.children, typeName);
+  return null;
+}
+
+function findTextNode(node, text) {
+  if (!node) return null;
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const res = findTextNode(child, text);
+      if (res) return res;
+    }
+    return null;
+  }
+  if (node?.props && node.props.children === text) return node;
+  if (node?.props?.children) return findTextNode(node.props.children, text);
+  return null;
+}
+
 describe('components/BottomTabIcon', () => {
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
   });
-
-  function findByTestID(node, id) {
-    if (!node) return null;
-    if (Array.isArray(node)) {
-      for (const child of node) {
-        const res = findByTestID(child, id);
-        if (res) return res;
-      }
-      return null;
-    }
-    if (node && node.props && node.props.testID === id) return node;
-    if (node && node.props && node.props.children) return findByTestID(node.props.children, id);
-    return null;
-  }
-
-  function findByType(node, typeName) {
-    if (!node) return null;
-    if (Array.isArray(node)) {
-      for (const child of node) {
-        const res = findByType(child, typeName);
-        if (res) return res;
-      }
-      return null;
-    }
-    if (node && node.type === typeName) return node;
-    if (node && typeof node.type === 'function' && node.type.name === typeName) return node;
-    if (node && node.props && node.props.testID === typeName) return node;
-    if (node && node.props && node.props.children) return findByType(node.props.children, typeName);
-    return null;
-  }
-
-  function findTextNode(node, text) {
-    if (!node) return null;
-    if (Array.isArray(node)) {
-      for (const child of node) {
-        const res = findTextNode(child, text);
-        if (res) return res;
-      }
-      return null;
-    }
-    if (node && node.props && node.props.children === text) return node;
-    if (node && node.props && node.props.children) return findTextNode(node.props.children, text);
-    return null;
-  }
 
   test('renders map icon and focused color when focused', () => {
     const path = require('node:path');
