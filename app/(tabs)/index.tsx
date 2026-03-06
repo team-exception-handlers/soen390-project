@@ -155,7 +155,7 @@ export default function MapScreen() {
   );
 
   const routeInstructionsDismissedRef = useRef(false);
-  const webIframeRef = useRef<any>(null);
+  const webIframeRef = useRef<HTMLIFrameElement | null>(null);
   const routeSheetPanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) =>
@@ -195,11 +195,29 @@ export default function MapScreen() {
   const TAB_BAR_HEIGHT = 56;
 
   const isWebPlatform = Platform.OS === "web";
+  const webFrameTargetOrigin =
+    isWebPlatform && typeof window !== "undefined"
+      ? window.location.origin
+      : null;
+  const serializedWebFrameTargetOrigin = JSON.stringify(
+    webFrameTargetOrigin ?? "*",
+  );
   const showE2EHooks =
     Platform.OS !== "web" && process.env.EXPO_PUBLIC_ENABLE_E2E_HOOKS === "1";
   const userLat = isWebPlatform ? userLocation?.coords.latitude || null : null;
   const userLng = isWebPlatform ? userLocation?.coords.longitude || null : null;
   const currentBuildingForHTML = isWebPlatform ? currentBuilding : null;
+
+  const postToWebIframe = useCallback(
+    (message: unknown) => {
+      if (!isWebPlatform || !webFrameTargetOrigin) return;
+      webIframeRef.current?.contentWindow?.postMessage(
+        message,
+        webFrameTargetOrigin,
+      );
+    },
+    [isWebPlatform, webFrameTargetOrigin],
+  );
 
   useEffect(() => {
     campusRef.current = campus;
@@ -773,9 +791,12 @@ export default function MapScreen() {
   let MapPolylineComponent: React.ComponentType<any> | null = null;
 
   useEffect(() => {
-    if (Platform.OS !== "web") return;
+    if (!isWebPlatform || !webFrameTargetOrigin) return;
 
     const handler = (event: MessageEvent) => {
+      if (event.origin !== webFrameTargetOrigin) return;
+      if (event.source !== webIframeRef.current?.contentWindow) return;
+
       try {
         const data =
           typeof event.data === "string" ? JSON.parse(event.data) : event.data;
@@ -793,7 +814,7 @@ export default function MapScreen() {
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, []);
+  }, [isWebPlatform, webFrameTargetOrigin]);
 
   if (Platform.OS !== "web" && !isExpoGo) {
     try {
@@ -1374,15 +1395,12 @@ export default function MapScreen() {
     }
 
     if (Platform.OS === "web") {
-      webIframeRef.current?.contentWindow?.postMessage(
-        {
-          type: "focusBounds",
-          bounds: campusBounds,
-          campus,
-          padding: [20, 20],
-        },
-        "*",
-      );
+      postToWebIframe({
+        type: "focusBounds",
+        bounds: campusBounds,
+        campus,
+        padding: [20, 20],
+      });
       return;
     }
 
@@ -1397,7 +1415,15 @@ export default function MapScreen() {
       `;
       webViewRef.current.injectJavaScript(script);
     }
-  }, [campus, campusBounds, isDirectionsMode, isWebPlatform, region, webMapReady]);
+  }, [
+    campus,
+    campusBounds,
+    isDirectionsMode,
+    isWebPlatform,
+    postToWebIframe,
+    region,
+    webMapReady,
+  ]);
 
   useEffect(() => {
     if (Platform.OS === "web" || !webViewRef.current || !webMapReady) return;
@@ -1556,6 +1582,15 @@ export default function MapScreen() {
           <script>
               const map = L.map('map', { maxZoom: 22 }).setView([${latitude}, ${longitude}], 20);
               window.map = map;
+              const parentMessageTargetOrigin = ${serializedWebFrameTargetOrigin};
+              const notifyHost = (payload) => {
+                  if (window.ReactNativeWebView) {
+                      window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+                      return;
+                  }
+
+                  window.parent.postMessage(payload, parentMessageTargetOrigin);
+              };
 
               const buildings = ${JSON.stringify(buildingData)};
               const campusMarkers = ${JSON.stringify(campusSummaryData)};
@@ -1723,6 +1758,8 @@ export default function MapScreen() {
               }
 
               window.addEventListener('message', function(event) {
+                  if (event.origin !== parentMessageTargetOrigin) return;
+
                   const data = event.data;
                   if (data?.type === 'focusBounds') {
                       window.setMapBounds(data.bounds, data.padding, data.campus);
@@ -1751,7 +1788,7 @@ export default function MapScreen() {
                       selectedPolygon = this;
                       window.selectedBuildingCode = buildingCode;
                       window.selectedPolygon = selectedPolygon;
-                      (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({ type: 'buildingSelected', buildingCode: buildingCode }), '*');
+                      notifyHost({ type: 'buildingSelected', buildingCode: buildingCode });
                       L.DomEvent.stopPropagation(e);
                   });
 
@@ -1776,7 +1813,7 @@ export default function MapScreen() {
                       selectedPolygon = null;
                       window.selectedBuildingCode = null;
                       window.selectedPolygon = null;
-                      (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
+                      notifyHost({ type: 'buildingDeselected' });
                   }
               });
 
@@ -1822,11 +1859,11 @@ export default function MapScreen() {
                       if (selectedPolygon) {
                         window.selectedBuildingCode = building.code;
                         window.selectedPolygon = selectedPolygon;
-                        (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type:'buildingSelected', buildingCode: building.code}), '*');
+                        notifyHost({ type: 'buildingSelected', buildingCode: building.code });
                       } else {
                         window.selectedBuildingCode = null;
                         window.selectedPolygon = null;
-                        (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
+                        notifyHost({ type: 'buildingDeselected' });
                       }
 
                       L.DomEvent.stopPropagation(e);
@@ -1872,6 +1909,7 @@ export default function MapScreen() {
     routeMode,
     userLat,
     userLng,
+    serializedWebFrameTargetOrigin,
     webTransitSegments,
     defaultSgwRegion,
   ]);
@@ -1891,20 +1929,17 @@ export default function MapScreen() {
       return (
         <iframe
           ref={webIframeRef}
-          src={`data:text/html;charset=utf-8,${encodeURIComponent(mapHTML)}`}
+          srcDoc={mapHTML}
           style={{ ...(StyleSheet.flatten(styles.map) as object), border: 0 }}
           allowFullScreen
           title="Concordia map"
           onLoad={() =>
-            webIframeRef.current?.contentWindow?.postMessage(
-              {
-                type: "focusBounds",
-                bounds: campusBounds,
-                campus,
-                padding: [20, 20],
-              },
-              "*",
-            )
+            postToWebIframe({
+              type: "focusBounds",
+              bounds: campusBounds,
+              campus,
+              padding: [20, 20],
+            })
           }
         />
       );
