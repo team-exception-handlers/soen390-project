@@ -1,17 +1,16 @@
 import * as AuthSession from "expo-auth-session";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     Platform,
     Pressable,
     RefreshControl,
     StyleSheet,
     Text,
-    View,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CALENDAR_BASE, CLIENT_ID, SCOPES } from "../../constants/googleCalendar";
@@ -20,6 +19,8 @@ import { CalendarEvent, formatEventTime, GoogleCalendar, isToday } from "../../u
 WebBrowser.maybeCompleteAuthSession();
 
 export default function CalendarScreen() {
+    const [directionsMessage, setDirectionsMessage] = useState<string | null>(null);
+    const router = useRouter();
     const [accessToken, setAccessToken] = useState<string | null>(null);
 
     const [calendars, setCalendars] = useState<GoogleCalendar[]>([]);
@@ -286,28 +287,42 @@ export default function CalendarScreen() {
             const raw = location?.trim();
             if (!raw) return null;
           
-            const building = raw.split("-")[0]?.trim();
+            const parts = raw.split("-")[0]?.trim();
+            const building = parts[0]?.trim();
             return building?.length ? building : null;
           };
           
           const handleDirectionsPress = () => {
-            const building = parseBuilding(nextEvent?.location);
+            const rawLocation = nextEvent?.location?.trim() ?? "";
           
-            
-            if (!building) {
-              Alert.alert(
-                "Directions unavailable",
-                "This class has no location saved. Please add a building/room (ex: H-510) in your Google Calendar event."
+            // Always clear old message first
+            setDirectionsMessage(null);
+          
+            // If there is no real location, show inline message and STOP
+            if (!rawLocation) {
+              setDirectionsMessage(
+                "Directions cannot be generated because this class has no location. Please add a building/room such as H-510 to the calendar event."
               );
               return;
             }
           
-            // If we have a building, go to Map and set destination
-            // (we'll handle the Map screen in a minute)
+            const building = parseBuilding(rawLocation);
+          
+            // If location exists but parsing fails, also STOP
+            if (!building) {
+              setDirectionsMessage(
+                "Directions cannot be generated because the location format is invalid. Please use a format such as H-510."
+              );
+              return;
+            }
+          
+            // If we got here, location is valid
+            setDirectionsMessage(null);
+          
             router.push({
               pathname: "/(tabs)",
-              params: { toBuilding: building }, 
-            });
+              params: { toBuilding: building },
+            } as any);
           };
     // List of events
     return (
@@ -374,8 +389,11 @@ export default function CalendarScreen() {
                 </View>
             ) : (
                 <>
+                
                 {nextEvent && (
   <View style={styles.nextClassCard}>
+
+    
     <Text style={styles.nextClassTitle}>Next Class</Text>
 
     <Text style={styles.nextClassCourse}>
@@ -391,9 +409,15 @@ export default function CalendarScreen() {
     ? parseClassLocation(nextEvent.location)
     : "Location not provided"}
 </Text>
+
 <Pressable style={styles.directionsButton} onPress={handleDirectionsPress}>
   <Text style={styles.directionsButtonText}>Directions</Text>
 </Pressable>
+{directionsMessage ? (
+  <Text style={styles.directionsMessage}>
+    {directionsMessage}
+  </Text>
+) : null}
   </View>
 )}
                 <FlatList
@@ -684,6 +708,12 @@ const styles = StyleSheet.create({
       },
       directionsButtonText: {
         color: "white",
+        fontWeight: "600",
+      },
+      directionsMessage: {
+        marginTop: 8,
+        color: "#A32638",
+        fontSize: 12,
         fontWeight: "600",
       },
 });

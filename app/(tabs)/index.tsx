@@ -29,10 +29,8 @@ import { getCampusRegion } from "../../utils/mapRegions";
 import { fetchOsrmRoute, type RouteInstruction, type RouteProfile } from "../../utils/osrmDirections";
 import { decodePolyline, fetchTransitItineraries, formatTime, type TransitItinerary } from "../../utils/transitousDirections";
 
-const WebViewComponent = Platform.OS === "web" ? null : require("react-native-webview").WebView;
-  
-
-const [to, setTo] = useState("");
+const WebViewComponent =
+  Platform.OS === "web" ? null : require("react-native-webview").WebView;
 
 const roundCoord = (value: number) => Number(value.toFixed(4));
 
@@ -94,8 +92,9 @@ export default function MapScreen() {
   const [destinationBuildingCode, setDestinationBuildingCode] =
     useState<string>(DEFAULT_DESTINATION_BUILDING_CODE);
     useEffect(() => {
-      if (toBuilding) {
-        setTo(`${toBuilding} - ${toBuilding} Building`);
+      if (typeof toBuilding === "string" && toBuilding.trim()) {
+        setDestinationBuildingCode(toBuilding.trim().toUpperCase());
+        setIsDirectionsMode(true);
       }
     }, [toBuilding]);
   // Tracks the selected origin building (or null if using current location)
