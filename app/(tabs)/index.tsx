@@ -253,9 +253,9 @@ export default function MapScreen() {
       justifyContent: "center",
     },
     campusMarkerBadge: {
-      minWidth: 48,
-      height: 48,
-      paddingHorizontal: 12,
+      minWidth: 38,
+      height: 38,
+      paddingHorizontal: 10,
       backgroundColor: "#A32638",
       borderWidth: 2,
       borderColor: "white",
@@ -266,13 +266,13 @@ export default function MapScreen() {
       shadowRadius: 5,
       shadowOffset: { width: 0, height: 3 },
       elevation: 4,
-      borderRadius: 24,
+      borderRadius: 19,
     },
     campusMarkerText: {
       color: "white",
-      fontSize: 13,
+      fontSize: 11,
       fontWeight: "800",
-      letterSpacing: 0.4,
+      letterSpacing: 0.2,
     },
     webFallback: {
       flex: 1,
@@ -1533,9 +1533,9 @@ export default function MapScreen() {
               .user-marker { background: transparent; border: none; }
               .campus-marker { background: transparent; border: none; }
               .campus-badge {
-                  min-width: 48px;
-                  height: 48px;
-                  padding: 0 12px;
+                  min-width: 38px;
+                  height: 38px;
+                  padding: 0 10px;
                   background: #A32638;
                   color: #ffffff;
                   border: 2px solid #ffffff;
@@ -1543,10 +1543,10 @@ export default function MapScreen() {
                   align-items: center;
                   justify-content: center;
                   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
-                  font-size: 13px;
+                  font-size: 11px;
                   font-weight: 800;
-                  letter-spacing: 0.4px;
-                  border-radius: 24px;
+                  letter-spacing: 0.2px;
+                  border-radius: 19px;
               }
           </style>
       </head>
@@ -1791,8 +1791,8 @@ export default function MapScreen() {
                   return L.divIcon({
                       className: 'campus-marker',
                       html: '<div class="campus-badge">' + campusCode + '</div>',
-                      iconSize: [52, 52],
-                      iconAnchor: [26, 26],
+                      iconSize: [40, 40],
+                      iconAnchor: [20, 20],
                       popupAnchor: [0, -20]
                   });
               };
