@@ -138,6 +138,7 @@ export default function MapScreen() {
   const [routeStarted, setRouteStarted] = useState(false);
 
   const routeInstructionsDismissedRef = useRef(false);
+  const webIframeRef = useRef<any>(null);
   const routeSheetPanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) =>
@@ -876,10 +877,17 @@ export default function MapScreen() {
     };
   }, [handleLocationUpdate]);
 
-  // Get polygon data based on campus
   const campusPolygons = useMemo(
     () => (campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS),
     [campus],
+  );
+
+  const allPolygons = useMemo(
+    () => ({
+      ...SGW_POLYGONS,
+      features: [...SGW_POLYGONS.features, ...LOY_POLYGONS.features],
+    }),
+    [],
   );
 
   const getTransitColor = (mode: string, route?: string) => {
@@ -1204,28 +1212,40 @@ export default function MapScreen() {
     return () => {
       cancelled = true;
     };
-  }, [isDirectionsMode, destinationBuilding, actualOriginPoint, routeMode]);
+  }, [isDirectionsMode, destinationBuilding, actualOriginPoint, routeMode, isSameCampus]);
 
   // Only show pins for buildings that have a polygon (exact or parent e.g. CJ for CJA)
   const buildingsWithPolygons = useMemo(() => {
     const buildingHasPolygon = (building: { code: string }) => {
-      const hasExact = campusPolygons.features.some(
+      const hasExact = allPolygons.features.some(
         (f: { properties: { code: string } }) => f.properties.code === building.code,
       );
-      const hasParent = campusPolygons.features.some(
+      const hasParent = allPolygons.features.some(
         (f: { properties: { code: string } }) =>
           building.code.startsWith(f.properties.code) &&
           f.properties.code.length >= 2,
       );
       return hasExact || hasParent;
     };
-    return campusBuildings.filter(buildingHasPolygon);
-  }, [campusBuildings, campusPolygons]);
+    return BUILDINGS.filter(buildingHasPolygon);
+  }, [allPolygons]);
 
   const region = useMemo(
     () => getCampusRegion(campus, campusPolygons.features),
     [campus, campusPolygons],
   );
+
+  const campusBounds = useMemo(() => {
+    const minLat = region.latitude - region.latitudeDelta / 2;
+    const maxLat = region.latitude + region.latitudeDelta / 2;
+    const minLng = region.longitude - region.longitudeDelta / 2;
+    const maxLng = region.longitude + region.longitudeDelta / 2;
+
+    return [
+      [minLat, minLng],
+      [maxLat, maxLng],
+    ];
+  }, [region]);
 
   const b = BUILDINGS.find((building) => building.code === selectedBuilding);
   let buildingInfo = b?.description;
@@ -1263,6 +1283,38 @@ export default function MapScreen() {
       webViewRef.current?.injectJavaScript(script);
     }
   }, [userLocation, webMapReady]);
+
+  useEffect(() => {
+    if (isDirectionsMode) return;
+
+    if (!isWebPlatform) {
+      mapRef.current?.animateToRegion?.(region, 450);
+    }
+
+    if (Platform.OS === "web") {
+      webIframeRef.current?.contentWindow?.postMessage(
+        {
+          type: "focusBounds",
+          bounds: campusBounds,
+          padding: [20, 20],
+        },
+        "*",
+      );
+      return;
+    }
+
+    if (webViewRef.current && webMapReady) {
+      const script = `
+        (function() {
+          if (window.setMapBounds) {
+            window.setMapBounds(${JSON.stringify(campusBounds)}, [20, 20]);
+          }
+        })();
+        true;
+      `;
+      webViewRef.current.injectJavaScript(script);
+    }
+  }, [campusBounds, isDirectionsMode, isWebPlatform, region, webMapReady]);
 
   useEffect(() => {
     if (Platform.OS === "web" || !webViewRef.current || !webMapReady) return;
@@ -1338,7 +1390,7 @@ export default function MapScreen() {
 
   // Generate HTML for web map
   const mapHTML = useMemo(() => {
-    const { latitude, longitude, latitudeDelta, longitudeDelta } = region;
+    const { latitude, longitude, latitudeDelta, longitudeDelta } = defaultSgwRegion;
     const buildingData = buildingsWithPolygons.map(
       ({ latitude: lat, longitude: lng, code, shortName }) => ({
         latitude: lat,
@@ -1398,7 +1450,7 @@ export default function MapScreen() {
               window.map = map;
 
               const buildings = ${JSON.stringify(buildingData)};
-              const polygonData = ${JSON.stringify(campusPolygons)};
+              const polygonData = ${JSON.stringify(allPolygons)};
               const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               const routeMode = ${JSON.stringify(routeMode)};
               const routeCoordinates = ${JSON.stringify(
@@ -1436,6 +1488,10 @@ export default function MapScreen() {
               };
 
               const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
+              window.setMapBounds = (nextBounds, padding = [20, 20]) => {
+                  if (!Array.isArray(nextBounds) || nextBounds.length !== 2) return;
+                  map.fitBounds(nextBounds, { padding });
+              };
 
              const segmentColor = (mode, route) => {
                   if (mode === "WALK") return "#2E7D32";
@@ -1520,8 +1576,15 @@ export default function MapScreen() {
               }
 
               if (!hasAnyRoute) {
-                  map.fitBounds(bounds, { padding: [20, 20] });
+                  window.setMapBounds(bounds, [20, 20]);
               }
+
+              window.addEventListener('message', function(event) {
+                  const data = event.data;
+                  if (data?.type === 'focusBounds') {
+                      window.setMapBounds(data.bounds, data.padding);
+                  }
+              });
 
               const disableFollow = () => { window.followUser = false; };
               map.on('dragstart', disableFollow);
@@ -1634,15 +1697,15 @@ export default function MapScreen() {
       </html>
     `;
   }, [
+    allPolygons,
     buildingsWithPolygons,
-    campusPolygons,
     currentBuildingForHTML,
-    region,
     routeCoordinates,
     routeMode,
     userLat,
     userLng,
     webTransitSegments,
+    defaultSgwRegion,
   ]);
 
   const webViewSource = useMemo(() => ({ html: mapHTML }), [mapHTML]);
@@ -1653,17 +1716,27 @@ export default function MapScreen() {
     if (Platform.OS !== "web") {
       setWebMapReady(false);
     }
-  }, [campus]);
+  }, [mapHTML]);
 
   const renderWebMapContent = () => {
     if (Platform.OS === "web") {
       return (
         <iframe
-          key={campus}
+          ref={webIframeRef}
           src={`data:text/html;charset=utf-8,${encodeURIComponent(mapHTML)}`}
           style={{ ...(StyleSheet.flatten(styles.map) as object), border: 0 }}
           allowFullScreen
           title="Concordia map"
+          onLoad={() =>
+            webIframeRef.current?.contentWindow?.postMessage(
+              {
+                type: "focusBounds",
+                bounds: campusBounds,
+                padding: [20, 20],
+              },
+              "*",
+            )
+          }
         />
       );
     }
@@ -1671,7 +1744,6 @@ export default function MapScreen() {
     if (WebView) {
       return (
         <WebView
-          key={campus}
           testID="map-webview"
           ref={webViewRef}
           source={webViewSource}
@@ -1719,7 +1791,6 @@ export default function MapScreen() {
       MapCalloutComponent &&
       MapPolygonComponent ? (
       <MapViewComponent
-        key={campus}
         ref={mapRef}
         testID="map-native"
         style={styles.map}
@@ -1767,7 +1838,7 @@ export default function MapScreen() {
           />
         ) : null}
 
-        {campusPolygons.features.map((feature: any) => {
+        {allPolygons.features.map((feature: any) => {
           const coordinates = feature.geometry.coordinates[0].map(
             (coord: number[]) => ({
               latitude: coord[1],
@@ -1809,14 +1880,14 @@ export default function MapScreen() {
         })}
 
         {buildingsWithPolygons.map((building) => {
-          const hasExactPolygon = campusPolygons.features.some(
+          const hasExactPolygon = allPolygons.features.some(
             (f: any) => f.properties.code === building.code,
           );
 
           const polygonCode =
             hasExactPolygon
               ? building.code
-              : campusPolygons.features.find(
+              : allPolygons.features.find(
                 (f: any) =>
                   building.code.startsWith(f.properties.code) &&
                   f.properties.code.length >= 2,
