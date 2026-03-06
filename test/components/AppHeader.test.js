@@ -165,7 +165,7 @@ describe("components/AppHeader", () => {
   });
 
   test("applies correct styles depending on Platform and isWide", () => {
-    const path = require("path");
+    const path = require("node:path");
     const reactNative = require("react-native");
 
     // web + wide
