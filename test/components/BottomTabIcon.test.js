@@ -86,7 +86,7 @@ describe('components/BottomTabIcon', () => {
     expect(text).toBeTruthy();
     const style = text.props.style;
     const styles = Array.isArray(style) ? style : [style];
-    expect(styles.some(s => s && s.color === '#007AFF')).toBeTruthy();
+    expect(styles.some(s => s?.color === '#007AFF')).toBeTruthy();
   });
 
   test('renders map-outline and unfocused color when not focused', () => {
@@ -103,7 +103,7 @@ describe('components/BottomTabIcon', () => {
     expect(text).toBeTruthy();
     const style = text.props.style;
     const styles = Array.isArray(style) ? style : [style];
-    expect(styles.some(s => s && s.color === '#8E8E93')).toBeTruthy();
+    expect(styles.some(s => s?.color === '#8E8E93')).toBeTruthy();
   });
 
   test('renders person icon for profile type', () => {
@@ -131,7 +131,7 @@ describe('components/BottomTabIcon', () => {
   // ✅ ADDED TESTS BELOW (nothing above changed)
 
   test('renders calendar icon when focused', () => {
-    const path = require('path');
+    const path = require('node:path');
     const BottomTabIcon = require(path.join(__dirname, '..', '..', 'components', 'BottomTabIcon')).default;
 
     const el = BottomTabIcon({ focused: true, label: 'Calendar', type: 'calendar' });
@@ -145,11 +145,11 @@ describe('components/BottomTabIcon', () => {
     expect(text).toBeTruthy();
     const style = text.props.style;
     const styles = Array.isArray(style) ? style : [style];
-    expect(styles.some(s => s && s.color === '#007AFF')).toBeTruthy();
+    expect(styles.some(s => s?.color === '#007AFF')).toBeTruthy();
   });
 
   test('renders calendar-outline icon when not focused', () => {
-    const path = require('path');
+    const path = require('node:path');
     const BottomTabIcon = require(path.join(__dirname, '..', '..', 'components', 'BottomTabIcon')).default;
 
     const el = BottomTabIcon({ focused: false, label: 'Calendar', type: 'calendar' });
@@ -163,11 +163,11 @@ describe('components/BottomTabIcon', () => {
     expect(text).toBeTruthy();
     const style = text.props.style;
     const styles = Array.isArray(style) ? style : [style];
-    expect(styles.some(s => s && s.color === '#8E8E93')).toBeTruthy();
+    expect(styles.some(s => s?.color === '#8E8E93')).toBeTruthy();
   });
 
   test('Text receives numberOfLines=1 and ellipsizeMode="clip"', () => {
-    const path = require('path');
+    const path = require('node:path');
     const BottomTabIcon = require(path.join(__dirname, '..', '..', 'components', 'BottomTabIcon')).default;
 
     const el = BottomTabIcon({ focused: false, label: 'Map', type: 'map' });
