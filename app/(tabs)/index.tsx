@@ -2156,18 +2156,23 @@ export default function MapScreen() {
           const buildingCode = feature.properties.code;
           const isSelected = selectedBuilding === buildingCode;
           const isCurrent = currentBuilding === buildingCode;
-          const strokeColor = isSelected
-            ? "#238c51"
-            : isCurrent
-              ? "#FFA500"
-              : "#A32638";
-          const fillColor = isSelected
-            ? "#238c51"
-            : isCurrent
-              ? "#FFA500"
-              : "#A32638";
-          const strokeWidth = isSelected ? 3 : isCurrent ? 3 : 2;
-          const fillOpacity = isSelected ? 0.5 : isCurrent ? 0.5 : 0.2;
+
+          let strokeColor = "#A32638";
+          let fillColor = "#A32638";
+          let strokeWidth = 2;
+          let fillOpacity = 0.2;
+
+          if (isSelected) {
+            strokeColor = "#238c51";
+            fillColor = "#238c51";
+            strokeWidth = 3;
+            fillOpacity = 0.5;
+          } else if (isCurrent) {
+            strokeColor = "#FFA500";
+            fillColor = "#FFA500";
+            strokeWidth = 3;
+            fillOpacity = 0.5;
+          }
 
           return (
             <MapPolygonComponent
