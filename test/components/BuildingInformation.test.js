@@ -11,26 +11,42 @@ jest.mock("@react-navigation/bottom-tabs", () => ({
 
 jest.mock("react-native", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+
+  const AnimatedView = ({ children, ...rest }) =>
+    React.createElement("AnimatedView", rest, children);
+  AnimatedView.propTypes = { children: PropTypes.node };
 
   const Animated = {
     Value: function (v) {
       this._value = v;
     },
     timing: (val, opts) => ({ start: jest.fn() }),
-    View: (props) => React.createElement("AnimatedView", props, props.children),
+    View: AnimatedView,
   };
+
+  const Pressable = ({ children, ...rest }) =>
+    React.createElement("Pressable", rest, children);
+  Pressable.propTypes = { children: PropTypes.node };
+  const ScrollView = ({ children, ...rest }) =>
+    React.createElement("ScrollView", rest, children);
+  ScrollView.propTypes = { children: PropTypes.node };
+  const Text = ({ children, ...rest }) =>
+    React.createElement("Text", rest, children);
+  Text.propTypes = { children: PropTypes.node };
+  const View = ({ children, ...rest }) =>
+    React.createElement("View", rest, children);
+  View.propTypes = { children: PropTypes.node };
 
   return {
     Animated,
     Dimensions: { get: () => ({ height: 800 }) },
     Image: (props) => React.createElement("Image", props, null),
-    Pressable: (props) =>
-      React.createElement("Pressable", props, props.children),
-    ScrollView: (props) =>
-      React.createElement("ScrollView", props, props.children),
+    Pressable,
+    ScrollView,
     StyleSheet: { create: (s) => s },
-    Text: (props) => React.createElement("Text", props, props.children),
-    View: (props) => React.createElement("View", props, props.children),
+    Text,
+    View,
   };
 });
 
