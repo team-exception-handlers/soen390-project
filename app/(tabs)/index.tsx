@@ -1107,7 +1107,7 @@ export default function MapScreen() {
   let MapMarkerComponent: React.ComponentType<any> | null = null;
   let MapCalloutComponent: React.ComponentType<any> | null = null;
   let MapPolygonComponent: React.ComponentType<any> | null = null;
-  let MapPolylineComponent: React.ComponentType<any> | null = null;
+  let MapPolylineComponent: React.ElementType | null = null;
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
@@ -2068,6 +2068,11 @@ export default function MapScreen() {
 
   const webMapContent = renderWebMapContent();
 
+  const shouldRenderRoutePolyline =
+    isDirectionsMode &&
+    MapPolylineComponent &&
+    routeCoordinates.length > 1;
+
   const nativeMapContent =
     MapViewComponent &&
       MapMarkerComponent &&
@@ -2084,53 +2089,61 @@ export default function MapScreen() {
         onPress={() => setSelectedBuilding(null)}
       >
 
-        {isDirectionsMode &&
-          MapPolylineComponent &&
-          routeMode === "transit" &&
-          transitItineraries[selectedItineraryIndex] ? (
-          <>
-            {transitItineraries[selectedItineraryIndex].legs.map((leg, index) => {
-              console.log(`Rendering leg ${index}:`, leg.mode);
+        {(() => {
+          if (!MapPolylineComponent || !isDirectionsMode) return null;
 
-              if (!leg.legGeometry?.points) return null;
-              const precision = (leg.legGeometry as any)?.precision ?? 7;
-              const coordinates = decodePolyline(leg.legGeometry.points, precision);
-              if (coordinates.length < 2) return null;
+          if (routeMode === "transit" && transitItineraries[selectedItineraryIndex]) {
+            return (
+              <>
+                {transitItineraries[selectedItineraryIndex].legs.map((leg, index) => {
+                  console.log(`Rendering leg ${index}:`, leg.mode);
 
-              const strokeColor = getTransitColor(leg.mode, leg.route);
+                  if (!leg.legGeometry?.points) return null;
 
-              // Stable key
-              const itineraryKey = [
-                leg.mode ?? "unknown",
-                leg.route ?? "",
-                leg.from?.name ?? "",
-                leg.to?.name ?? "",
-                // geometry unique per leg
-                leg.legGeometry.points ?? "",
-              ].join("|");
+                  const precision = (leg.legGeometry as any)?.precision ?? 7;
+                  const coordinates = decodePolyline(leg.legGeometry.points, precision);
+                  if (coordinates.length < 2) return null;
 
-              return (
-                <MapPolylineComponent
-                  key={`leg-${itineraryKey}`}
-                  coordinates={coordinates}
-                  strokeColor={strokeColor}
-                  strokeWidth={leg.mode === "WALK" ? 4 : 6}
-                  lineDashPattern={leg.mode === "WALK" ? [2, 8] : undefined}
-                  lineCap="round"
-                />
-              );
-            })}
-          </>
-        ) : isDirectionsMode && MapPolylineComponent && routeCoordinates.length > 1 ? (
-          <MapPolylineComponent
-            testID="route-polyline"
-            coordinates={routeCoordinates}
-            strokeColor="#1668C7"
-            strokeWidth={routeMode === "walking" ? 6 : 5}
-            lineDashPattern={routeMode === "walking" ? [1, 12] : undefined}
-            lineCap="round"
-          />
-        ) : null}
+                  const strokeColor = getTransitColor(leg.mode, leg.route);
+
+                  const legKey = [
+                    leg.mode ?? "unknown",
+                    leg.route ?? "",
+                    leg.from?.name ?? "",
+                    leg.to?.name ?? "",
+                    leg.legGeometry.points ?? "",
+                  ].join("|");
+
+                  return (
+                    <MapPolylineComponent
+                      key={legKey}
+                      coordinates={coordinates}
+                      strokeColor={strokeColor}
+                      strokeWidth={leg.mode === "WALK" ? 4 : 6}
+                      lineDashPattern={leg.mode === "WALK" ? [2, 8] : undefined}
+                      lineCap="round"
+                    />
+                  );
+                })}
+              </>
+            );
+          }
+
+          if (routeCoordinates.length > 1) {
+            return (
+              <MapPolylineComponent
+                testID="route-polyline"
+                coordinates={routeCoordinates}
+                strokeColor="#1668C7"
+                strokeWidth={routeMode === "walking" ? 6 : 5}
+                lineDashPattern={routeMode === "walking" ? [1, 12] : undefined}
+                lineCap="round"
+              />
+            );
+          }
+
+          return null;
+        })()}
 
         {campusPolygons.features.map((feature: any) => {
           const coordinates = feature.geometry.coordinates[0].map(
