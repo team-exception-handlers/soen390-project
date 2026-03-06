@@ -488,14 +488,14 @@ export default function MapScreen() {
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
-  const [routeDurationMinutes, setRouteDurationMinutes] = useState<number | null>(
+  const [, setRouteDurationMinutes] = useState<number | null>(
     null,
   );
-  const [routeDistanceMeters, setRouteDistanceMeters] = useState<number | null>(
+  const [, setRouteDistanceMeters] = useState<number | null>(
     null,
   );
-  const [routeLoading, setRouteLoading] = useState(false);
-  const [routeError, setRouteError] = useState<string | null>(null);
+  const [, setRouteLoading] = useState(false);
+  const [, setRouteError] = useState<string | null>(null);
   const [routeInstructions, setRouteInstructions] = useState<RouteInstruction[]>(
     [],
   );
