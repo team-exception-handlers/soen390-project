@@ -19,8 +19,8 @@ jest.mock("react-native", () => ({
 }));
 
 // Mock timers
-global.setInterval = jest.fn(() => 123);
-global.clearInterval = jest.fn();
+globalThis.setInterval = jest.fn(() => 123);
+globalThis.clearInterval = jest.fn();
 
 // Mock dependencies
 jest.mock("../../utils/locationLogic", () => ({
