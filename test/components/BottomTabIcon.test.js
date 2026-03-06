@@ -1,16 +1,22 @@
 jest.mock('@expo/vector-icons', () => {
   const React = require('react');
-  return {
-    Ionicons: (props) => React.createElement('Ionicons', { ...props, testID: `ionicon-${props.name}` }),
-  };
+  const PropTypes = require('prop-types');
+  const Ionicons = (props) => React.createElement('Ionicons', { ...props, testID: `ionicon-${props.name}` });
+  Ionicons.propTypes = { name: PropTypes.string.isRequired };
+  return { Ionicons };
 });
 
 jest.mock('react-native', () => {
   const React = require('react');
+  const PropTypes = require('prop-types');
+  const View = (props) => React.createElement('View', props, props.children);
+  View.propTypes = { children: PropTypes.node };
+  const Text = (props) => React.createElement('Text', props, props.children);
+  Text.propTypes = { children: PropTypes.node };
   return {
     StyleSheet: { create: (s) => s },
-    View: (props) => React.createElement('View', props, props.children),
-    Text: (props) => React.createElement('Text', props, props.children),
+    View,
+    Text,
   };
 });
 
