@@ -2099,9 +2099,19 @@ export default function MapScreen() {
 
               const strokeColor = getTransitColor(leg.mode, leg.route);
 
+              // Stable key
+              const itineraryKey = [
+                leg.mode ?? "unknown",
+                leg.route ?? "",
+                leg.from?.name ?? "",
+                leg.to?.name ?? "",
+                // geometry unique per leg
+                leg.legGeometry.points ?? "",
+              ].join("|");
+
               return (
                 <MapPolylineComponent
-                  key={`leg-${index}`}
+                  key={`leg-${itineraryKey}`}
                   coordinates={coordinates}
                   strokeColor={strokeColor}
                   strokeWidth={leg.mode === "WALK" ? 4 : 6}
