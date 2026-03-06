@@ -1637,6 +1637,11 @@ export default function MapScreen() {
     [],
   );
 
+  const defaultSgwRegion = useMemo(
+    () => getCampusRegion("SGW", SGW_POLYGONS.features),
+    [],
+  );
+
   const actualOriginPoint = useMemo(() => {
     // If user selected a building as origin, use that building's coordinates
     if (originBuildingCode) {
@@ -2248,11 +2253,11 @@ export default function MapScreen() {
               const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               const routeMode = ${JSON.stringify(routeMode)};
               const routeCoordinates = ${JSON.stringify(
-                routeCoordinates.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      routeCoordinates.map((point) => [
+        point.latitude,
+        point.longitude,
+      ]),
+    )};
 
               // Per-leg transit segments for Leaflet
               const transitSegments = ${JSON.stringify(webTransitSegments)};
@@ -2547,8 +2552,8 @@ export default function MapScreen() {
               });
               window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
               `
-                  : 'console.log("No user location available");'
-              }
+        : 'console.log("No user location available");'
+      }
           </script>
       </body>
       </html>
@@ -2629,7 +2634,7 @@ export default function MapScreen() {
                   setSelectedBuilding(data.buildingCode);
                 if (data?.type === "buildingDeselected")
                   setSelectedBuilding(null);
-              } catch {}
+              } catch { }
               return false;
             }
             return true;
@@ -2650,9 +2655,9 @@ export default function MapScreen() {
 
   const nativeMapContent =
     MapViewComponent &&
-    MapMarkerComponent &&
-    MapCalloutComponent &&
-    MapPolygonComponent ? (
+      MapMarkerComponent &&
+      MapCalloutComponent &&
+      MapPolygonComponent ? (
       <MapViewComponent
         ref={mapRef}
         testID="map-native"
@@ -2883,23 +2888,23 @@ export default function MapScreen() {
         </View>
       )}
 
-      <DirectionsPanel 
-        setSearchText={setSearchText} 
-        setEditingField={setEditingField} 
-        searchInputRef={searchInputRef} 
-        editingField={editingField} 
-        originBuilding={originBuilding} 
-        destinationBuilding={destinationBuilding} 
-        clearDirections={clearDirections} 
-        isDirectionsMode={isDirectionsMode} 
-        isSameCampus={isSameCampus} 
-        routeMode={routeMode} 
-        setRouteMode={setRouteMode} 
-        modeDurations={modeDurations} 
-        setRouteStarted={setRouteStarted} 
-        routeInstructionsDismissedRef={routeInstructionsDismissedRef} 
-        setShowRouteInstructions={setShowRouteInstructions} 
-        styles={styles} 
+      <DirectionsPanel
+        setSearchText={setSearchText}
+        setEditingField={setEditingField}
+        searchInputRef={searchInputRef}
+        editingField={editingField}
+        originBuilding={originBuilding}
+        destinationBuilding={destinationBuilding}
+        clearDirections={clearDirections}
+        isDirectionsMode={isDirectionsMode}
+        isSameCampus={isSameCampus}
+        routeMode={routeMode}
+        setRouteMode={setRouteMode}
+        modeDurations={modeDurations}
+        setRouteStarted={setRouteStarted}
+        routeInstructionsDismissedRef={routeInstructionsDismissedRef}
+        setShowRouteInstructions={setShowRouteInstructions}
+        styles={styles}
         formatDuration={formatDuration}
         originRoom={originRoom}
         setOriginRoom={setOriginRoom}
