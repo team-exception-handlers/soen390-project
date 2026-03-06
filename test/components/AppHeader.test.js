@@ -43,26 +43,26 @@ jest.mock("react-native", () => {
   };
 });
 
+function findByTestID(node, id) {
+  if (!node) return null;
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const res = findByTestID(child, id);
+      if (res) return res;
+    }
+    return null;
+  }
+  if (node?.props && node.props.testID === id) return node;
+  if (node?.props?.children)
+    return findByTestID(node.props.children, id);
+  return null;
+}
+
 describe("components/AppHeader", () => {
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
   });
-
-  function findByTestID(node, id) {
-    if (!node) return null;
-    if (Array.isArray(node)) {
-      for (const child of node) {
-        const res = findByTestID(child, id);
-        if (res) return res;
-      }
-      return null;
-    }
-    if (node?.props && node.props.testID === id) return node;
-    if (node?.props && node.props.children)
-      return findByTestID(node.props.children, id);
-    return null;
-  }
 
   test("renders title and search input with provided value", () => {
     const AppHeader = require("../../components/AppHeader").default;
