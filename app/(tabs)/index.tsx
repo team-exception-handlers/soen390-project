@@ -1270,11 +1270,6 @@ export default function MapScreen() {
     [campus],
   );
 
-  const defaultSgwRegion = useMemo(
-    () => getCampusRegion("SGW", SGW_POLYGONS.features),
-    [],
-  );
-
   const actualOriginPoint = useMemo(() => {
     // If user selected a building as origin, use that building's coordinates
     if (originBuildingCode) {
