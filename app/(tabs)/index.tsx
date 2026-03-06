@@ -429,6 +429,159 @@ const RoomInputGroup = ({
   );
 };
 
+const TransportModeSelector = ({
+  isDirectionsMode,
+  isSameCampus,
+  routeMode,
+  setRouteMode,
+  modeDurations,
+  setRouteStarted,
+  routeInstructionsDismissedRef,
+  setShowRouteInstructions,
+  clearDirections,
+  styles,
+  formatDuration,
+}: any) => {
+  if (!isDirectionsMode) return null;
+
+  if (isSameCampus) {
+    return (
+      <View style={styles.modeSelectorGrid}>
+        <View style={styles.modeSelectorRow}>
+          <Pressable
+            testID="route-mode-walking"
+            style={[styles.modePill, styles.modePillActive]}
+          >
+            <Text style={[styles.modePillText, styles.modePillTextActive]}>
+              Walk{" "}
+              {modeDurations.walking !== null
+                ? formatDuration(modeDurations.walking)
+                : "—"}
+            </Text>
+          </Pressable>
+          <Text style={styles.sameCampusHint}>Same campus</Text>
+          <Pressable
+            testID="direction-exit-button"
+            style={styles.modeActionButton}
+            onPress={clearDirections}
+          >
+            <Text style={styles.modeActionButtonText}>Exit</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.modeSelectorGrid}>
+      <View style={styles.modeSelectorRow}>
+        <View style={styles.modePillGroup}>
+          <Pressable
+            testID="route-mode-walking"
+            style={[
+              styles.modePill,
+              routeMode === "walking" && styles.modePillActive,
+            ]}
+            onPress={() => setRouteMode("walking")}
+          >
+            <Text
+              style={[
+                styles.modePillText,
+                routeMode === "walking" && styles.modePillTextActive,
+              ]}
+            >
+              Bike -{" "}
+              {modeDurations.walking !== null
+                ? formatDuration(modeDurations.walking)
+                : "—"}
+            </Text>
+          </Pressable>
+          <Pressable
+            testID="route-mode-driving"
+            style={[
+              styles.modePill,
+              routeMode === "driving" && styles.modePillActive,
+            ]}
+            onPress={() => setRouteMode("driving")}
+          >
+            <Text
+              style={[
+                styles.modePillText,
+                routeMode === "driving" && styles.modePillTextActive,
+              ]}
+            >
+              Car -{" "}
+              {modeDurations.driving !== null
+                ? formatDuration(modeDurations.driving)
+                : "—"}
+            </Text>
+          </Pressable>
+        </View>
+        <Pressable
+          testID="direction-start-button"
+          style={styles.modeActionButton}
+          onPress={() => {
+            setRouteStarted(true);
+            routeInstructionsDismissedRef.current = false;
+            setShowRouteInstructions(true);
+          }}
+        >
+          <Text style={styles.modeActionButtonText}>Start</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.modeSelectorRow}>
+        <View style={styles.modePillGroup}>
+          <Pressable
+            testID="route-mode-transit"
+            style={[
+              styles.modePill,
+              routeMode === "transit" && styles.modePillActive,
+            ]}
+            onPress={() => setRouteMode("transit")}
+          >
+            <Text
+              style={[
+                styles.modePillText,
+                routeMode === "transit" && styles.modePillTextActive,
+              ]}
+            >
+              Public Transit -{" "}
+              {modeDurations.transit !== null
+                ? formatDuration(modeDurations.transit)
+                : "—"}
+            </Text>
+          </Pressable>
+          <Pressable
+            testID="route-mode-shuttle"
+            style={[
+              styles.modePill,
+              routeMode === "shuttle" && styles.modePillActive,
+            ]}
+            onPress={() => setRouteMode("shuttle")}
+          >
+            <Text
+              style={[
+                styles.modePillText,
+                routeMode === "shuttle" && styles.modePillTextActive,
+              ]}
+            >
+              Shuttle
+            </Text>
+          </Pressable>
+        </View>
+        <Pressable
+          testID="direction-exit-button"
+          style={styles.modeActionButton}
+          onPress={clearDirections}
+        >
+          <Text style={styles.modeActionButtonText}>Exit</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+};
+
 const DirectionsPanel = ({
   setSearchText,
   setEditingField,
@@ -555,142 +708,19 @@ const DirectionsPanel = ({
         </Pressable>
       </View>
 
-      {/* TRANSPORT MODE BUTTONS — different campus only */}
-      {isDirectionsMode && !isSameCampus && (
-        <View style={styles.modeSelectorGrid}>
-          <View style={styles.modeSelectorRow}>
-            <View style={styles.modePillGroup}>
-              <Pressable
-                testID="route-mode-walking"
-                style={[
-                  styles.modePill,
-                  routeMode === "walking" && styles.modePillActive,
-                ]}
-                onPress={() => setRouteMode("walking")}
-              >
-                <Text
-                  style={[
-                    styles.modePillText,
-                    routeMode === "walking" && styles.modePillTextActive,
-                  ]}
-                >
-                  Bike -{" "}
-                  {modeDurations.walking !== null
-                    ? formatDuration(modeDurations.walking)
-                    : "—"}
-                </Text>
-              </Pressable>
-              <Pressable
-                testID="route-mode-driving"
-                style={[
-                  styles.modePill,
-                  routeMode === "driving" && styles.modePillActive,
-                ]}
-                onPress={() => setRouteMode("driving")}
-              >
-                <Text
-                  style={[
-                    styles.modePillText,
-                    routeMode === "driving" && styles.modePillTextActive,
-                  ]}
-                >
-                  Car -{" "}
-                  {modeDurations.driving !== null
-                    ? formatDuration(modeDurations.driving)
-                    : "—"}
-                </Text>
-              </Pressable>
-            </View>
-            <Pressable
-              testID="direction-start-button"
-              style={styles.modeActionButton}
-              onPress={() => {
-                setRouteStarted(true);
-                routeInstructionsDismissedRef.current = false;
-                setShowRouteInstructions(true);
-              }}
-            >
-              <Text style={styles.modeActionButtonText}>Start</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.modeSelectorRow}>
-            <View style={styles.modePillGroup}>
-              <Pressable
-                testID="route-mode-transit"
-                style={[
-                  styles.modePill,
-                  routeMode === "transit" && styles.modePillActive,
-                ]}
-                onPress={() => setRouteMode("transit")}
-              >
-                <Text
-                  style={[
-                    styles.modePillText,
-                    routeMode === "transit" && styles.modePillTextActive,
-                  ]}
-                >
-                  Public Transit -{" "}
-                  {modeDurations.transit !== null
-                    ? formatDuration(modeDurations.transit)
-                    : "—"}
-                </Text>
-              </Pressable>
-              <Pressable
-                testID="route-mode-shuttle"
-                style={[
-                  styles.modePill,
-                  routeMode === "shuttle" && styles.modePillActive,
-                ]}
-                onPress={() => setRouteMode("shuttle")}
-              >
-                <Text
-                  style={[
-                    styles.modePillText,
-                    routeMode === "shuttle" && styles.modePillTextActive,
-                  ]}
-                >
-                  Shuttle
-                </Text>
-              </Pressable>
-            </View>
-            <Pressable
-              testID="direction-exit-button"
-              style={styles.modeActionButton}
-              onPress={clearDirections}
-            >
-              <Text style={styles.modeActionButtonText}>Exit</Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
-
-      {/* WALK ONLY — same campus */}
-      {isDirectionsMode && isSameCampus && (
-        <View style={styles.modeSelectorGrid}>
-          <View style={styles.modeSelectorRow}>
-            <Pressable
-              testID="route-mode-walking"
-              style={[styles.modePill, styles.modePillActive]}
-            >
-              <Text style={[styles.modePillText, styles.modePillTextActive]}>
-                Walk{" "}
-                {modeDurations.walking !== null
-                  ? formatDuration(modeDurations.walking)
-                  : "—"}
-              </Text>
-            </Pressable>
-            <Text style={styles.sameCampusHint}>Same campus</Text>
-            <Pressable
-              testID="direction-exit-button"
-              style={styles.modeActionButton}
-              onPress={clearDirections}
-            >
-              <Text style={styles.modeActionButtonText}>Exit</Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
+      <TransportModeSelector
+        isDirectionsMode={isDirectionsMode}
+        isSameCampus={isSameCampus}
+        routeMode={routeMode}
+        setRouteMode={setRouteMode}
+        modeDurations={modeDurations}
+        setRouteStarted={setRouteStarted}
+        routeInstructionsDismissedRef={routeInstructionsDismissedRef}
+        setShowRouteInstructions={setShowRouteInstructions}
+        clearDirections={clearDirections}
+        styles={styles}
+        formatDuration={formatDuration}
+      />
     </View>
   );
 };
