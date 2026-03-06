@@ -107,6 +107,13 @@ const getTransitColor = (mode: string, route?: string) => {
 
 const RouteStepsPopup = (props: any) => {
   const { styles, routeSheetPanResponder, formatTime, routeInstructionsDismissedRef, setShowRouteInstructions, routeMode, actualOriginPoint, destinationBuilding, transitItineraries, routeStarted, selectedItineraryIndex, expandedItineraries, setSelectedItineraryIndex, setRouteDurationMinutes, setRouteDistanceMeters, setRouteInstructions, setExpandedItineraries, expandedIntermediateStops, setExpandedIntermediateStops, routeInstructions } = props;
+
+  const hasTransitItineraries =
+    routeMode === "transit" && transitItineraries.length > 0;
+
+  const showTransitJourneyDetails =
+    hasTransitItineraries && routeStarted;
+
   return (
     <View style={styles.routeStepsPopup} testID="route-steps-popup">
       <Pressable
@@ -140,8 +147,8 @@ const RouteStepsPopup = (props: any) => {
             origin={actualOriginPoint}
             destination={destinationBuilding}
           />
-        ) : routeMode === "transit" && transitItineraries.length > 0 ? (
-          routeStarted ? (
+        ) : hasTransitItineraries ? (
+          showTransitJourneyDetails ? (
             <>
               <Text
                 style={{
