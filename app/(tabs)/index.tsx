@@ -1,11 +1,19 @@
 import BuildingInformation from "@/components/BuildingInformation";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
-import { ChevronDown, ChevronUp, X } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronUp, Map, X } from "lucide-react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
+  Image,
   Keyboard,
   Linking,
+  Modal,
   PanResponder,
   Platform,
   Pressable,
@@ -23,10 +31,25 @@ import TransitLegTimeline from "../../components/TransitLegTimeline";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
-import { findUserBuilding, hasLocationPermission, requestLocationPermission, startWatchingLocation } from "../../utils/locationUtils";
+import {
+  findUserBuilding,
+  hasLocationPermission,
+  requestLocationPermission,
+  startWatchingLocation,
+} from "../../utils/locationUtils";
 import { getCampusRegion } from "../../utils/mapRegions";
-import { fetchOsrmRoute, type RouteInstruction, type RouteProfile } from "../../utils/osrmDirections";
-import { decodePolyline, fetchTransitItineraries, formatTime, type TransitItinerary } from "../../utils/transitousDirections";
+import {
+  fetchOsrmRoute,
+  type RouteInstruction,
+  type RouteProfile,
+} from "../../utils/osrmDirections";
+import { getRoomDetails } from "../../utils/roomUtils";
+import {
+  decodePolyline,
+  fetchTransitItineraries,
+  formatTime,
+  type TransitItinerary,
+} from "../../utils/transitousDirections";
 
 let WebView: React.ComponentType<any> | null = null;
 if (Platform.OS !== "web") {
@@ -61,6 +84,20 @@ const formatDistance = (meters: number) => {
 };
 const DEFAULT_START_BUILDING_CODE = "H";
 const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
+type PinVisibilityMode = "all" | "campus-summary";
+
+const getPinVisibilityMode = (
+  zoomOutFactor: number,
+): PinVisibilityMode => {
+  if (zoomOutFactor > 1.08) return "campus-summary";
+  return "all";
+};
+
+const shouldShowBuildingPin = (
+  visibilityMode: PinVisibilityMode,
+): boolean => {
+  return visibilityMode === "all";
+};
 
 const resolveBuildingByCode = (
   code: string | null | undefined,
@@ -76,15 +113,35 @@ const detectBuildingFromLocation = (
   latitude: number,
   longitude: number,
 ): { code: string | null; campus: Campus | null } => {
-  const sgwBuilding = findUserBuilding(latitude, longitude, SGW_POLYGONS as any);
+  const sgwBuilding = findUserBuilding(
+    latitude,
+    longitude,
+    SGW_POLYGONS as any,
+  );
   if (sgwBuilding) return { code: sgwBuilding, campus: "SGW" };
 
-  const loyBuilding = findUserBuilding(latitude, longitude, LOY_POLYGONS as any);
+  const loyBuilding = findUserBuilding(
+    latitude,
+    longitude,
+    LOY_POLYGONS as any,
+  );
   if (loyBuilding) return { code: loyBuilding, campus: "LOY" };
 
   return { code: null, campus: null };
 };
-
+const getFloorPlanAsset = (key: string): any | null => {
+  const assets: Record<string, () => any> = {
+    "H-8": () => require("../../assets/floor_plans/Hall-8.svg"),
+    "H-9": () => require("../../assets/floor_plans/Hall-9.svg"),
+    "MB-1": () => require("../../assets/floor_plans/MB-1.svg"),
+    "MB--2": () => require("../../assets/floor_plans/MB-S2.svg"),
+    "VE-1": () => require("../../assets/floor_plans/VE-1.svg"),
+    "VE-2": () => require("../../assets/floor_plans/VE-2.svg"),
+    "VL-1": () => require("../../assets/floor_plans/VL-1.svg"),
+    "VL-2": () => require("../../assets/floor_plans/VL-2.svg"),
+  };
+  return assets[key] ? assets[key]() : null;
+};
 /* these make it so we can view selected campus and building from the map level */
 const getTransitColor = (mode: string, route?: string) => {
   if (mode === "WALK") return "#2E7D32";
@@ -292,59 +349,186 @@ const RouteStepsPopup = (props: any) => {
   );
 };
 
-
-const DirectionsPanel = ({ setSearchText, setEditingField, searchInputRef, editingField, originBuilding, destinationBuilding, clearDirections, isDirectionsMode, isSameCampus, routeMode, setRouteMode, modeDurations, setRouteStarted, routeInstructionsDismissedRef, setShowRouteInstructions, styles, formatDuration }: any) => {
+const DirectionsPanel = ({
+  setSearchText,
+  setEditingField,
+  searchInputRef,
+  editingField,
+  originBuilding,
+  destinationBuilding,
+  clearDirections,
+  isDirectionsMode,
+  isSameCampus,
+  routeMode,
+  setRouteMode,
+  modeDurations,
+  setRouteStarted,
+  routeInstructionsDismissedRef,
+  setShowRouteInstructions,
+  styles,
+  formatDuration,
+  // newly added props from main
+  originRoom,
+  setOriginRoom,
+  destinationRoom,
+  setDestinationRoom,
+  setActiveFloorPlan,
+  setFloorPlanModalVisible,
+  getRoomDetails,
+  getFloorPlanAsset
+}: any) => {
   return (
     <View style={styles.directionsPanel} testID="directions-panel">
       <View style={styles.directionFieldRow}>
         {/* FROM FIELD */}
-        <Pressable
-          testID="direction-from-button"
-          onPress={() => {
-            setEditingField("from");
-            searchInputRef.current?.focus?.();
-          }}
-          style={[
-            styles.directionFieldButton,
-            editingField === "from" && styles.directionFieldButtonActive,
-          ]}
-        >
-          <Text style={styles.directionFieldLabel}>From</Text>
-          <Text
-            style={styles.directionFieldValue}
-            numberOfLines={1}
-            testID={originBuilding ? `direction-from-value-${originBuilding.code}` : "direction-from-value-empty"}
+        <View style={{ flex: 1 }}>
+          <Pressable
+            testID="direction-from-button"
+            onPress={() => {
+              setEditingField("from");
+              searchInputRef.current?.focus?.();
+            }}
+            style={[
+              styles.directionFieldButton,
+              editingField === "from" && styles.directionFieldButtonActive,
+            ]}
           >
-            {originBuilding
-              ? `${originBuilding.code} - ${originBuilding.shortName}`
-              : "Current location"}
-          </Text>
-        </Pressable>
+            <Text style={styles.directionFieldLabel}>From</Text>
+            <Text
+              style={styles.directionFieldValue}
+              numberOfLines={1}
+              testID={
+                originBuilding
+                  ? `direction-from-value-${originBuilding.code}`
+                  : "direction-from-value-empty"
+              }
+            >
+              {originBuilding
+                ? `${originBuilding.code} - ${originBuilding.shortName}`
+                : "Current location"}
+            </Text>
+          </Pressable>
+          {/* Origin Room Input + Icon Button */}
+          {originBuilding &&
+            (() => {
+              const details = getRoomDetails(originBuilding.code, originRoom);
+              const floorKey = details
+                ? `${details.buildingCode}-${details.floor}`
+                : null;
+              const hasPlan =
+                !!floorKey && getFloorPlanAsset(floorKey) !== null;
+
+              return (
+                <View style={styles.roomInputContainer}>
+                  <TextInput
+                    style={styles.roomInput}
+                    placeholder="Room #"
+                    placeholderTextColor="rgba(255,255,255,0.4)"
+                    value={originRoom}
+                    onChangeText={setOriginRoom}
+                    keyboardType="default"
+                  />
+                  <Pressable
+                    style={
+                      hasPlan
+                        ? styles.floorPlanButtonActive
+                        : styles.floorPlanButtonDisabled
+                    }
+                    disabled={!hasPlan}
+                    accessibilityLabel="View Floor Plan"
+                    onPress={() => {
+                      if (floorKey) {
+                        setActiveFloorPlan(getFloorPlanAsset(floorKey));
+                        setFloorPlanModalVisible(true);
+                      }
+                    }}
+                  >
+                    <Map
+                      size={16}
+                      color={hasPlan ? "#FFFFFF" : "rgba(255,255,255,0.3)"}
+                    />
+                  </Pressable>
+                </View>
+              );
+            })()}
+        </View>
 
         {/* TO FIELD */}
-        <Pressable
-          testID="direction-to-button"
-          onPress={() => {
-            setEditingField("to");
-            setSearchText("");
-            searchInputRef.current?.focus?.();
-          }}
-          style={[
-            styles.directionFieldButton,
-            editingField === "to" && styles.directionFieldButtonActive,
-          ]}
-        >
-          <Text style={styles.directionFieldLabel}>To</Text>
-          <Text
-            style={styles.directionFieldValue}
-            numberOfLines={1}
-            testID={destinationBuilding ? `direction-to-value-${destinationBuilding.code}` : "direction-to-value-empty"}
+        <View style={{ flex: 1 }}>
+          <Pressable
+            testID="direction-to-button"
+            onPress={() => {
+              setEditingField("to");
+              setSearchText("");
+              searchInputRef.current?.focus?.();
+            }}
+            style={[
+              styles.directionFieldButton,
+              editingField === "to" && styles.directionFieldButtonActive,
+            ]}
           >
-            {destinationBuilding
-              ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
-              : "Where to?"}
-          </Text>
-        </Pressable>
+            <Text style={styles.directionFieldLabel}>To</Text>
+            <Text
+              style={styles.directionFieldValue}
+              numberOfLines={1}
+              testID={
+                destinationBuilding
+                  ? `direction-to-value-${destinationBuilding.code}`
+                  : "direction-to-value-empty"
+              }
+            >
+              {destinationBuilding
+                ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
+                : "Where to?"}
+            </Text>
+          </Pressable>
+          {/* Destination Room Input + Icon Button */}
+          {destinationBuilding &&
+            (() => {
+              const details = getRoomDetails(
+                destinationBuilding.code,
+                destinationRoom,
+              );
+              const floorKey = details
+                ? `${details.buildingCode}-${details.floor}`
+                : null;
+              const hasPlan =
+                !!floorKey && getFloorPlanAsset(floorKey) !== null;
+
+              return (
+                <View style={styles.roomInputContainer}>
+                  <TextInput
+                    style={styles.roomInput}
+                    placeholder="Room #"
+                    placeholderTextColor="rgba(255,255,255,0.4)"
+                    value={destinationRoom}
+                    onChangeText={setDestinationRoom}
+                    keyboardType="default"
+                  />
+                  <Pressable
+                    style={
+                      hasPlan
+                        ? styles.floorPlanButtonActive
+                        : styles.floorPlanButtonDisabled
+                    }
+                    disabled={!hasPlan}
+                    accessibilityLabel="View Floor Plan"
+                    onPress={() => {
+                      if (floorKey) {
+                        setActiveFloorPlan(getFloorPlanAsset(floorKey));
+                        setFloorPlanModalVisible(true);
+                      }
+                    }}
+                  >
+                    <Map
+                      size={16}
+                      color={hasPlan ? "#FFFFFF" : "rgba(255,255,255,0.3)"}
+                    />
+                  </Pressable>
+                </View>
+              );
+            })()}
+        </View>
 
         {/* GO / CANCEL BUTTON */}
         <Pressable
@@ -352,7 +536,9 @@ const DirectionsPanel = ({ setSearchText, setEditingField, searchInputRef, editi
           onPress={clearDirections}
           style={styles.clearRouteButton}
         >
-          <Text style={styles.clearRouteText}>{isDirectionsMode ? "Cancel" : "Go"}</Text>
+          <Text style={styles.clearRouteText}>
+            {isDirectionsMode ? "Cancel" : "Go"}
+          </Text>
         </Pressable>
       </View>
 
@@ -363,7 +549,10 @@ const DirectionsPanel = ({ setSearchText, setEditingField, searchInputRef, editi
             <View style={styles.modePillGroup}>
               <Pressable
                 testID="route-mode-walking"
-                style={[styles.modePill, routeMode === "walking" && styles.modePillActive]}
+                style={[
+                  styles.modePill,
+                  routeMode === "walking" && styles.modePillActive,
+                ]}
                 onPress={() => setRouteMode("walking")}
               >
                 <Text
@@ -372,13 +561,18 @@ const DirectionsPanel = ({ setSearchText, setEditingField, searchInputRef, editi
                     routeMode === "walking" && styles.modePillTextActive,
                   ]}
                 >
-                  Bike - {" "}
-                  {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
+                  Bike -{" "}
+                  {modeDurations.walking !== null
+                    ? formatDuration(modeDurations.walking)
+                    : "—"}
                 </Text>
               </Pressable>
               <Pressable
                 testID="route-mode-driving"
-                style={[styles.modePill, routeMode === "driving" && styles.modePillActive]}
+                style={[
+                  styles.modePill,
+                  routeMode === "driving" && styles.modePillActive,
+                ]}
                 onPress={() => setRouteMode("driving")}
               >
                 <Text
@@ -388,7 +582,9 @@ const DirectionsPanel = ({ setSearchText, setEditingField, searchInputRef, editi
                   ]}
                 >
                   Car -{" "}
-                  {modeDurations.driving !== null ? formatDuration(modeDurations.driving) : "—"}
+                  {modeDurations.driving !== null
+                    ? formatDuration(modeDurations.driving)
+                    : "—"}
                 </Text>
               </Pressable>
             </View>
@@ -409,7 +605,10 @@ const DirectionsPanel = ({ setSearchText, setEditingField, searchInputRef, editi
             <View style={styles.modePillGroup}>
               <Pressable
                 testID="route-mode-transit"
-                style={[styles.modePill, routeMode === "transit" && styles.modePillActive]}
+                style={[
+                  styles.modePill,
+                  routeMode === "transit" && styles.modePillActive,
+                ]}
                 onPress={() => setRouteMode("transit")}
               >
                 <Text
@@ -419,12 +618,17 @@ const DirectionsPanel = ({ setSearchText, setEditingField, searchInputRef, editi
                   ]}
                 >
                   Public Transit -{" "}
-                  {modeDurations.transit !== null ? formatDuration(modeDurations.transit) : "—"}
+                  {modeDurations.transit !== null
+                    ? formatDuration(modeDurations.transit)
+                    : "—"}
                 </Text>
               </Pressable>
               <Pressable
                 testID="route-mode-shuttle"
-                style={[styles.modePill, routeMode === "shuttle" && styles.modePillActive]}
+                style={[
+                  styles.modePill,
+                  routeMode === "shuttle" && styles.modePillActive,
+                ]}
                 onPress={() => setRouteMode("shuttle")}
               >
                 <Text
@@ -452,9 +656,15 @@ const DirectionsPanel = ({ setSearchText, setEditingField, searchInputRef, editi
       {isDirectionsMode && isSameCampus && (
         <View style={styles.modeSelectorGrid}>
           <View style={styles.modeSelectorRow}>
-            <Pressable testID="route-mode-walking" style={[styles.modePill, styles.modePillActive]}>
+            <Pressable
+              testID="route-mode-walking"
+              style={[styles.modePill, styles.modePillActive]}
+            >
               <Text style={[styles.modePillText, styles.modePillTextActive]}>
-                Walk {modeDurations.walking !== null ? formatDuration(modeDurations.walking) : "—"}
+                Walk{" "}
+                {modeDurations.walking !== null
+                  ? formatDuration(modeDurations.walking)
+                  : "—"}
               </Text>
             </Pressable>
             <Text style={styles.sameCampusHint}>Same campus</Text>
@@ -468,8 +678,6 @@ const DirectionsPanel = ({ setSearchText, setEditingField, searchInputRef, editi
           </View>
         </View>
       )}
-
-      {/* REMOVED INLINE SHUTTLE DIRECTIONS */}
     </View>
   );
 };
@@ -479,6 +687,8 @@ export default function MapScreen() {
   const [editingField, setEditingField] = useState<"from" | "to" | undefined>(
     undefined,
   );
+  const [floorPlanModalVisible, setFloorPlanModalVisible] = useState(false);
+  const [activeFloorPlan, setActiveFloorPlan] = useState<any>(null);
   const [campus, setCampus] = useState<Campus>("SGW");
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
@@ -488,10 +698,12 @@ export default function MapScreen() {
   const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
     null,
   );
+  const [originRoom, setOriginRoom] = useState<string>("");
+  const [destinationRoom, setDestinationRoom] = useState<string>("");
   const [isDirectionsMode, setIsDirectionsMode] = useState(false);
-  const [routeMode, setRouteMode] = useState<RouteProfile | "transit" | "shuttle">(
-    "walking",
-  );
+  const [routeMode, setRouteMode] = useState<
+    RouteProfile | "transit" | "shuttle"
+  >("walking");
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
@@ -524,8 +736,12 @@ export default function MapScreen() {
     Set<string>
   >(new Set());
   const [routeStarted, setRouteStarted] = useState(false);
+  const [mapViewportRegion, setMapViewportRegion] = useState(() =>
+    getCampusRegion("SGW", SGW_POLYGONS.features),
+  );
 
   const routeInstructionsDismissedRef = useRef(false);
+  const webIframeRef = useRef<HTMLIFrameElement | null>(null);
   const routeSheetPanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) =>
@@ -547,9 +763,9 @@ export default function MapScreen() {
   const mapRef = useRef<any>(null);
   const webViewRef = useRef<any>(null);
   const [userLocation, setUserLocation] = useState<any>(null);
-  const [currentBuilding, setCurrentBuilding] = useState<string | null | undefined>(
-    undefined,
-  );
+  const [currentBuilding, setCurrentBuilding] = useState<
+    string | null | undefined
+  >(undefined);
   const [webMapReady, setWebMapReady] = useState(false);
   const locationSubscription = useRef<any>(null);
   const campusRef = useRef<Campus>(campus);
@@ -565,11 +781,29 @@ export default function MapScreen() {
   const TAB_BAR_HEIGHT = 56;
 
   const isWebPlatform = Platform.OS === "web";
+  const webFrameTargetOrigin =
+    isWebPlatform && typeof window !== "undefined"
+      ? window.location.origin
+      : null;
+  const serializedWebFrameTargetOrigin = JSON.stringify(
+    webFrameTargetOrigin ?? "*",
+  );
   const showE2EHooks =
     Platform.OS !== "web" && process.env.EXPO_PUBLIC_ENABLE_E2E_HOOKS === "1";
   const userLat = isWebPlatform ? userLocation?.coords.latitude || null : null;
   const userLng = isWebPlatform ? userLocation?.coords.longitude || null : null;
   const currentBuildingForHTML = isWebPlatform ? currentBuilding : null;
+
+  const postToWebIframe = useCallback(
+    (message: unknown) => {
+      if (!isWebPlatform || !webFrameTargetOrigin) return;
+      webIframeRef.current?.contentWindow?.postMessage(
+        message,
+        webFrameTargetOrigin,
+      );
+    },
+    [isWebPlatform, webFrameTargetOrigin],
+  );
 
   useEffect(() => {
     campusRef.current = campus;
@@ -577,6 +811,87 @@ export default function MapScreen() {
 
   // Styles defined inside component
   const styles = StyleSheet.create({
+    floorPlanButtonActive: {
+      width: 34,
+      height: 30,
+      backgroundColor: "rgba(35, 140, 81, 0.8)",
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: "#238c51",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    floorPlanButtonTextActive: {
+      color: "#FFFFFF",
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.85)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    modalContent: {
+      width: "90%",
+      height: "75%",
+      backgroundColor: "white",
+      borderRadius: 20,
+      overflow: "hidden",
+      position: "relative",
+    },
+    modalCloseButton: {
+      position: "absolute",
+      top: 16,
+      right: 16,
+      zIndex: 10,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "#F5F5F6",
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 2 },
+    },
+    floorPlanImage: {
+      width: "100%",
+      height: "100%",
+    },
+    roomInput: {
+      flex: 1,
+      height: 30,
+      backgroundColor: "rgba(255,255,255,0.06)",
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.15)",
+      color: "white",
+      paddingHorizontal: 8,
+      fontSize: 12,
+    },
+    roomInputContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 4,
+      gap: 6,
+    },
+    floorPlanButtonDisabled: {
+      width: 34,
+      height: 30,
+      backgroundColor: "rgba(255,255,255,0.03)",
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.08)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    floorPlanButtonTextDisabled: {
+      color: "rgba(255,255,255,0.3)",
+      fontSize: 11,
+      fontWeight: "700",
+    },
     container: {
       flex: 1,
     },
@@ -617,6 +932,32 @@ export default function MapScreen() {
       borderLeftColor: "transparent",
       borderRightColor: "transparent",
       borderTopColor: "#A32638",
+    },
+    campusMarkerContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    campusMarkerBadge: {
+      minWidth: 38,
+      height: 38,
+      paddingHorizontal: 10,
+      backgroundColor: "#A32638",
+      borderWidth: 2,
+      borderColor: "white",
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.22,
+      shadowRadius: 5,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 4,
+      borderRadius: 19,
+    },
+    campusMarkerText: {
+      color: "white",
+      fontSize: 11,
+      fontWeight: "800",
+      letterSpacing: 0.2,
     },
     webFallback: {
       flex: 1,
@@ -1117,9 +1458,12 @@ export default function MapScreen() {
   let MapPolylineComponent: React.ElementType | null = null;
 
   useEffect(() => {
-    if (Platform.OS !== "web") return;
+    if (!isWebPlatform || !webFrameTargetOrigin) return;
 
     const handler = (event: MessageEvent) => {
+      if (event.origin !== webFrameTargetOrigin) return;
+      if (event.source !== webIframeRef.current?.contentWindow) return;
+
       try {
         const data =
           typeof event.data === "string" ? JSON.parse(event.data) : event.data;
@@ -1137,7 +1481,7 @@ export default function MapScreen() {
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, []);
+  }, [isWebPlatform, webFrameTargetOrigin]);
 
   if (Platform.OS !== "web" && !isExpoGo) {
     try {
@@ -1176,7 +1520,10 @@ export default function MapScreen() {
         previous === detected.code ? previous : detected.code,
       );
 
-      if (forceOriginSync || (syncOriginWhenAuto && originModeRef.current === "auto")) {
+      if (
+        forceOriginSync ||
+        (syncOriginWhenAuto && originModeRef.current === "auto")
+      ) {
         setOriginBuildingCode((previous) =>
           previous === detected.code ? previous : detected.code,
         );
@@ -1192,7 +1539,10 @@ export default function MapScreen() {
         return;
       }
 
-      if (syncCampusMode === "once" && !hasInitializedCampusFromLocationRef.current) {
+      if (
+        syncCampusMode === "once" &&
+        !hasInitializedCampusFromLocationRef.current
+      ) {
         hasInitializedCampusFromLocationRef.current = true;
         if (campusRef.current !== detected.campus) {
           setCampus(detected.campus);
@@ -1264,17 +1614,27 @@ export default function MapScreen() {
     };
   }, [handleLocationUpdate]);
 
-  // Get polygon data based on campus
   const campusPolygons = useMemo(
     () => (campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS),
     [campus],
   );
 
-
+  const allPolygons = useMemo(
+    () => ({
+      ...SGW_POLYGONS,
+      features: [...SGW_POLYGONS.features, ...LOY_POLYGONS.features],
+    }),
+    [],
+  );
 
   const campusBuildings = useMemo(
     () => BUILDINGS.filter((building) => building.campus === campus),
     [campus],
+  );
+
+  const defaultLoyRegion = useMemo(
+    () => getCampusRegion("LOY", LOY_POLYGONS.features),
+    [],
   );
 
   const actualOriginPoint = useMemo(() => {
@@ -1324,10 +1684,14 @@ export default function MapScreen() {
     }
     let cancelled = false;
     const go = async () => {
-      // For same campus: walk. For different campus: bike      
+      // For same campus: walk. For different campus: bike
       const walkOrBikeProfile = isSameCampus ? "walking" : "cycling";
       const [walkOrBike, drive] = await Promise.allSettled([
-        fetchOsrmRoute(actualOriginPoint, destinationBuilding, walkOrBikeProfile),
+        fetchOsrmRoute(
+          actualOriginPoint,
+          destinationBuilding,
+          walkOrBikeProfile,
+        ),
         fetchOsrmRoute(actualOriginPoint, destinationBuilding, "driving"),
       ]);
       if (cancelled) return;
@@ -1368,9 +1732,6 @@ export default function MapScreen() {
 
   const resetRouteState = () => {
     setRouteCoordinates([]);
-    setRouteDurationMinutes(null);
-    setRouteDistanceMeters(null);
-    setRouteError(null);
     setRouteInstructions([]);
     setShowRouteInstructions(false);
     setTransitItineraries([]);
@@ -1379,11 +1740,12 @@ export default function MapScreen() {
     setExpandedIntermediateStops(new Set());
     setRouteStarted(false);
     routeInstructionsDismissedRef.current = false;
+    setOriginRoom("");
+    setDestinationRoom("");
   };
 
   const exitDirectionsMode = () => {
     setIsDirectionsMode(false);
-    setRouteLoading(false);
     resetRouteState();
     setRouteCoordinates([]);
     setRouteInstructions([]);
@@ -1433,7 +1795,10 @@ export default function MapScreen() {
       const mapCampus = restoredCampus ?? campus;
       const polygons =
         mapCampus === "SGW" ? SGW_POLYGONS.features : LOY_POLYGONS.features;
-      mapRef.current?.animateToRegion?.(getCampusRegion(mapCampus, polygons), 450);
+      mapRef.current?.animateToRegion?.(
+        getCampusRegion(mapCampus, polygons),
+        450,
+      );
     }
   };
 
@@ -1531,9 +1896,6 @@ export default function MapScreen() {
 
     const loadRoute = async () => {
       try {
-        setRouteLoading(true);
-        setRouteError(null);
-
         if (routeMode === "shuttle") {
           handleShuttleRoute();
           return;
@@ -1555,9 +1917,7 @@ export default function MapScreen() {
         setExpandedIntermediateStops(new Set());
         setRouteStarted(false);
         routeInstructionsDismissedRef.current = false;
-        setRouteError("Could not load route for this selection.");
       } finally {
-        if (!cancelled) setRouteLoading(false);
       }
     };
 
@@ -1566,28 +1926,72 @@ export default function MapScreen() {
     return () => {
       cancelled = true;
     };
-  }, [isDirectionsMode, destinationBuilding, actualOriginPoint, routeMode]);
+  }, [isDirectionsMode, destinationBuilding, actualOriginPoint, routeMode, isSameCampus]);
 
   // Only show pins for buildings that have a polygon (exact or parent e.g. CJ for CJA)
   const buildingsWithPolygons = useMemo(() => {
     const buildingHasPolygon = (building: { code: string }) => {
-      const hasExact = campusPolygons.features.some(
+      const hasExact = allPolygons.features.some(
         (f: { properties: { code: string } }) => f.properties.code === building.code,
       );
-      const hasParent = campusPolygons.features.some(
+      const hasParent = allPolygons.features.some(
         (f: { properties: { code: string } }) =>
           building.code.startsWith(f.properties.code) &&
           f.properties.code.length >= 2,
       );
       return hasExact || hasParent;
     };
-    return campusBuildings.filter(buildingHasPolygon);
-  }, [campusBuildings, campusPolygons]);
+    return BUILDINGS.filter(buildingHasPolygon);
+  }, [allPolygons]);
 
   const region = useMemo(
     () => getCampusRegion(campus, campusPolygons.features),
     [campus, campusPolygons],
   );
+
+  const pinVisibilityMode = useMemo(() => {
+    const zoomOutFactor = Math.max(
+      mapViewportRegion.latitudeDelta / region.latitudeDelta,
+      mapViewportRegion.longitudeDelta / region.longitudeDelta,
+    );
+    return getPinVisibilityMode(zoomOutFactor);
+  }, [mapViewportRegion, region]);
+
+  const visibleBuildingsWithPolygons = useMemo(
+    () =>
+      buildingsWithPolygons.filter(() => shouldShowBuildingPin(pinVisibilityMode)),
+    [buildingsWithPolygons, pinVisibilityMode],
+  );
+
+  const showCampusSummaryMarkers = pinVisibilityMode === "campus-summary";
+
+  const campusMarkerData = useMemo(
+    () => [
+      {
+        campus: "SGW" as Campus,
+        latitude: defaultSgwRegion.latitude,
+        longitude: defaultSgwRegion.longitude,
+      },
+      {
+        campus: "LOY" as Campus,
+        latitude: defaultLoyRegion.latitude,
+        longitude: defaultLoyRegion.longitude,
+      },
+    ],
+    [defaultLoyRegion, defaultSgwRegion],
+  );
+
+  const campusBounds = useMemo(() => {
+    const minLat = region.latitude - region.latitudeDelta / 2;
+    const maxLat = region.latitude + region.latitudeDelta / 2;
+    const minLng = region.longitude - region.longitudeDelta / 2;
+    const maxLng = region.longitude + region.longitudeDelta / 2;
+
+    return [
+      [minLat, minLng],
+      [maxLat, maxLng],
+    ];
+  }, [region]);
 
   const b = BUILDINGS.find((building) => building.code === selectedBuilding);
   let buildingInfo = b?.description;
@@ -1595,7 +1999,12 @@ export default function MapScreen() {
   let buildingPhotoLink = b?.photoLink;
 
   useEffect(() => {
-    if (webViewRef.current && Platform.OS !== "web" && userLocation && webMapReady) {
+    if (
+      webViewRef.current &&
+      Platform.OS !== "web" &&
+      userLocation &&
+      webMapReady
+    ) {
       const { latitude, longitude } = userLocation.coords;
 
       const script = `
@@ -1625,6 +2034,46 @@ export default function MapScreen() {
       webViewRef.current?.injectJavaScript(script);
     }
   }, [userLocation, webMapReady]);
+
+  useEffect(() => {
+    if (isDirectionsMode) return;
+
+    setMapViewportRegion(region);
+
+    if (!isWebPlatform) {
+      mapRef.current?.animateToRegion?.(region, 450);
+    }
+
+    if (Platform.OS === "web") {
+      postToWebIframe({
+        type: "focusBounds",
+        bounds: campusBounds,
+        campus,
+        padding: [20, 20],
+      });
+      return;
+    }
+
+    if (webViewRef.current && webMapReady) {
+      const script = `
+        (function() {
+          if (window.setMapBounds) {
+            window.setMapBounds(${JSON.stringify(campusBounds)}, [20, 20], ${JSON.stringify(campus)});
+          }
+        })();
+        true;
+      `;
+      webViewRef.current.injectJavaScript(script);
+    }
+  }, [
+    campus,
+    campusBounds,
+    isDirectionsMode,
+    isWebPlatform,
+    postToWebIframe,
+    region,
+    webMapReady,
+  ]);
 
   useEffect(() => {
     if (Platform.OS === "web" || !webViewRef.current || !webMapReady) return;
@@ -1700,13 +2149,21 @@ export default function MapScreen() {
 
   // Generate HTML for web map
   const mapHTML = useMemo(() => {
-    const { latitude, longitude, latitudeDelta, longitudeDelta } = region;
+    const { latitude, longitude, latitudeDelta, longitudeDelta } = defaultSgwRegion;
     const buildingData = buildingsWithPolygons.map(
-      ({ latitude: lat, longitude: lng, code, shortName }) => ({
+      ({ latitude: lat, longitude: lng, code, shortName, campus: buildingCampus }) => ({
         latitude: lat,
         longitude: lng,
         code,
         shortName,
+        campus: buildingCampus,
+      }),
+    );
+    const campusSummaryData = campusMarkerData.map(
+      ({ campus: summaryCampus, latitude: lat, longitude: lng }) => ({
+        campus: summaryCampus,
+        latitude: lat,
+        longitude: lng,
       }),
     );
 
@@ -1750,6 +2207,23 @@ export default function MapScreen() {
                   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
               }
               .user-marker { background: transparent; border: none; }
+              .campus-marker { background: transparent; border: none; }
+              .campus-badge {
+                  min-width: 38px;
+                  height: 38px;
+                  padding: 0 10px;
+                  background: #A32638;
+                  color: #ffffff;
+                  border: 2px solid #ffffff;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+                  font-size: 11px;
+                  font-weight: 800;
+                  letter-spacing: 0.2px;
+                  border-radius: 19px;
+              }
           </style>
       </head>
       <body>
@@ -1758,19 +2232,33 @@ export default function MapScreen() {
           <script>
               const map = L.map('map', { maxZoom: 22 }).setView([${latitude}, ${longitude}], 20);
               window.map = map;
+              const parentMessageTargetOrigin = ${serializedWebFrameTargetOrigin};
+              const notifyHost = (payload) => {
+                  if (window.ReactNativeWebView) {
+                      window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+                      return;
+                  }
+
+                  window.parent.postMessage(payload, parentMessageTargetOrigin);
+              };
 
               const buildings = ${JSON.stringify(buildingData)};
-              const polygonData = ${JSON.stringify(campusPolygons)};
+              const campusMarkers = ${JSON.stringify(campusSummaryData)};
+              const polygonData = ${JSON.stringify(allPolygons)};
               const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               const routeMode = ${JSON.stringify(routeMode)};
               const routeCoordinates = ${JSON.stringify(
-      routeCoordinates.map((point) => [point.latitude, point.longitude]),
-    )};
+                routeCoordinates.map((point) => [
+                  point.latitude,
+                  point.longitude,
+                ]),
+              )};
 
               // Per-leg transit segments for Leaflet
               const transitSegments = ${JSON.stringify(webTransitSegments)};
 
               let selectedPolygon = null;
+              let markerRecords = [];
               window.polygonMap = {};
               window.currentBuildingPolygon = null;
               window.currentBuildingCode = null;
@@ -1779,6 +2267,8 @@ export default function MapScreen() {
               window.userMarker = null;
               window.followUser = false;
               window.hasCenteredOnUser = false;
+              window.selectedCampus = "SGW";
+              window.defaultCampusZoom = null;
 
               L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                   attribution: '© OpenStreetMap contributors',
@@ -1798,6 +2288,41 @@ export default function MapScreen() {
               };
 
               const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
+              const getPinVisibilityMode = () => {
+                  const defaultCampusZoom =
+                    typeof window.defaultCampusZoom === 'number'
+                      ? window.defaultCampusZoom
+                      : map.getZoom();
+                  const zoomOutDelta = defaultCampusZoom - map.getZoom();
+                  if (zoomOutDelta > 0.45) return 'campus-summary';
+                  return 'all';
+              };
+              const shouldShowMarker = (record, visibilityMode) => {
+                  if (record.type === 'campus') return visibilityMode === 'campus-summary';
+                  return visibilityMode === 'all';
+              };
+              const updateMarkerVisibility = () => {
+                  const visibilityMode = getPinVisibilityMode();
+                  markerRecords.forEach((record) => {
+                      const shouldShow = shouldShowMarker(record, visibilityMode);
+                      const marker = record.marker;
+                      const isVisible = map.hasLayer(marker);
+                      if (shouldShow && !isVisible) marker.addTo(map);
+                      if (!shouldShow && isVisible) map.removeLayer(marker);
+                  });
+              };
+              window.updateMarkerVisibility = updateMarkerVisibility;
+              window.setMapBounds = (nextBounds, padding = [20, 20], nextCampus = window.selectedCampus) => {
+                  if (!Array.isArray(nextBounds) || nextBounds.length !== 2) return;
+                  if (nextCampus) window.selectedCampus = nextCampus;
+                  window.defaultCampusZoom = map.getBoundsZoom(
+                    nextBounds,
+                    false,
+                    L.point(padding[0], padding[1])
+                  );
+                  map.fitBounds(nextBounds, { padding });
+                  updateMarkerVisibility();
+              };
 
              const segmentColor = (mode, route) => {
                   if (mode === "WALK") return "#2E7D32";
@@ -1882,13 +2407,24 @@ export default function MapScreen() {
               }
 
               if (!hasAnyRoute) {
-                  map.fitBounds(bounds, { padding: [20, 20] });
+                  window.setMapBounds(bounds, [20, 20], window.selectedCampus);
               }
+
+              window.addEventListener('message', function(event) {
+                  if (event.origin !== parentMessageTargetOrigin) return;
+
+                  const data = event.data;
+                  if (data?.type === 'focusBounds') {
+                      window.setMapBounds(data.bounds, data.padding, data.campus);
+                  }
+              });
 
               const disableFollow = () => { window.followUser = false; };
               map.on('dragstart', disableFollow);
               map.on('zoomstart', disableFollow);
               map.on('movestart', disableFollow);
+              map.on('zoomend', updateMarkerVisibility);
+              map.on('moveend', updateMarkerVisibility);
 
               polygonData.features.forEach((feature) => {
                   const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
@@ -1905,7 +2441,7 @@ export default function MapScreen() {
                       selectedPolygon = this;
                       window.selectedBuildingCode = buildingCode;
                       window.selectedPolygon = selectedPolygon;
-                      (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({ type: 'buildingSelected', buildingCode: buildingCode }), '*');
+                      notifyHost({ type: 'buildingSelected', buildingCode: buildingCode });
                       L.DomEvent.stopPropagation(e);
                   });
 
@@ -1930,7 +2466,7 @@ export default function MapScreen() {
                       selectedPolygon = null;
                       window.selectedBuildingCode = null;
                       window.selectedPolygon = null;
-                      (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
+                      notifyHost({ type: 'buildingDeselected' });
                   }
               });
 
@@ -1941,9 +2477,18 @@ export default function MapScreen() {
                   iconAnchor: [20, 44],
                   popupAnchor: [0, -40]
               });
+              const createCampusIcon = (campusCode) => {
+                  return L.divIcon({
+                      className: 'campus-marker',
+                      html: '<div class="campus-badge">' + campusCode + '</div>',
+                      iconSize: [40, 40],
+                      iconAnchor: [20, 20],
+                      popupAnchor: [0, -20]
+                  });
+              };
 
               buildings.forEach((building) => {
-                  const marker = L.marker([building.latitude, building.longitude], { icon: createBuildingIcon(building.code) }).addTo(map);
+                  const marker = L.marker([building.latitude, building.longitude], { icon: createBuildingIcon(building.code) });
 
                   marker.on('click', function(e) {
                       let polygon = window.polygonMap[building.code];
@@ -1967,16 +2512,29 @@ export default function MapScreen() {
                       if (selectedPolygon) {
                         window.selectedBuildingCode = building.code;
                         window.selectedPolygon = selectedPolygon;
-                        (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type:'buildingSelected', buildingCode: building.code}), '*');
+                        notifyHost({ type: 'buildingSelected', buildingCode: building.code });
                       } else {
                         window.selectedBuildingCode = null;
                         window.selectedPolygon = null;
-                        (window.ReactNativeWebView || window.parent).postMessage(JSON.stringify({type: 'buildingDeselected'}), '*');
+                        notifyHost({ type: 'buildingDeselected' });
                       }
 
                       L.DomEvent.stopPropagation(e);
                   });
+
+                  markerRecords.push({ type: 'building', building, marker });
               });
+
+              campusMarkers.forEach((campusMarker) => {
+                  const marker = L.marker(
+                    [campusMarker.latitude, campusMarker.longitude],
+                    { icon: createCampusIcon(campusMarker.campus) }
+                  );
+
+                  markerRecords.push({ type: 'campus', campus: campusMarker.campus, marker });
+              });
+
+              updateMarkerVisibility();
 
               ${userLat && userLng
         ? `
@@ -1989,22 +2547,24 @@ export default function MapScreen() {
               });
               window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
               `
-        : 'console.log("No user location available");'
-      }
+                  : 'console.log("No user location available");'
+              }
           </script>
       </body>
       </html>
     `;
   }, [
+    allPolygons,
     buildingsWithPolygons,
-    campusPolygons,
+    campusMarkerData,
     currentBuildingForHTML,
-    region,
     routeCoordinates,
     routeMode,
     userLat,
     userLng,
+    serializedWebFrameTargetOrigin,
     webTransitSegments,
+    defaultSgwRegion,
   ]);
 
   const webViewSource = useMemo(() => ({ html: mapHTML }), [mapHTML]);
@@ -2015,17 +2575,25 @@ export default function MapScreen() {
     if (Platform.OS !== "web") {
       setWebMapReady(false);
     }
-  }, [campus]);
+  }, [mapHTML]);
 
   const renderWebMapContent = () => {
     if (Platform.OS === "web") {
       return (
         <iframe
-          key={campus}
-          src={`data:text/html;charset=utf-8,${encodeURIComponent(mapHTML)}`}
+          ref={webIframeRef}
+          srcDoc={mapHTML}
           style={{ ...(StyleSheet.flatten(styles.map) as object), border: 0 }}
           allowFullScreen
           title="Concordia map"
+          onLoad={() =>
+            postToWebIframe({
+              type: "focusBounds",
+              bounds: campusBounds,
+              campus,
+              padding: [20, 20],
+            })
+          }
         />
       );
     }
@@ -2033,7 +2601,6 @@ export default function MapScreen() {
     if (WebView) {
       return (
         <WebView
-          key={campus}
           testID="map-webview"
           ref={webViewRef}
           source={webViewSource}
@@ -2060,8 +2627,9 @@ export default function MapScreen() {
                 );
                 if (data?.type === "buildingSelected")
                   setSelectedBuilding(data.buildingCode);
-                if (data?.type === "buildingDeselected") setSelectedBuilding(null);
-              } catch { }
+                if (data?.type === "buildingDeselected")
+                  setSelectedBuilding(null);
+              } catch {}
               return false;
             }
             return true;
@@ -2082,15 +2650,15 @@ export default function MapScreen() {
 
   const nativeMapContent =
     MapViewComponent &&
-      MapMarkerComponent &&
-      MapCalloutComponent &&
-      MapPolygonComponent ? (
+    MapMarkerComponent &&
+    MapCalloutComponent &&
+    MapPolygonComponent ? (
       <MapViewComponent
-        key={campus}
         ref={mapRef}
         testID="map-native"
         style={styles.map}
         initialRegion={region}
+        onRegionChangeComplete={setMapViewportRegion}
         showsUserLocation
         showsMyLocationButton
         onPress={() => setSelectedBuilding(null)}
@@ -2152,7 +2720,7 @@ export default function MapScreen() {
           return null;
         })()}
 
-        {campusPolygons.features.map((feature: any) => {
+        {allPolygons.features.map((feature: any) => {
           const coordinates = feature.geometry.coordinates[0].map(
             (coord: number[]) => ({
               latitude: coord[1],
@@ -2192,21 +2760,23 @@ export default function MapScreen() {
               fillOpacity={fillOpacity}
               tappable
               onPress={() =>
-                setSelectedBuilding(selectedBuilding === buildingCode ? null : buildingCode)
+                setSelectedBuilding(
+                  selectedBuilding === buildingCode ? null : buildingCode,
+                )
               }
             />
           );
         })}
 
-        {buildingsWithPolygons.map((building) => {
-          const hasExactPolygon = campusPolygons.features.some(
+        {visibleBuildingsWithPolygons.map((building) => {
+          const hasExactPolygon = allPolygons.features.some(
             (f: any) => f.properties.code === building.code,
           );
 
           const polygonCode =
             hasExactPolygon
               ? building.code
-              : campusPolygons.features.find(
+              : allPolygons.features.find(
                 (f: any) =>
                   building.code.startsWith(f.properties.code) &&
                   f.properties.code.length >= 2,
@@ -2225,7 +2795,9 @@ export default function MapScreen() {
                 longitude: building.longitude,
               }}
               onPress={() =>
-                setSelectedBuilding(selectedBuilding === polygonCode ? null : polygonCode)
+                setSelectedBuilding(
+                  selectedBuilding === polygonCode ? null : polygonCode,
+                )
               }
             >
               <View
@@ -2243,10 +2815,35 @@ export default function MapScreen() {
             </MapMarkerComponent>
           );
         })}
+
+        {showCampusSummaryMarkers &&
+          campusMarkerData.map((campusMarker) => (
+            <MapMarkerComponent
+              key={`campus-marker-${campusMarker.campus}`}
+              testID={`campus-marker-${campusMarker.campus}`}
+              identifier={`campus-marker-${campusMarker.campus}`}
+              accessible={false}
+              accessibilityLabel={`campus-marker-${campusMarker.campus}`}
+              coordinate={{
+                latitude: campusMarker.latitude,
+                longitude: campusMarker.longitude,
+              }}
+            >
+              <View style={styles.campusMarkerContainer}>
+                <View style={styles.campusMarkerBadge}>
+                  <Text style={styles.campusMarkerText}>
+                    {campusMarker.campus}
+                  </Text>
+                </View>
+              </View>
+            </MapMarkerComponent>
+          ))}
       </MapViewComponent>
     ) : (
       <View style={styles.webFallback}>
-        <Text style={styles.webFallbackText}>Map view is unavailable in this environment.</Text>
+        <Text style={styles.webFallbackText}>
+          Map view is unavailable in this environment.
+        </Text>
       </View>
     );
 
@@ -2264,7 +2861,9 @@ export default function MapScreen() {
 
       {searchResults.length > 0 && (
         <View style={styles.searchResultsContainer} testID="search-results">
-          <Text style={styles.searchResultsHint}>Tap a building to set destination (To).</Text>
+          <Text style={styles.searchResultsHint}>
+            Tap a building to set destination (To).
+          </Text>
           {searchResults.map((building) => (
             <Pressable
               key={building.code}
@@ -2284,18 +2883,50 @@ export default function MapScreen() {
         </View>
       )}
 
-      <DirectionsPanel setSearchText={setSearchText} setEditingField={setEditingField} searchInputRef={searchInputRef} editingField={editingField} originBuilding={originBuilding} destinationBuilding={destinationBuilding} clearDirections={clearDirections} isDirectionsMode={isDirectionsMode} isSameCampus={isSameCampus} routeMode={routeMode} setRouteMode={setRouteMode} modeDurations={modeDurations} setRouteStarted={setRouteStarted} routeInstructionsDismissedRef={routeInstructionsDismissedRef} setShowRouteInstructions={setShowRouteInstructions} styles={styles} formatDuration={formatDuration} />
+      <DirectionsPanel 
+        setSearchText={setSearchText} 
+        setEditingField={setEditingField} 
+        searchInputRef={searchInputRef} 
+        editingField={editingField} 
+        originBuilding={originBuilding} 
+        destinationBuilding={destinationBuilding} 
+        clearDirections={clearDirections} 
+        isDirectionsMode={isDirectionsMode} 
+        isSameCampus={isSameCampus} 
+        routeMode={routeMode} 
+        setRouteMode={setRouteMode} 
+        modeDurations={modeDurations} 
+        setRouteStarted={setRouteStarted} 
+        routeInstructionsDismissedRef={routeInstructionsDismissedRef} 
+        setShowRouteInstructions={setShowRouteInstructions} 
+        styles={styles} 
+        formatDuration={formatDuration}
+        originRoom={originRoom}
+        setOriginRoom={setOriginRoom}
+        destinationRoom={destinationRoom}
+        setDestinationRoom={setDestinationRoom}
+        setActiveFloorPlan={setActiveFloorPlan}
+        setFloorPlanModalVisible={setFloorPlanModalVisible}
+        getRoomDetails={getRoomDetails}
+        getFloorPlanAsset={getFloorPlanAsset}
+      />
 
       {currentBuilding &&
         (() => {
           const building = BUILDINGS.find((b) => b.code === currentBuilding);
           return building ? (
             <View
-              style={[styles.buildingInfo, !isWebPlatform && { top: insets.top + 44 }]}
+              style={[
+                styles.buildingInfo,
+                !isWebPlatform && { top: insets.top + 44 },
+              ]}
               testID="current-building-info"
             >
               <Text style={styles.buildingInfoTitle}>Current Building:</Text>
-              <Text style={styles.buildingInfoText} testID="current-building-name">
+              <Text
+                style={styles.buildingInfoText}
+                testID="current-building-name"
+              >
                 {building.longName} ({building.shortName}) - [{building.code}]
               </Text>
             </View>
@@ -2305,9 +2936,13 @@ export default function MapScreen() {
       {locationPermissionDenied && (
         <TouchableOpacity
           testID="location-permission-banner"
-          style={[styles.permissionBanner, { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 }]}
+          style={[
+            styles.permissionBanner,
+            { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 },
+          ]}
           onPress={async () => {
-            const { canAskAgain } = await Location.getForegroundPermissionsAsync();
+            const { canAskAgain } =
+              await Location.getForegroundPermissionsAsync();
             if (canAskAgain) {
               await requestLocationPermission();
             } else {
@@ -2317,7 +2952,8 @@ export default function MapScreen() {
           activeOpacity={0.7}
         >
           <Text style={styles.permissionText}>
-            Enable location permissions to see where you are on campus. Tap here.
+            Enable location permissions to see where you are on campus. Tap
+            here.
           </Text>
         </TouchableOpacity>
       )}
@@ -2351,19 +2987,21 @@ export default function MapScreen() {
         <RouteStepsPopup styles={styles} formatTime={formatTime} routeSheetPanResponder={routeSheetPanResponder} routeInstructionsDismissedRef={routeInstructionsDismissedRef} setShowRouteInstructions={setShowRouteInstructions} routeMode={routeMode} actualOriginPoint={actualOriginPoint} destinationBuilding={destinationBuilding} transitItineraries={transitItineraries} routeStarted={routeStarted} selectedItineraryIndex={selectedItineraryIndex} expandedItineraries={expandedItineraries} setSelectedItineraryIndex={setSelectedItineraryIndex} setRouteDurationMinutes={setRouteDurationMinutes} setRouteDistanceMeters={setRouteDistanceMeters} setRouteInstructions={setRouteInstructions} setExpandedItineraries={setExpandedItineraries} expandedIntermediateStops={expandedIntermediateStops} setExpandedIntermediateStops={setExpandedIntermediateStops} routeInstructions={routeInstructions} />
       )}
 
-      {isDirectionsMode && !showRouteInstructions && (routeInstructions.length > 0 || routeMode === "shuttle") && (
-        <Pressable
-          {...routeSheetPanResponder.panHandlers}
-          style={styles.routeStepsCollapsedTab}
-          testID="route-steps-collapsed-tab"
-          onPress={() => {
-            routeInstructionsDismissedRef.current = false;
-            setShowRouteInstructions(true);
-          }}
-        >
-          <ChevronUp size={24} color="#1F1F24" strokeWidth={2.5} />
-        </Pressable>
-      )}
+      {isDirectionsMode &&
+        !showRouteInstructions &&
+        (routeInstructions.length > 0 || routeMode === "shuttle") && (
+          <Pressable
+            {...routeSheetPanResponder.panHandlers}
+            style={styles.routeStepsCollapsedTab}
+            testID="route-steps-collapsed-tab"
+            onPress={() => {
+              routeInstructionsDismissedRef.current = false;
+              setShowRouteInstructions(true);
+            }}
+          >
+            <ChevronUp size={24} color="#1F1F24" strokeWidth={2.5} />
+          </Pressable>
+        )}
 
       <BuildingInformation
         buildingCode={selectedBuilding}
@@ -2384,6 +3022,30 @@ export default function MapScreen() {
           setEditingField(undefined);
         }}
       />
+      <Modal
+        visible={floorPlanModalVisible}
+        animationType="fade"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Pressable
+              style={styles.modalCloseButton}
+              onPress={() => setFloorPlanModalVisible(false)}
+            >
+              <X size={24} color="#1F1F24" strokeWidth={2.5} />
+            </Pressable>
+
+            {activeFloorPlan && (
+              <Image
+                source={activeFloorPlan}
+                style={styles.floorPlanImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

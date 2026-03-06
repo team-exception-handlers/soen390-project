@@ -1,4 +1,4 @@
-const path = require('path');
+const path = require('node:path');
 const { buildDirectionsUrl, fetchDirections } = require(path.join(__dirname, '..', '..', 'utils', 'googleDirections.ts'));
 
 describe('utils/googleDirections', () => {
