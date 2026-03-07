@@ -292,36 +292,35 @@ export default function CalendarScreen() {
             return building?.length ? building : null;
           };
           
+          const parseLocationParts = (location?: string) => {
+            const raw = location?.trim();
+            if (!raw) return { building: null, room: null };
+          
+            const parts = raw.split("-");
+            const building = parts[0]?.trim()?.toUpperCase() || null;
+            const room = parts.slice(1).join("-").trim() || null;
+          
+            return { building, room };
+          };
+          
           const handleDirectionsPress = () => {
-            const rawLocation = nextEvent?.location?.trim() ?? "";
+            const { building, room } = parseLocationParts(nextEvent?.location);
           
-            // Always clear old message first
-            setDirectionsMessage(null);
-          
-            // If there is no real location, show inline message and STOP
-            if (!rawLocation) {
+            if (!building) {
               setDirectionsMessage(
                 "Directions cannot be generated because this class has no location. Please add a building/room such as H-510 to the calendar event."
               );
               return;
             }
           
-            const building = parseBuilding(rawLocation);
-          
-            // If location exists but parsing fails, also STOP
-            if (!building) {
-              setDirectionsMessage(
-                "Directions cannot be generated because the location format is invalid. Please use a format such as H-510."
-              );
-              return;
-            }
-          
-            // If we got here, location is valid
             setDirectionsMessage(null);
           
             router.push({
               pathname: "/(tabs)",
-              params: { toBuilding: building },
+              params: {
+                toBuilding: building,
+                toRoom: room ?? "",
+              },
             } as any);
           };
     // List of events
