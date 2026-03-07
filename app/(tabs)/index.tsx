@@ -2690,160 +2690,19 @@ const renderWebMapContent = () => {
   ) : null;
 };
 
-const webMapContent = renderWebMapContent();
 const NativeMapView = MapViewComponent as React.ComponentType<any>;
 const NativeMapMarker = MapMarkerComponent as React.ComponentType<any>;
-const NativeMapCallout = MapCalloutComponent as React.ComponentType<any>;
 const NativeMapPolygon = MapPolygonComponent as React.ComponentType<any>;
 const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
 
-const nativeMapContent =
-  MapViewComponent &&
-  MapMarkerComponent &&
-  MapCalloutComponent &&
-  MapPolygonComponent ? (
-    <NativeMapView
-      key={campus}
-      ref={mapRef}
-      testID="map-native"
-      style={styles.map}
-      initialRegion={region}
-      showsUserLocation
-      showsMyLocationButton
-      onPress={() => setSelectedBuilding(null)}
-    >
-      {isDirectionsMode &&
-      MapPolylineComponent &&
-      routeMode === "transit" &&
-      transitItineraries[selectedItineraryIndex] ? (
-        <>
-          {transitItineraries[selectedItineraryIndex].legs.map((leg, index) => {
-            if (!leg.legGeometry?.points) return null;
-            const precision = (leg.legGeometry as any)?.precision ?? 7;
-            const coordinates = decodePolyline(leg.legGeometry.points, precision);
-            if (coordinates.length < 2) return null;
-
-            const strokeColor = getTransitColor(leg.mode, leg.route);
-
-            return (
-              <NativeMapPolyline
-                key={`leg-${index}`}
-                coordinates={coordinates}
-                strokeColor={strokeColor}
-                strokeWidth={leg.mode === "WALK" ? 4 : 6}
-                lineDashPattern={leg.mode === "WALK" ? [2, 8] : undefined}
-                lineCap="round"
-              />
-            );
-          })}
-        </>
-      ) : isDirectionsMode && MapPolylineComponent && routeCoordinates.length > 1 ? (
-        <NativeMapPolyline
-          testID="route-polyline"
-          coordinates={routeCoordinates}
-          strokeColor="#1668C7"
-          strokeWidth={routeMode === "walking" ? 6 : 5}
-          lineDashPattern={routeMode === "walking" ? [1, 12] : undefined}
-          lineCap="round"
-        />
-      ) : null}
-
-      {campusPolygons.features.map((feature: any) => {
-        const coordinates = feature.geometry.coordinates[0].map(
-          (coord: number[]) => ({
-            latitude: coord[1],
-            longitude: coord[0],
-          }),
-        );
-
-        const buildingCode = feature.properties.code;
-        const isSelected = selectedBuilding === buildingCode;
-        const isCurrent = currentBuilding === buildingCode;
-        const strokeColor = isSelected
-          ? "#238c51"
-          : isCurrent
-            ? "#FFA500"
-            : "#A32638";
-        const fillColor = isSelected
-          ? "#238c51"
-          : isCurrent
-            ? "#FFA500"
-            : "#A32638";
-        const strokeWidth = isSelected ? 3 : isCurrent ? 3 : 2;
-        const fillOpacity = isSelected ? 0.5 : isCurrent ? 0.5 : 0.2;
-
-        return (
-          <NativeMapPolygon
-            key={buildingCode}
-            testID={`polygon-${buildingCode}`}
-            coordinates={coordinates}
-            strokeColor={strokeColor}
-            fillColor={fillColor}
-            strokeWidth={strokeWidth}
-            fillOpacity={fillOpacity}
-            tappable
-            onPress={() =>
-              setSelectedBuilding(selectedBuilding === buildingCode ? null : buildingCode)
-            }
-          />
-        );
-      })}
-    if (WebView) {
-      return (
-        <WebView
-          testID="map-webview"
-          ref={webViewRef}
-          source={webViewSource}
-          style={styles.map}
-          javaScriptEnabled
-          domStorageEnabled
-          startInLoadingState
-          scalesPageToFit
-          originWhitelist={["*"]}
-          injectedJavaScriptBeforeContentLoaded={`
-            window.ReactNativeWebView = {
-              postMessage: function(data) {
-                window.location.href = 'rnmsg://' + encodeURIComponent(data);
-              }
-            };
-            true;
-          `}
-          onLoadEnd={() => setWebMapReady(true)}
-          onShouldStartLoadWithRequest={(request: { url: string }) => {
-            if (request.url.startsWith("rnmsg://")) {
-              try {
-                const data = JSON.parse(
-                  decodeURIComponent(request.url.replace("rnmsg://", "")),
-                );
-                if (data?.type === "buildingSelected")
-                  setSelectedBuilding(data.buildingCode);
-                if (data?.type === "buildingDeselected")
-                  setSelectedBuilding(null);
-              } catch { }
-              return false;
-            }
-            return true;
-          }}
-        />
-      );
-    }
-
-    return null;
-  };
-
   const webMapContent = renderWebMapContent();
-
-  const shouldRenderRoutePolyline =
-    isDirectionsMode &&
-    MapPolylineComponent &&
-    routeCoordinates.length > 1;
 
   const nativeMapContent =
     MapViewComponent &&
       MapMarkerComponent &&
       MapCalloutComponent &&
       MapPolygonComponent ? (
-      <MapViewComponent
+      <NativeMapView
         ref={mapRef}
         testID="map-native"
         style={styles.map}
@@ -2880,7 +2739,7 @@ const nativeMapContent =
                   ].join("|");
 
                   return (
-                    <MapPolylineComponent
+                    <NativeMapPolyline
                       key={legKey}
                       coordinates={coordinates}
                       strokeColor={strokeColor}
@@ -2896,7 +2755,7 @@ const nativeMapContent =
 
           if (routeCoordinates.length > 1) {
             return (
-              <MapPolylineComponent
+              <NativeMapPolyline
                 testID="route-polyline"
                 coordinates={routeCoordinates}
                 strokeColor="#1668C7"
@@ -2940,7 +2799,7 @@ const nativeMapContent =
           }
 
           return (
-            <MapPolygonComponent
+            <NativeMapPolygon
               key={buildingCode}
               testID={`polygon-${buildingCode}`}
               coordinates={coordinates}

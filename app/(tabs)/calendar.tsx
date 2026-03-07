@@ -328,39 +328,29 @@ export default function CalendarScreen() {
             return s; // fallback: show original text
           };
 
-          const parseBuilding = (location?: string) => {
-            
-            const raw = location?.trim();
-            if (!raw) return null;
-          
-            const parts = raw.split("-")[0]?.trim();
-            const building = parts[0]?.trim();
-            return building?.length ? building : null;
-          };
-          
           const parseLocationParts = (location?: string) => {
             const raw = location?.trim();
             if (!raw) return { building: null, room: null };
-          
+
             const parts = raw.split("-");
             const building = parts[0]?.trim()?.toUpperCase() || null;
             const room = parts.slice(1).join("-").trim() || null;
-          
+
             return { building, room };
           };
-          
+
           const handleDirectionsPress = () => {
             const { building, room } = parseLocationParts(nextEvent?.location);
-          
+
             if (!building) {
               setDirectionsMessage(
                 "Directions cannot be generated because this class has no location. Please add a building/room such as H-510 to the calendar event."
               );
               return;
             }
-          
+
             setDirectionsMessage(null);
-          
+
             router.push({
               pathname: "/(tabs)",
               params: {
