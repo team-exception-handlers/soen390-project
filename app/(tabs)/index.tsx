@@ -628,20 +628,21 @@ const DirectionsPanel = ({
               editingField === "from" && styles.directionFieldButtonActive,
             ]}
           >
-            <Text style={styles.directionFieldLabel}>From</Text>
-            <Text
-              style={styles.directionFieldValue}
-              numberOfLines={1}
-              testID={
-                originBuilding
-                  ? `direction-from-value-${originBuilding.code}`
-                  : "direction-from-value-empty"
-              }
-            >
-              {originBuilding
-                ? `${originBuilding.code} - ${originBuilding.shortName}`
-                : "Current location"}
-            </Text>
+              <Text style={styles.directionFieldLabel}>FROM</Text>
+              <Text
+                style={styles.directionFieldValue}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                testID={
+                  originBuilding
+                    ? `direction-from-value-${originBuilding.code}`
+                    : "direction-from-value-empty"
+                }
+              >
+                {originBuilding
+                  ? `${originBuilding.code} - ${originBuilding.shortName}`
+                  : "Current location"}
+              </Text>
           </Pressable>
           {/* Origin Room Input + Icon Button */}
           <RoomInputGroup
@@ -670,20 +671,21 @@ const DirectionsPanel = ({
               editingField === "to" && styles.directionFieldButtonActive,
             ]}
           >
-            <Text style={styles.directionFieldLabel}>To</Text>
-            <Text
-              style={styles.directionFieldValue}
-              numberOfLines={1}
-              testID={
-                destinationBuilding
-                  ? `direction-to-value-${destinationBuilding.code}`
-                  : "direction-to-value-empty"
-              }
-            >
-              {destinationBuilding
-                ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
-                : "Where to?"}
-            </Text>
+              <Text style={styles.directionFieldLabel}>TO</Text>
+              <Text
+                style={styles.directionFieldValue}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                testID={
+                  destinationBuilding
+                    ? `direction-to-value-${destinationBuilding.code}`
+                    : "direction-to-value-empty"
+                }
+              >
+                {destinationBuilding
+                  ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
+                  : "Where to?"}
+              </Text>
           </Pressable>
           {/* Destination Room Input + Icon Button */}
           <RoomInputGroup
@@ -1124,7 +1126,7 @@ export default function MapScreen() {
       alignItems: "center",
     },
     directionFieldButton: {
-      flex: 1,
+      alignSelf: "stretch",
       borderRadius: 10,
       borderWidth: 1,
       borderColor: "rgba(255,255,255,0.28)",
@@ -1140,14 +1142,17 @@ export default function MapScreen() {
       color: "#FFD08A",
       fontSize: 11,
       fontWeight: "700",
-      textTransform: "uppercase",
       letterSpacing: 0.4,
+      lineHeight: 14,
+      minHeight: 14,
     },
     directionFieldValue: {
       color: "white",
       fontSize: 13,
       marginTop: 3,
       fontWeight: "600",
+      lineHeight: 18,
+      minHeight: 18,
     },
     clearRouteButton: {
       paddingHorizontal: 10,
