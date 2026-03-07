@@ -31,6 +31,7 @@ import TransitLegTimeline from "../../components/TransitLegTimeline";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
+import { getNearestStop, STOPS } from "../../utils/locationLogic";
 import {
   findUserBuilding,
   hasLocationPermission,
@@ -774,6 +775,11 @@ export default function MapScreen() {
     TransitItinerary[]
   >([]);
   const [selectedItineraryIndex, setSelectedItineraryIndex] = useState(0);
+
+  const [shuttleWalkToCoords, setShuttleWalkToCoords] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [shuttleDriveCoords, setShuttleDriveCoords] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [shuttleWalkFromCoords, setShuttleWalkFromCoords] = useState<{ latitude: number; longitude: number }[]>([]);
+
   const [expandedItineraries, setExpandedItineraries] = useState<number[]>([]);
   const [expandedIntermediateStops, setExpandedIntermediateStops] = useState<
     Set<string>
@@ -1788,6 +1794,9 @@ export default function MapScreen() {
     setExpandedIntermediateStops(new Set());
     setRouteStarted(false);
     routeInstructionsDismissedRef.current = false;
+    setShuttleWalkToCoords([]);
+    setShuttleDriveCoords([]);
+    setShuttleWalkFromCoords([]);
     setOriginRoom("");
     setDestinationRoom("");
   };
@@ -1891,15 +1900,39 @@ export default function MapScreen() {
 
     let cancelled = false;
 
-    const handleShuttleRoute = () => {
+    const handleShuttleRoute = async () => {
       setRouteCoordinates([]);
       setRouteDurationMinutes(30);
       setRouteDistanceMeters(null);
       setRouteInstructions([{ text: "Shuttle Journey", distanceMeters: 0 }]);
       setTransitItineraries([]);
-      setRouteLoading(false);
+      setShuttleWalkToCoords([]);
+      setShuttleDriveCoords([]);
+      setShuttleWalkFromCoords([]);
+
       if (!routeInstructionsDismissedRef.current) {
         setShowRouteInstructions(true);
+      }
+
+      try {
+        const nearest = getNearestStop(actualOriginPoint);
+        const originStopCoords = STOPS[nearest.stop];
+        const destStopCoords = STOPS[nearest.destination];
+
+        const [walkTo, drive, walkFrom] = await Promise.all([
+          fetchOsrmRoute(actualOriginPoint, originStopCoords, 'walking'),
+          fetchOsrmRoute(originStopCoords, destStopCoords, 'driving'),
+          fetchOsrmRoute(destStopCoords, destinationBuilding, 'walking')
+        ]);
+
+        if (cancelled) return;
+        setShuttleWalkToCoords(walkTo.coordinates);
+        setShuttleDriveCoords(drive.coordinates);
+        setShuttleWalkFromCoords(walkFrom.coordinates);
+        setRouteLoading(false);
+      } catch (err) {
+        if (cancelled) return;
+        setRouteLoading(false);
       }
     };
 
@@ -1945,7 +1978,7 @@ export default function MapScreen() {
     const loadRoute = async () => {
       try {
         if (routeMode === "shuttle") {
-          handleShuttleRoute();
+          await handleShuttleRoute();
           return;
         }
 
@@ -2301,6 +2334,15 @@ export default function MapScreen() {
         point.longitude,
       ]),
     )};
+              const shuttleWalkToCoords = ${JSON.stringify(
+      shuttleWalkToCoords.map((point) => [point.latitude, point.longitude])
+    )};
+              const shuttleDriveCoords = ${JSON.stringify(
+      shuttleDriveCoords.map((point) => [point.latitude, point.longitude])
+    )};
+              const shuttleWalkFromCoords = ${JSON.stringify(
+      shuttleWalkFromCoords.map((point) => [point.latitude, point.longitude])
+    )};
 
               // Per-leg transit segments for Leaflet
               const transitSegments = ${JSON.stringify(webTransitSegments)};
@@ -2415,6 +2457,36 @@ export default function MapScreen() {
                   const group = L.featureGroup(routeLayers);
                   map.fitBounds(group.getBounds(), { padding: [50, 50] });
                 }
+              }
+
+              if (!hasAnyRoute && routeMode === 'shuttle' && shuttleDriveCoords.length > 1) {
+                  const walkingStyle = {
+                      color: '#2E7D32',
+                      weight: 6,
+                      opacity: 0.9,
+                      lineCap: 'round',
+                      lineJoin: 'round',
+                      dashArray: '2 12'
+                  };
+                  const drivingStyle = {
+                      color: '#912338',
+                      weight: 6,
+                      opacity: 0.9,
+                      lineCap: 'round',
+                      lineJoin: 'round'
+                  };
+
+                  if (shuttleWalkToCoords.length > 1) {
+                      routeLayers.push(L.polyline(shuttleWalkToCoords, walkingStyle).addTo(map));
+                  }
+                  routeLayers.push(L.polyline(shuttleDriveCoords, drivingStyle).addTo(map));
+                  if (shuttleWalkFromCoords.length > 1) {
+                      routeLayers.push(L.polyline(shuttleWalkFromCoords, walkingStyle).addTo(map));
+                  }
+
+                  const group = L.featureGroup(routeLayers);
+                  map.fitBounds(group.getBounds(), { padding: [50, 50] });
+                  hasAnyRoute = true;
               }
 
               // Existing non-transit behavior (walking/driving): draw single polyline
@@ -2608,6 +2680,9 @@ export default function MapScreen() {
     currentBuildingForHTML,
     routeCoordinates,
     routeMode,
+    shuttleWalkToCoords,
+    shuttleDriveCoords,
+    shuttleWalkFromCoords,
     userLat,
     userLng,
     serializedWebFrameTargetOrigin,
@@ -2748,6 +2823,42 @@ export default function MapScreen() {
                     />
                   );
                 })}
+              </>
+            );
+          }
+
+          if (routeMode === "shuttle") {
+            return (
+              <>
+                {shuttleWalkToCoords.length > 1 && (
+                  <MapPolylineComponent
+                    testID="route-polyline-shuttle-walk-to"
+                    coordinates={shuttleWalkToCoords}
+                    strokeColor="#2E7D32"
+                    strokeWidth={6}
+                    lineDashPattern={[2, 12]}
+                    lineCap="round"
+                  />
+                )}
+                {shuttleDriveCoords.length > 1 && (
+                  <MapPolylineComponent
+                    testID="route-polyline-shuttle-drive"
+                    coordinates={shuttleDriveCoords}
+                    strokeColor="#912338"
+                    strokeWidth={6}
+                    lineCap="round"
+                  />
+                )}
+                {shuttleWalkFromCoords.length > 1 && (
+                  <MapPolylineComponent
+                    testID="route-polyline-shuttle-walk-from"
+                    coordinates={shuttleWalkFromCoords}
+                    strokeColor="#2E7D32"
+                    strokeWidth={6}
+                    lineDashPattern={[2, 12]}
+                    lineCap="round"
+                  />
+                )}
               </>
             );
           }
