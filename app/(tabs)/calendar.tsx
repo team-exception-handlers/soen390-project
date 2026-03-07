@@ -148,7 +148,8 @@ export default function CalendarScreen() {
     // Load events 
     const loadEvents = useCallback(
         async (token: string, isRefresh: boolean) => {
-            isRefresh ? setRefreshing(true) : setLoading(true);
+            if (isRefresh) setRefreshing(true);
+            else setLoading(true);
             setError(null);
 
             try {
@@ -266,20 +267,65 @@ export default function CalendarScreen() {
             return aStart - bStart;
           })[0] ?? null;
 
+          const isAsciiLetterCode = (code: number) =>
+            (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+          const isAsciiDigitCode = (code: number) => code >= 48 && code <= 57;
+          const isAsciiAlphaNumCode = (code: number) =>
+            isAsciiLetterCode(code) || isAsciiDigitCode(code);
+
           const parseClassLocation = (raw?: string | null) => {
             if (!raw) return null;
-          
+
             const s = raw.trim();
-          
-            // Common pattern: H-510, H 510, MB-1.210, etc.
-            const match = s.match(/\b([A-Za-z]{1,4})\s*[-]?\s*([0-9]{1,4}[A-Za-z]?)\b/);
-          
-            if (!match) return s; // fallback: show original text
-          
-            const building = match[1].toUpperCase();
-            const room = match[2].toUpperCase();
-          
-            return `${building}-${room}`;
+
+            for (let i = 0; i < s.length; i += 1) {
+              const current = s.charCodeAt(i);
+              if (!isAsciiLetterCode(current)) continue;
+              if (i > 0 && isAsciiAlphaNumCode(s.charCodeAt(i - 1))) continue;
+
+              let cursor = i;
+              while (
+                cursor < s.length &&
+                isAsciiLetterCode(s.charCodeAt(cursor)) &&
+                cursor - i < 4
+              ) {
+                cursor += 1;
+              }
+              if (cursor === i) continue;
+              if (cursor < s.length && isAsciiLetterCode(s.charCodeAt(cursor))) continue;
+
+              const building = s.slice(i, cursor);
+
+              while (cursor < s.length && s[cursor] === " ") cursor += 1;
+              if (s[cursor] === "-") {
+                cursor += 1;
+                while (cursor < s.length && s[cursor] === " ") cursor += 1;
+              }
+
+              const roomStart = cursor;
+              let digitCount = 0;
+              while (
+                cursor < s.length &&
+                isAsciiDigitCode(s.charCodeAt(cursor)) &&
+                digitCount < 4
+              ) {
+                cursor += 1;
+                digitCount += 1;
+              }
+              if (digitCount === 0) continue;
+              if (cursor < s.length && isAsciiDigitCode(s.charCodeAt(cursor))) continue;
+
+              if (cursor < s.length && isAsciiLetterCode(s.charCodeAt(cursor))) {
+                cursor += 1;
+              }
+              if (cursor < s.length && isAsciiLetterCode(s.charCodeAt(cursor))) continue;
+              if (cursor < s.length && isAsciiAlphaNumCode(s.charCodeAt(cursor))) continue;
+
+              const room = s.slice(roomStart, cursor);
+              return `${building.toUpperCase()}-${room.toUpperCase()}`;
+            }
+
+            return s; // fallback: show original text
           };
 
           const parseBuilding = (location?: string) => {
@@ -333,7 +379,6 @@ export default function CalendarScreen() {
                 </Pressable>
             </View>
 
-            {/* Calendar Selector */}
             <View style={styles.pickerWrap}>
                 <Text style={styles.pickerLabel}>Calendar</Text>
 
