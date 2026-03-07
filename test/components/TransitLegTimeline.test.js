@@ -75,38 +75,51 @@ describe("components/TransitLegTimeline.tsx (no renderer dependency)", () => {
         return "";
     }
 
+    function findInArray(arr, regex) {
+        for (const child of arr) {
+            const res = findByText(child, regex);
+            if (res) return res;
+        }
+        return null;
+    }
+
+    function findInObject(node, regex) {
+        if (node.type === "Text") {
+            const t = textFrom(node);
+            if (regex.test(t)) return node;
+        }
+        if (node.props && node.props.children) {
+            return findByText(node.props.children, regex);
+        }
+        return null;
+    }
+
     function findByText(node, regex) {
         if (!node) return null;
-
-        if (Array.isArray(node)) {
-            for (const child of node) {
-                const res = findByText(child, regex);
-                if (res) return res;
-            }
-            return null;
-        }
-
-        // node is host object
-        if (typeof node === "object") {
-            if (node.type === "Text") {
-                const t = textFrom(node);
-                if (regex.test(t)) return node;
-            }
-            if (node.props && node.props.children) return findByText(node.props.children, regex);
-        }
-
+        if (Array.isArray(node)) return findInArray(node, regex);
+        if (typeof node === "object") return findInObject(node, regex);
         return null;
+    }
+
+    function findAllInArray(arr, type, acc) {
+        for (const child of arr) {
+            findAllByType(child, type, acc);
+        }
+    }
+
+    function findAllInObject(node, type, acc) {
+        if (node.type === type) acc.push(node);
+        if (node.props && node.props.children) {
+            findAllByType(node.props.children, type, acc);
+        }
     }
 
     function findAllByType(node, type, acc = []) {
         if (!node) return acc;
         if (Array.isArray(node)) {
-            for (const child of node) findAllByType(child, type, acc);
-            return acc;
-        }
-        if (typeof node === "object") {
-            if (node.type === type) acc.push(node);
-            if (node.props && node.props.children) findAllByType(node.props.children, type, acc);
+            findAllInArray(node, type, acc);
+        } else if (typeof node === "object") {
+            findAllInObject(node, type, acc);
         }
         return acc;
     }
