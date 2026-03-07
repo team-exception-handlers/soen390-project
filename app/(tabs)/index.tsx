@@ -83,20 +83,6 @@ const formatOptionalDuration = (minutes: number | null) =>
 
 const DEFAULT_START_BUILDING_CODE = "H";
 const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
-type PinVisibilityMode = "all" | "campus-summary";
-
-const getPinVisibilityMode = (
-  zoomOutFactor: number,
-): PinVisibilityMode => {
-  if (zoomOutFactor > 1.08) return "campus-summary";
-  return "all";
-};
-
-const shouldShowBuildingPin = (
-  visibilityMode: PinVisibilityMode,
-): boolean => {
-  return visibilityMode === "all";
-};
 
 const resolveBuildingByCode = (
   code: string | null | undefined,
@@ -454,9 +440,6 @@ export default function MapScreen() {
     Set<string>
   >(new Set());
   const [routeStarted, setRouteStarted] = useState(false);
-  const [mapViewportRegion, setMapViewportRegion] = useState(() =>
-    getCampusRegion("SGW", SGW_POLYGONS.features),
-  );
 
   const routeInstructionsDismissedRef = useRef(false);
   const webIframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -499,13 +482,12 @@ export default function MapScreen() {
   const TAB_BAR_HEIGHT = 56;
 
   const isWebPlatform = Platform.OS === "web";
-  const webHostOrigin =
+  const webFrameTargetOrigin =
     isWebPlatform && typeof window !== "undefined"
       ? window.location.origin
       : null;
-  const webIframeTargetOrigin = "*";
   const serializedWebFrameTargetOrigin = JSON.stringify(
-    webHostOrigin ?? "*",
+    webFrameTargetOrigin ?? "*",
   );
   const showE2EHooks =
     Platform.OS !== "web" && process.env.EXPO_PUBLIC_ENABLE_E2E_HOOKS === "1";
@@ -515,13 +497,13 @@ export default function MapScreen() {
 
   const postToWebIframe = useCallback(
     (message: unknown) => {
-      if (!isWebPlatform) return;
+      if (!isWebPlatform || !webFrameTargetOrigin) return;
       webIframeRef.current?.contentWindow?.postMessage(
         message,
-        webIframeTargetOrigin,
+        webFrameTargetOrigin,
       );
     },
-    [isWebPlatform, webIframeTargetOrigin],
+    [isWebPlatform, webFrameTargetOrigin],
   );
 
   useEffect(() => {
@@ -1177,11 +1159,11 @@ export default function MapScreen() {
   let MapPolylineComponent: React.ElementType | null = null;
 
   useEffect(() => {
-    if (!isWebPlatform) return;
+    if (!isWebPlatform || !webFrameTargetOrigin) return;
 
     const handler = (event: MessageEvent) => {
       if (event.source !== webIframeRef.current?.contentWindow) return;
-      if (event.origin !== "null" && event.origin !== webHostOrigin) return;
+      if (event.origin !== webFrameTargetOrigin) return;
 
       try {
         const data =
@@ -1200,7 +1182,7 @@ export default function MapScreen() {
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [isWebPlatform, webHostOrigin]);
+  }, [isWebPlatform, webFrameTargetOrigin]);
 
   if (Platform.OS !== "web" && !isExpoGo) {
     try {
@@ -1684,22 +1666,6 @@ export default function MapScreen() {
     [campus, campusPolygons],
   );
 
-  const pinVisibilityMode = useMemo(() => {
-    const zoomOutFactor = Math.max(
-      mapViewportRegion.latitudeDelta / region.latitudeDelta,
-      mapViewportRegion.longitudeDelta / region.longitudeDelta,
-    );
-    return getPinVisibilityMode(zoomOutFactor);
-  }, [mapViewportRegion, region]);
-
-  const visibleBuildingsWithPolygons = useMemo(
-    () =>
-      buildingsWithPolygons.filter(() => shouldShowBuildingPin(pinVisibilityMode)),
-    [buildingsWithPolygons, pinVisibilityMode],
-  );
-
-  const showCampusSummaryMarkers = pinVisibilityMode === "campus-summary";
-
   const campusMarkerData = useMemo(
     () => [
       {
@@ -1772,8 +1738,6 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (isDirectionsMode) return;
-
-    setMapViewportRegion(region);
 
     if (!isWebPlatform) {
       mapRef.current?.animateToRegion?.(region, 450);
@@ -2319,7 +2283,7 @@ const renderWebMapContent = () => {
       <iframe
         ref={webIframeRef}
         key={campus}
-        src={`data:text/html;charset=utf-8,${encodeURIComponent(mapHTML)}`}
+        srcDoc={mapHTML}
         style={{ ...(StyleSheet.flatten(styles.map) as object), border: 0 }}
         allowFullScreen
         title="Concordia map"
@@ -2382,7 +2346,6 @@ const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
         testID="map-native"
         style={styles.map}
         initialRegion={region}
-        onRegionChangeComplete={setMapViewportRegion}
         showsUserLocation
         showsMyLocationButton
         onPress={() => setSelectedBuilding(null)}
@@ -2945,205 +2908,7 @@ const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
 {isDirectionsMode &&
   showRouteInstructions &&
   (routeInstructions.length > 0 || routeMode === "shuttle") && (
-    <View style={styles.routeStepsPopup} testID="route-steps-popup">
-      <Pressable
-        {...routeSheetPanResponder.panHandlers}
-        style={styles.routeStepsHandle}
-        onPress={() => {
-          routeInstructionsDismissedRef.current = true;
-          setShowRouteInstructions(false);
-        }}
-      >
-        <ChevronDown size={24} color="#1F1F24" strokeWidth={2.5} />
-      </Pressable>
-      <Pressable
-        testID="route-steps-close-button"
-        style={styles.routeStepsCloseButton}
-        onPress={() => {
-          routeInstructionsDismissedRef.current = true;
-          setShowRouteInstructions(false);
-        }}
-      >
-        <X size={26} color="#1F1F24" strokeWidth={2.5} />
-      </Pressable>
-
-      <ScrollView
-        style={styles.routeStepsList}
-        contentContainerStyle={styles.routeStepsListContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {routeMode === "shuttle" ? (
-          <ShuttleDirections
-            origin={actualOriginPoint}
-            destination={destinationBuilding}
-          />
-        ) : routeMode === "transit" && transitItineraries.length > 0 ? (
-          routeStarted ? (
-            <>
-              <Text
-                style={{
-                  fontSize: 17,
-                  fontWeight: "700",
-                  marginBottom: 20,
-                  color: "#1C1C1E",
-                }}
-              >
-                Journey Details
-              </Text>
-
-              {transitItineraries[selectedItineraryIndex] && (
-                <TransitLegTimeline
-                  itinerary={transitItineraries[selectedItineraryIndex]}
-                  styles={styles}
-                  formatTime={formatTime}
-                  alwaysShowIntermediateStops
-                  stopKeyPrefix={`journey-${selectedItineraryIndex}`}
-                />
-              )}
-            </>
-          ) : (
-            <>
-              {transitItineraries.map((itinerary, index) => {
-                const isExpanded = expandedItineraries.includes(index);
-                const isSelected = index === selectedItineraryIndex;
-
-                return (
-                  <View key={index} style={{ marginBottom: 12 }}>
-                    <Pressable
-                      style={[
-                        styles.itineraryCard,
-                        isSelected && styles.itineraryCardActive,
-                      ]}
-                      onPress={() => {
-                        setSelectedItineraryIndex(index);
-                        setRouteInstructions(itinerary.instructions);
-                      }}
-                    >
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          justifyContent: "space-between",
-                          alignItems: "flex-start",
-                        }}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.itineraryTime}>
-                            {formatTime(itinerary.departureTime)} →{" "}
-                            {formatTime(itinerary.arrivalTime)}
-                          </Text>
-                          <Text style={styles.itineraryDuration}>
-                            {Math.round(itinerary.durationSeconds / 60)} min
-                          </Text>
-                          <Text style={styles.itineraryTransfers}>
-                            {itinerary.transfers === 0
-                              ? "Direct"
-                              : `${itinerary.transfers} transfer${itinerary.transfers > 1 ? "s" : ""}`}
-                          </Text>
-                          <View style={styles.itineraryLegsRow}>
-                            {itinerary.legs.map((leg, legIndex) => {
-                              const getLegColor = () => {
-                                if (leg.mode === "WALK")
-                                  return styles.legPillWalk;
-                                if (leg.mode === "BUS")
-                                  return styles.legPillBus;
-                                if (leg.mode === "SUBWAY")
-                                  return styles.legPillSubway;
-                                if (leg.mode === "TRAM")
-                                  return styles.legPillTram;
-                                return styles.legPillBus;
-                              };
-
-                              return (
-                                <Text
-                                  key={legIndex}
-                                  style={[styles.legPill, getLegColor()]}
-                                >
-                                  {leg.mode === "WALK"
-                                    ? "Walk"
-                                    : leg.route || leg.mode}
-                                </Text>
-                              );
-                            })}
-                          </View>
-                        </View>
-      {isDirectionsMode && showRouteInstructions && (routeInstructions.length > 0 || routeMode === "shuttle") && (
-        <RouteStepsPopup styles={styles} formatTime={formatTime} routeSheetPanResponder={routeSheetPanResponder} routeInstructionsDismissedRef={routeInstructionsDismissedRef} setShowRouteInstructions={setShowRouteInstructions} routeMode={routeMode} actualOriginPoint={actualOriginPoint} destinationBuilding={destinationBuilding} transitItineraries={transitItineraries} routeStarted={routeStarted} selectedItineraryIndex={selectedItineraryIndex} expandedItineraries={expandedItineraries} setSelectedItineraryIndex={setSelectedItineraryIndex} setRouteDurationMinutes={setRouteDurationMinutes} setRouteDistanceMeters={setRouteDistanceMeters} setRouteInstructions={setRouteInstructions} setExpandedItineraries={setExpandedItineraries} expandedIntermediateStops={expandedIntermediateStops} setExpandedIntermediateStops={setExpandedIntermediateStops} routeInstructions={routeInstructions} />
-      )}
-
-                        <Pressable
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            setExpandedItineraries((prev) =>
-                              prev.includes(index)
-                                ? prev.filter((i) => i !== index)
-                                : [...prev, index],
-                            );
-                          }}
-                          style={{ padding: 8, marginLeft: 8 }}
-                        >
-                          {isExpanded ? (
-                            <ChevronUp
-                              size={20}
-                              color="#007AFF"
-                              strokeWidth={2.5}
-                            />
-                          ) : (
-                            <ChevronDown
-                              size={20}
-                              color="#8E8E93"
-                              strokeWidth={2.5}
-                            />
-                          )}
-                        </Pressable>
-                      </View>
-                    </Pressable>
-
-                    {isExpanded && (
-                      <View
-                        style={{
-                          paddingHorizontal: 12,
-                          paddingTop: 16,
-                          paddingBottom: 12,
-                          backgroundColor: "#FAFAFA",
-                          borderRadius: 12,
-                          marginTop: 8,
-                        }}
-                      >
-                        <TransitLegTimeline
-                          itinerary={itinerary}
-                          styles={styles}
-                          formatTime={formatTime}
-                          canToggleIntermediateStops
-                          expandedStops={expandedIntermediateStops}
-                          onToggleStops={(stopKey) => {
-                            setExpandedIntermediateStops((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(stopKey)) next.delete(stopKey);
-                              else next.add(stopKey);
-                              return next;
-                            });
-                          }}
-                          stopKeyPrefix={`itin-${index}`}
-                        />
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
-            </>
-          )
-        ) : (
-          routeInstructions.map((instruction, index) => (
-            <Text
-              key={`${index}-${instruction.text}`}
-              style={styles.routeStepText}
-            >
-              {`${index + 1}. ${instruction.text}`}
-            </Text>
-          ))
-        )}
-      </ScrollView>
-    </View>
+    <RouteStepsPopup styles={styles} formatTime={formatTime} routeSheetPanResponder={routeSheetPanResponder} routeInstructionsDismissedRef={routeInstructionsDismissedRef} setShowRouteInstructions={setShowRouteInstructions} routeMode={routeMode} actualOriginPoint={actualOriginPoint} destinationBuilding={destinationBuilding} transitItineraries={transitItineraries} routeStarted={routeStarted} selectedItineraryIndex={selectedItineraryIndex} expandedItineraries={expandedItineraries} setSelectedItineraryIndex={setSelectedItineraryIndex} setRouteDurationMinutes={setRouteDurationMinutes} setRouteDistanceMeters={setRouteDistanceMeters} setRouteInstructions={setRouteInstructions} setExpandedItineraries={setExpandedItineraries} expandedIntermediateStops={expandedIntermediateStops} setExpandedIntermediateStops={setExpandedIntermediateStops} routeInstructions={routeInstructions} />
   )}{isDirectionsMode &&
     !showRouteInstructions &&
     (routeInstructions.length > 0 || routeMode === "shuttle") && (
