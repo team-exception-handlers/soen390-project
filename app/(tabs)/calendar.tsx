@@ -272,6 +272,8 @@ export default function CalendarScreen() {
           const isAsciiDigitCode = (code: number) => code >= 48 && code <= 57;
           const isAsciiAlphaNumCode = (code: number) =>
             isAsciiLetterCode(code) || isAsciiDigitCode(code);
+          const codeAt = (value: string, index: number) =>
+            value.codePointAt(index) ?? -1;
 
           const parseClassLocation = (raw?: string | null) => {
             if (!raw) return null;
@@ -279,20 +281,20 @@ export default function CalendarScreen() {
             const s = raw.trim();
 
             for (let i = 0; i < s.length; i += 1) {
-              const current = s.charCodeAt(i);
+              const current = codeAt(s, i);
               if (!isAsciiLetterCode(current)) continue;
-              if (i > 0 && isAsciiAlphaNumCode(s.charCodeAt(i - 1))) continue;
+              if (i > 0 && isAsciiAlphaNumCode(codeAt(s, i - 1))) continue;
 
               let cursor = i;
               while (
                 cursor < s.length &&
-                isAsciiLetterCode(s.charCodeAt(cursor)) &&
+                isAsciiLetterCode(codeAt(s, cursor)) &&
                 cursor - i < 4
               ) {
                 cursor += 1;
               }
               if (cursor === i) continue;
-              if (cursor < s.length && isAsciiLetterCode(s.charCodeAt(cursor))) continue;
+              if (cursor < s.length && isAsciiLetterCode(codeAt(s, cursor))) continue;
 
               const building = s.slice(i, cursor);
 
@@ -306,20 +308,20 @@ export default function CalendarScreen() {
               let digitCount = 0;
               while (
                 cursor < s.length &&
-                isAsciiDigitCode(s.charCodeAt(cursor)) &&
+                isAsciiDigitCode(codeAt(s, cursor)) &&
                 digitCount < 4
               ) {
                 cursor += 1;
                 digitCount += 1;
               }
               if (digitCount === 0) continue;
-              if (cursor < s.length && isAsciiDigitCode(s.charCodeAt(cursor))) continue;
+              if (cursor < s.length && isAsciiDigitCode(codeAt(s, cursor))) continue;
 
-              if (cursor < s.length && isAsciiLetterCode(s.charCodeAt(cursor))) {
+              if (cursor < s.length && isAsciiLetterCode(codeAt(s, cursor))) {
                 cursor += 1;
               }
-              if (cursor < s.length && isAsciiLetterCode(s.charCodeAt(cursor))) continue;
-              if (cursor < s.length && isAsciiAlphaNumCode(s.charCodeAt(cursor))) continue;
+              if (cursor < s.length && isAsciiLetterCode(codeAt(s, cursor))) continue;
+              if (cursor < s.length && isAsciiAlphaNumCode(codeAt(s, cursor))) continue;
 
               const room = s.slice(roomStart, cursor);
               return `${building.toUpperCase()}-${room.toUpperCase()}`;

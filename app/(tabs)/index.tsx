@@ -77,6 +77,10 @@ const formatDistance = (meters: number) => {
   if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
   return `${Math.round(meters)} m`;
 };
+
+const formatOptionalDuration = (minutes: number | null) =>
+  minutes === null ? "—" : formatDuration(minutes);
+
 const DEFAULT_START_BUILDING_CODE = "H";
 const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
 type PinVisibilityMode = "all" | "campus-summary";
@@ -377,349 +381,6 @@ const RouteStepsPopup = (props: any) => {
   );
 };
 
-const RoomInputGroup = ({
-  building,
-  room,
-  setRoom,
-  styles,
-  getRoomDetails,
-  getFloorPlanAsset,
-  setActiveFloorPlan,
-  setFloorPlanModalVisible,
-}: any) => {
-  if (!building) return null;
-
-  const details = getRoomDetails(building.code, room);
-  const floorKey = details ? `${details.buildingCode}-${details.floor}` : null;
-  const hasPlan = !!floorKey && getFloorPlanAsset(floorKey) !== null;
-
-  return (
-    <View style={styles.roomInputContainer}>
-      <TextInput
-        style={styles.roomInput}
-        placeholder="Room #"
-        placeholderTextColor="rgba(255,255,255,0.4)"
-        value={room}
-        onChangeText={setRoom}
-        keyboardType="default"
-      />
-      <Pressable
-        style={
-          hasPlan
-            ? styles.floorPlanButtonActive
-            : styles.floorPlanButtonDisabled
-        }
-        disabled={!hasPlan}
-        accessibilityLabel="View Floor Plan"
-        onPress={() => {
-          if (floorKey) {
-            setActiveFloorPlan(getFloorPlanAsset(floorKey));
-            setFloorPlanModalVisible(true);
-          }
-        }}
-      >
-        <Map size={16} color={hasPlan ? "#FFFFFF" : "rgba(255,255,255,0.3)"} />
-      </Pressable>
-    </View>
-  );
-};
-
-const TransportModeSelector = ({
-  isDirectionsMode,
-  isSameCampus,
-  routeMode,
-  setRouteMode,
-  modeDurations,
-  setRouteStarted,
-  routeInstructionsDismissedRef,
-  setShowRouteInstructions,
-  clearDirections,
-  styles,
-  formatDuration,
-}: any) => {
-  if (!isDirectionsMode) return null;
-
-  if (isSameCampus) {
-    return (
-      <View style={styles.modeSelectorGrid}>
-        <View style={styles.modeSelectorRow}>
-          <Pressable
-            testID="route-mode-walking"
-            style={[styles.modePill, styles.modePillActive]}
-          >
-            <Text style={[styles.modePillText, styles.modePillTextActive]}>
-              Walk{" "}
-              {modeDurations.walking !== null
-                ? formatDuration(modeDurations.walking)
-                : "—"}
-            </Text>
-          </Pressable>
-          <Text style={styles.sameCampusHint}>Same campus</Text>
-          <Pressable
-            testID="direction-exit-button"
-            style={styles.modeActionButton}
-            onPress={clearDirections}
-          >
-            <Text style={styles.modeActionButtonText}>Exit</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.modeSelectorGrid}>
-      <View style={styles.modeSelectorRow}>
-        <View style={styles.modePillGroup}>
-          <Pressable
-            testID="route-mode-walking"
-            style={[
-              styles.modePill,
-              routeMode === "walking" && styles.modePillActive,
-            ]}
-            onPress={() => setRouteMode("walking")}
-          >
-            <Text
-              style={[
-                styles.modePillText,
-                routeMode === "walking" && styles.modePillTextActive,
-              ]}
-            >
-              Bike -{" "}
-              {modeDurations.walking !== null
-                ? formatDuration(modeDurations.walking)
-                : "—"}
-            </Text>
-          </Pressable>
-          <Pressable
-            testID="route-mode-driving"
-            style={[
-              styles.modePill,
-              routeMode === "driving" && styles.modePillActive,
-            ]}
-            onPress={() => setRouteMode("driving")}
-          >
-            <Text
-              style={[
-                styles.modePillText,
-                routeMode === "driving" && styles.modePillTextActive,
-              ]}
-            >
-              Car -{" "}
-              {modeDurations.driving !== null
-                ? formatDuration(modeDurations.driving)
-                : "—"}
-            </Text>
-          </Pressable>
-        </View>
-        <Pressable
-          testID="direction-start-button"
-          style={styles.modeActionButton}
-          onPress={() => {
-            setRouteStarted(true);
-            routeInstructionsDismissedRef.current = false;
-            setShowRouteInstructions(true);
-          }}
-        >
-          <Text style={styles.modeActionButtonText}>Start</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.modeSelectorRow}>
-        <View style={styles.modePillGroup}>
-          <Pressable
-            testID="route-mode-transit"
-            style={[
-              styles.modePill,
-              routeMode === "transit" && styles.modePillActive,
-            ]}
-            onPress={() => setRouteMode("transit")}
-          >
-            <Text
-              style={[
-                styles.modePillText,
-                routeMode === "transit" && styles.modePillTextActive,
-              ]}
-            >
-              Public Transit -{" "}
-              {modeDurations.transit !== null
-                ? formatDuration(modeDurations.transit)
-                : "—"}
-            </Text>
-          </Pressable>
-          <Pressable
-            testID="route-mode-shuttle"
-            style={[
-              styles.modePill,
-              routeMode === "shuttle" && styles.modePillActive,
-            ]}
-            onPress={() => setRouteMode("shuttle")}
-          >
-            <Text
-              style={[
-                styles.modePillText,
-                routeMode === "shuttle" && styles.modePillTextActive,
-              ]}
-            >
-              Shuttle
-            </Text>
-          </Pressable>
-        </View>
-        <Pressable
-          testID="direction-exit-button"
-          style={styles.modeActionButton}
-          onPress={clearDirections}
-        >
-          <Text style={styles.modeActionButtonText}>Exit</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-};
-
-const DirectionsPanel = ({
-  setSearchText,
-  setEditingField,
-  searchInputRef,
-  editingField,
-  originBuilding,
-  destinationBuilding,
-  clearDirections,
-  isDirectionsMode,
-  isSameCampus,
-  routeMode,
-  setRouteMode,
-  modeDurations,
-  setRouteStarted,
-  routeInstructionsDismissedRef,
-  setShowRouteInstructions,
-  styles,
-  formatDuration,
-  // newly added props from main
-  originRoom,
-  setOriginRoom,
-  destinationRoom,
-  setDestinationRoom,
-  setActiveFloorPlan,
-  setFloorPlanModalVisible,
-  getRoomDetails,
-  getFloorPlanAsset
-}: any) => {
-  return (
-    <View style={styles.directionsPanel} testID="directions-panel">
-      <View style={styles.directionFieldRow}>
-        {/* FROM FIELD */}
-        <View style={{ flex: 1 }}>
-          <Pressable
-            testID="direction-from-button"
-            onPress={() => {
-              setEditingField("from");
-              searchInputRef.current?.focus?.();
-            }}
-            style={[
-              styles.directionFieldButton,
-              editingField === "from" && styles.directionFieldButtonActive,
-            ]}
-          >
-            <Text style={styles.directionFieldLabel}>From</Text>
-            <Text
-              style={styles.directionFieldValue}
-              numberOfLines={1}
-              testID={
-                originBuilding
-                  ? `direction-from-value-${originBuilding.code}`
-                  : "direction-from-value-empty"
-              }
-            >
-              {originBuilding
-                ? `${originBuilding.code} - ${originBuilding.shortName}`
-                : "Current location"}
-            </Text>
-          </Pressable>
-          {/* Origin Room Input + Icon Button */}
-          <RoomInputGroup
-            building={originBuilding}
-            room={originRoom}
-            setRoom={setOriginRoom}
-            styles={styles}
-            getRoomDetails={getRoomDetails}
-            getFloorPlanAsset={getFloorPlanAsset}
-            setActiveFloorPlan={setActiveFloorPlan}
-            setFloorPlanModalVisible={setFloorPlanModalVisible}
-          />
-        </View>
-
-        {/* TO FIELD */}
-        <View style={{ flex: 1 }}>
-          <Pressable
-            testID="direction-to-button"
-            onPress={() => {
-              setEditingField("to");
-              setSearchText("");
-              searchInputRef.current?.focus?.();
-            }}
-            style={[
-              styles.directionFieldButton,
-              editingField === "to" && styles.directionFieldButtonActive,
-            ]}
-          >
-            <Text style={styles.directionFieldLabel}>To</Text>
-            <Text
-              style={styles.directionFieldValue}
-              numberOfLines={1}
-              testID={
-                destinationBuilding
-                  ? `direction-to-value-${destinationBuilding.code}`
-                  : "direction-to-value-empty"
-              }
-            >
-              {destinationBuilding
-                ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
-                : "Where to?"}
-            </Text>
-          </Pressable>
-          {/* Destination Room Input + Icon Button */}
-          <RoomInputGroup
-            building={destinationBuilding}
-            room={destinationRoom}
-            setRoom={setDestinationRoom}
-            styles={styles}
-            getRoomDetails={getRoomDetails}
-            getFloorPlanAsset={getFloorPlanAsset}
-            setActiveFloorPlan={setActiveFloorPlan}
-            setFloorPlanModalVisible={setFloorPlanModalVisible}
-          />
-        </View>
-
-        {/* GO / CANCEL BUTTON */}
-        <Pressable
-          testID="direction-go-button"
-          onPress={clearDirections}
-          style={styles.clearRouteButton}
-        >
-          <Text style={styles.clearRouteText}>
-            {isDirectionsMode ? "Cancel" : "Go"}
-          </Text>
-        </Pressable>
-      </View>
-
-      <TransportModeSelector
-        isDirectionsMode={isDirectionsMode}
-        isSameCampus={isSameCampus}
-        routeMode={routeMode}
-        setRouteMode={setRouteMode}
-        modeDurations={modeDurations}
-        setRouteStarted={setRouteStarted}
-        routeInstructionsDismissedRef={routeInstructionsDismissedRef}
-        setShowRouteInstructions={setShowRouteInstructions}
-        clearDirections={clearDirections}
-        styles={styles}
-        formatDuration={formatDuration}
-      />
-    </View>
-  );
-};
-
 export default function MapScreen() {
   
   // Tracks whether the user is editing the start or destination
@@ -838,12 +499,13 @@ export default function MapScreen() {
   const TAB_BAR_HEIGHT = 56;
 
   const isWebPlatform = Platform.OS === "web";
-  const webFrameTargetOrigin =
+  const webHostOrigin =
     isWebPlatform && typeof window !== "undefined"
       ? window.location.origin
       : null;
+  const webIframeTargetOrigin = "*";
   const serializedWebFrameTargetOrigin = JSON.stringify(
-    webFrameTargetOrigin ?? "*",
+    webHostOrigin ?? "*",
   );
   const showE2EHooks =
     Platform.OS !== "web" && process.env.EXPO_PUBLIC_ENABLE_E2E_HOOKS === "1";
@@ -853,13 +515,13 @@ export default function MapScreen() {
 
   const postToWebIframe = useCallback(
     (message: unknown) => {
-      if (!isWebPlatform || !webFrameTargetOrigin) return;
+      if (!isWebPlatform) return;
       webIframeRef.current?.contentWindow?.postMessage(
         message,
-        webFrameTargetOrigin,
+        webIframeTargetOrigin,
       );
     },
-    [isWebPlatform, webFrameTargetOrigin],
+    [isWebPlatform, webIframeTargetOrigin],
   );
 
   useEffect(() => {
@@ -1515,11 +1177,11 @@ export default function MapScreen() {
   let MapPolylineComponent: React.ElementType | null = null;
 
   useEffect(() => {
-    if (!isWebPlatform || !webFrameTargetOrigin) return;
+    if (!isWebPlatform) return;
 
     const handler = (event: MessageEvent) => {
-      if (event.origin !== webFrameTargetOrigin) return;
       if (event.source !== webIframeRef.current?.contentWindow) return;
+      if (event.origin !== "null" && event.origin !== webHostOrigin) return;
 
       try {
         const data =
@@ -1538,7 +1200,7 @@ export default function MapScreen() {
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [isWebPlatform, webFrameTargetOrigin]);
+  }, [isWebPlatform, webHostOrigin]);
 
   if (Platform.OS !== "web" && !isExpoGo) {
     try {
@@ -2006,6 +1668,17 @@ export default function MapScreen() {
     return BUILDINGS.filter(buildingHasPolygon);
   }, [allPolygons]);
 
+  const campusBuildingsWithPolygons = useMemo(
+    () => buildingsWithPolygons.filter((building) => building.campus === campus),
+    [buildingsWithPolygons, campus],
+  );
+
+  const shouldUseAllCampusMapData = isDirectionsMode && !isSameCampus;
+  const activeMapPolygons = shouldUseAllCampusMapData ? allPolygons : campusPolygons;
+  const activeMapBuildings = shouldUseAllCampusMapData
+    ? buildingsWithPolygons
+    : campusBuildingsWithPolygons;
+
   const region = useMemo(
     () => getCampusRegion(campus, campusPolygons.features),
     [campus, campusPolygons],
@@ -2211,8 +1884,8 @@ export default function MapScreen() {
 
   // Generate HTML for web map
   const mapHTML = useMemo(() => {
-    const { latitude, longitude, latitudeDelta, longitudeDelta } = defaultSgwRegion;
-    const buildingData = buildingsWithPolygons.map(
+    const { latitude, longitude, latitudeDelta, longitudeDelta } = region;
+    const buildingData = activeMapBuildings.map(
       ({ latitude: lat, longitude: lng, code, shortName, campus: buildingCampus }) => ({
         latitude: lat,
         longitude: lng,
@@ -2304,10 +1977,10 @@ export default function MapScreen() {
                   window.parent.postMessage(payload, parentMessageTargetOrigin);
               };
 
-              const buildings = ${JSON.stringify(buildingData)};
-              const campusMarkers = ${JSON.stringify(campusSummaryData)};
-              const polygonData = ${JSON.stringify(allPolygons)};
-              const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
+	              const buildings = ${JSON.stringify(buildingData)};
+	              const campusMarkers = ${JSON.stringify(campusSummaryData)};
+	              const polygonData = ${JSON.stringify(activeMapPolygons)};
+	              const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               const routeMode = ${JSON.stringify(routeMode)};
               const routeCoordinates = ${JSON.stringify(
       routeCoordinates.map((point) => [
@@ -2329,8 +2002,8 @@ export default function MapScreen() {
               window.userMarker = null;
               window.followUser = false;
               window.hasCenteredOnUser = false;
-              window.selectedCampus = "SGW";
-              window.defaultCampusZoom = null;
+	              window.selectedCampus = ${JSON.stringify(campus)};
+	              window.defaultCampusZoom = null;
 
               L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                   attribution: '© OpenStreetMap contributors',
@@ -2616,17 +2289,18 @@ export default function MapScreen() {
       </html>
     `;
   }, [
-    allPolygons,
-    buildingsWithPolygons,
+    activeMapBuildings,
+    activeMapPolygons,
+    campus,
     campusMarkerData,
     currentBuildingForHTML,
+    region,
     routeCoordinates,
     routeMode,
     userLat,
     userLng,
     serializedWebFrameTargetOrigin,
     webTransitSegments,
-    defaultSgwRegion,
   ]);
 
   const webViewSource = useMemo(() => ({ html: mapHTML }), [mapHTML]);
@@ -2643,6 +2317,7 @@ const renderWebMapContent = () => {
   if (Platform.OS === "web") {
     return (
       <iframe
+        ref={webIframeRef}
         key={campus}
         src={`data:text/html;charset=utf-8,${encodeURIComponent(mapHTML)}`}
         style={{ ...(StyleSheet.flatten(styles.map) as object), border: 0 }}
@@ -2769,7 +2444,7 @@ const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
           return null;
         })()}
 
-        {allPolygons.features.map((feature: any) => {
+        {activeMapPolygons.features.map((feature: any) => {
           const coordinates = feature.geometry.coordinates[0].map(
             (coord: number[]) => ({
               latitude: coord[1],
@@ -2817,15 +2492,15 @@ const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
           );
         })}
 
-      {buildingsWithPolygons.map((building) => {
-        const hasExactPolygon = campusPolygons.features.some(
+      {activeMapBuildings.map((building) => {
+        const hasExactPolygon = activeMapPolygons.features.some(
           (f: any) => f.properties.code === building.code,
         );
 
         const polygonCode =
           hasExactPolygon
             ? building.code
-            : campusPolygons.features.find(
+            : activeMapPolygons.features.find(
                 (f: any) =>
                   building.code.startsWith(f.properties.code) &&
                   f.properties.code.length >= 2,
@@ -3089,9 +2764,7 @@ const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
               ]}
             >
               Bike -{" "}
-              {modeDurations.walking !== null
-                ? formatDuration(modeDurations.walking)
-                : "—"}
+              {formatOptionalDuration(modeDurations.walking)}
             </Text>
           </Pressable>
           <Pressable
@@ -3109,9 +2782,7 @@ const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
               ]}
             >
               Car -{" "}
-              {modeDurations.driving !== null
-                ? formatDuration(modeDurations.driving)
-                : "—"}
+              {formatOptionalDuration(modeDurations.driving)}
             </Text>
           </Pressable>
         </View>
@@ -3127,33 +2798,6 @@ const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
           <Text style={styles.modeActionButtonText}>Start</Text>
         </Pressable>
       </View>
-      <DirectionsPanel
-        setSearchText={setSearchText}
-        setEditingField={setEditingField}
-        searchInputRef={searchInputRef}
-        editingField={editingField}
-        originBuilding={originBuilding}
-        destinationBuilding={destinationBuilding}
-        clearDirections={clearDirections}
-        isDirectionsMode={isDirectionsMode}
-        isSameCampus={isSameCampus}
-        routeMode={routeMode}
-        setRouteMode={setRouteMode}
-        modeDurations={modeDurations}
-        setRouteStarted={setRouteStarted}
-        routeInstructionsDismissedRef={routeInstructionsDismissedRef}
-        setShowRouteInstructions={setShowRouteInstructions}
-        styles={styles}
-        formatDuration={formatDuration}
-        originRoom={originRoom}
-        setOriginRoom={setOriginRoom}
-        destinationRoom={destinationRoom}
-        setDestinationRoom={setDestinationRoom}
-        setActiveFloorPlan={setActiveFloorPlan}
-        setFloorPlanModalVisible={setFloorPlanModalVisible}
-        getRoomDetails={getRoomDetails}
-        getFloorPlanAsset={getFloorPlanAsset}
-      />
 
       <View style={styles.modeSelectorRow}>
         <View style={styles.modePillGroup}>
@@ -3172,9 +2816,7 @@ const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
               ]}
             >
               Public Transit -{" "}
-              {modeDurations.transit !== null
-                ? formatDuration(modeDurations.transit)
-                : "—"}
+              {formatOptionalDuration(modeDurations.transit)}
             </Text>
           </Pressable>
           <Pressable
@@ -3215,9 +2857,7 @@ const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
         >
           <Text style={[styles.modePillText, styles.modePillTextActive]}>
             Walk{" "}
-            {modeDurations.walking !== null
-              ? formatDuration(modeDurations.walking)
-              : "—"}
+            {formatOptionalDuration(modeDurations.walking)}
           </Text>
         </Pressable>
         <Text style={styles.sameCampusHint}>Same campus</Text>
@@ -3232,117 +2872,6 @@ const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
     </View>
   )}
 </View>
-                                                                                                                      
-
-  
-  {isDirectionsMode && !isSameCampus && (
-  <View style={styles.modeSelectorGrid}>
-    <View style={styles.modeSelectorRow}>
-      <View style={styles.modePillGroup}>
-        <Pressable
-          testID="route-mode-walking"
-          style={[
-            styles.modePill,
-            routeMode === "walking" && styles.modePillActive,
-          ]}
-          onPress={() => setRouteMode("walking")}
-        >
-          <Text
-            style={[
-              styles.modePillText,
-              routeMode === "walking" && styles.modePillTextActive,
-            ]}
-          >
-            Bike -{" "}
-            {modeDurations.walking !== null
-              ? formatDuration(modeDurations.walking)
-              : "—"}
-          </Text>
-        </Pressable>
-        <Pressable
-          testID="route-mode-driving"
-          style={[
-            styles.modePill,
-            routeMode === "driving" && styles.modePillActive,
-          ]}
-          onPress={() => setRouteMode("driving")}
-        >
-          <Text
-            style={[
-              styles.modePillText,
-              routeMode === "driving" && styles.modePillTextActive,
-            ]}
-          >
-            Car -{" "}
-            {modeDurations.driving !== null
-              ? formatDuration(modeDurations.driving)
-              : "—"}
-          </Text>
-        </Pressable>
-      </View>
-      <Pressable
-        testID="direction-start-button"
-        style={styles.modeActionButton}
-        onPress={() => {
-          setRouteStarted(true);
-          routeInstructionsDismissedRef.current = false;
-          setShowRouteInstructions(true);
-        }}
-      >
-        <Text style={styles.modeActionButtonText}>Start</Text>
-      </Pressable>
-    </View>
-
-    <View style={styles.modeSelectorRow}>
-      <View style={styles.modePillGroup}>
-        <Pressable
-          testID="route-mode-transit"
-          style={[
-            styles.modePill,
-            routeMode === "transit" && styles.modePillActive,
-          ]}
-          onPress={() => setRouteMode("transit")}
-        >
-          <Text
-            style={[
-              styles.modePillText,
-              routeMode === "transit" && styles.modePillTextActive,
-            ]}
-          >
-            Public Transit -{" "}
-            {modeDurations.transit !== null
-              ? formatDuration(modeDurations.transit)
-              : "—"}
-          </Text>
-        </Pressable>
-        <Pressable
-          testID="route-mode-shuttle"
-          style={[
-            styles.modePill,
-            routeMode === "shuttle" && styles.modePillActive,
-          ]}
-          onPress={() => setRouteMode("shuttle")}
-        >
-          <Text
-            style={[
-              styles.modePillText,
-              routeMode === "shuttle" && styles.modePillTextActive,
-            ]}
-          >
-            Shuttle
-          </Text>
-        </Pressable>
-      </View>
-      <Pressable
-        testID="direction-exit-button"
-        style={styles.modeActionButton}
-        onPress={clearDirections}
-      >
-        <Text style={styles.modeActionButtonText}>Exit</Text>
-      </Pressable>
-    </View>
-  </View>
-)}
 
 {currentBuilding &&
   (() => {
