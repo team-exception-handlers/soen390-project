@@ -45,6 +45,7 @@ import {
   type RouteProfile,
 } from "../../utils/osrmDirections";
 import { getRoomDetails } from "../../utils/roomUtils";
+import { getShuttleInfo } from "../../utils/shuttleLogic";
 import {
   decodePolyline,
   fetchTransitItineraries,
@@ -1918,6 +1919,13 @@ export default function MapScreen() {
         const nearest = getNearestStop(actualOriginPoint);
         const originStopCoords = STOPS[nearest.stop];
         const destStopCoords = STOPS[nearest.destination];
+
+        const shuttleInfo = getShuttleInfo(nearest.stop as any, new Date());
+        if (shuttleInfo.serviceUnavailable) {
+          if (cancelled) return;
+          setRouteLoading(false);
+          return;
+        }
 
         const [walkTo, drive, walkFrom] = await Promise.all([
           fetchOsrmRoute(actualOriginPoint, originStopCoords, 'walking'),
