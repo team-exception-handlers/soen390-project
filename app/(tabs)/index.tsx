@@ -1,60 +1,61 @@
 
-import { parseLocationParts } from "@/utils/classLocation";
-import { fetchNextConcordiaClassToday } from "@/utils/googleCalendarNextClass";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import BuildingInformation from "@/components/BuildingInformation";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
+import { useLocalSearchParams } from "expo-router";
 import { ChevronDown, ChevronUp, Map, X } from "lucide-react-native";
 import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 import {
-    Image,
-    Keyboard,
-    Linking,
-    Modal,
-    PanResponder,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  Keyboard,
+  Linking,
+  Modal,
+  PanResponder,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader, { Campus } from "../../components/AppHeader";
+import BuildingInformation from "../../components/BuildingInformation";
 import ShuttleDirections from "../../components/ShuttleDirections";
 import TransitLegTimeline from "../../components/TransitLegTimeline";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
+import { parseLocationParts } from "../../utils/classLocation";
+import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import { getNearestStop, STOPS } from "../../utils/locationLogic";
 import {
-    findUserBuilding,
-    hasLocationPermission,
-    requestLocationPermission,
-    startWatchingLocation,
+  findUserBuilding,
+  hasLocationPermission,
+  requestLocationPermission,
+  startWatchingLocation,
 } from "../../utils/locationUtils";
 import { getCampusRegion } from "../../utils/mapRegions";
 import {
-    fetchOsrmRoute,
-    type RouteInstruction,
-    type RouteProfile,
+  fetchOsrmRoute,
+  type RouteInstruction,
+  type RouteProfile,
 } from "../../utils/osrmDirections";
 import { getRoomDetails } from "../../utils/roomUtils";
 import { getShuttleInfo } from "../../utils/shuttleLogic";
 import {
-    decodePolyline,
-    fetchTransitItineraries,
-    formatTime,
-    type TransitItinerary,
+  decodePolyline,
+  fetchTransitItineraries,
+  formatTime,
+  type TransitItinerary,
 } from "../../utils/transitousDirections";
 
 let WebView: React.ComponentType<any> | null = null;
@@ -763,6 +764,10 @@ export default function MapScreen() {
   );
   const [floorPlanModalVisible, setFloorPlanModalVisible] = useState(false);
   const [activeFloorPlan, setActiveFloorPlan] = useState<any>(null);
+  const { toBuilding, toRoom } = useLocalSearchParams<{
+    toBuilding?: string;
+    toRoom?: string;
+  }>();
   const [campus, setCampus] = useState<Campus>("SGW");
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
@@ -2559,29 +2564,29 @@ export default function MapScreen() {
               const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               const routeMode = ${JSON.stringify(routeMode)};
               const routeCoordinates = ${JSON.stringify(
-                routeCoordinates.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      routeCoordinates.map((point) => [
+        point.latitude,
+        point.longitude,
+      ]),
+    )};
               const shuttleWalkToCoords = ${JSON.stringify(
-                shuttleWalkToCoords.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      shuttleWalkToCoords.map((point) => [
+        point.latitude,
+        point.longitude,
+      ]),
+    )};
               const shuttleDriveCoords = ${JSON.stringify(
-                shuttleDriveCoords.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      shuttleDriveCoords.map((point) => [
+        point.latitude,
+        point.longitude,
+      ]),
+    )};
               const shuttleWalkFromCoords = ${JSON.stringify(
-                shuttleWalkFromCoords.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      shuttleWalkFromCoords.map((point) => [
+        point.latitude,
+        point.longitude,
+      ]),
+    )};
 
               // Per-leg transit segments for Leaflet
               const transitSegments = ${JSON.stringify(webTransitSegments)};
@@ -2895,9 +2900,8 @@ export default function MapScreen() {
 
               updateMarkerVisibility();
 
-              ${
-                userLat && userLng
-                  ? `
+              ${userLat && userLng
+        ? `
               console.log('Adding user marker at:', ${userLat}, ${userLng});
               const userIcon = L.divIcon({
                   className: 'user-marker',
@@ -2907,8 +2911,8 @@ export default function MapScreen() {
               });
               window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
               `
-                  : 'console.log("No user location available");'
-              }
+        : 'console.log("No user location available");'
+      }
           </script>
       </body>
       </html>
@@ -2992,7 +2996,7 @@ export default function MapScreen() {
                   setSelectedBuilding(data.buildingCode);
                 if (data?.type === "buildingDeselected")
                   setSelectedBuilding(null);
-              } catch {}
+              } catch { }
               return false;
             }
             return true;
@@ -3011,9 +3015,9 @@ export default function MapScreen() {
 
   const nativeMapContent =
     MapViewComponent &&
-    MapMarkerComponent &&
-    MapCalloutComponent &&
-    MapPolygonComponent ? (
+      MapMarkerComponent &&
+      MapCalloutComponent &&
+      MapPolygonComponent ? (
       <MapViewComponent
         ref={mapRef}
         testID="map-native"
@@ -3182,10 +3186,10 @@ export default function MapScreen() {
           const polygonCode = hasExactPolygon
             ? building.code
             : allPolygons.features.find(
-                (f: any) =>
-                  building.code.startsWith(f.properties.code) &&
-                  f.properties.code.length >= 2,
-              )?.properties.code || building.code;
+              (f: any) =>
+                building.code.startsWith(f.properties.code) &&
+                f.properties.code.length >= 2,
+            )?.properties.code || building.code;
 
           return (
             <MapMarkerComponent
@@ -3362,7 +3366,7 @@ export default function MapScreen() {
       )}
 
       {shouldUseWebFallback ? webMapContent : nativeMapContent}
-       <Pressable
+      <Pressable
         testID="next-class-floating-button"
         style={styles.nextClassButton}
         onPress={handleNextClassDirections}
