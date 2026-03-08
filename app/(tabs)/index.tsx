@@ -2,6 +2,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
+import * as SplashScreen from "expo-splash-screen";
 import { useLocalSearchParams } from "expo-router";
 import { ChevronDown, ChevronUp, Map, X } from "lucide-react-native";
 import React, {
@@ -948,6 +949,13 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
   useEffect(() => {
     campusRef.current = campus;
   }, [campus]);
+
+  // Hide splash once this screen (with header) has mounted so E2E can see header-title
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      SplashScreen.hideAsync?.();
+    }
+  }, []);
 
   useEffect(() => {
     if (!nextClassMessage) return;
