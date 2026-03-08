@@ -338,6 +338,7 @@ describe("components/mapScreen/RouteStepsPopup", () => {
     timeline.props.onToggleStops("stop-1");
     const updater = setExpandedIntermediateStops.mock.calls[0][0];
     expect(Array.from(updater(new Set()))).toEqual(["stop-1"]);
+    expect(Array.from(updater(new Set(["stop-1"])))).toEqual([]);
   });
 
   test("falls back to the bus leg style for unknown transit modes", () => {
@@ -368,6 +369,26 @@ describe("components/mapScreen/RouteStepsPopup", () => {
       props.styles.legPill,
       props.styles.legPillBus,
     ]);
+  });
+
+  test("renders singular and plural transfer labels for transit itineraries", () => {
+    const props = createProps({
+      routeMode: "transit",
+      transitItineraries: [
+        {
+          ...itinerary,
+          transfers: 1,
+        },
+        {
+          ...itinerary,
+          transfers: 2,
+        },
+      ],
+    });
+    const el = renderTree(RouteStepsPopup(props));
+
+    expect(findText(el, "1 transfer")).toBeTruthy();
+    expect(findText(el, "2 transfers")).toBeTruthy();
   });
 
   test("renders plain numbered instructions when not in shuttle or transit mode", () => {
