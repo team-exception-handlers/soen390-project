@@ -110,4 +110,29 @@ describe("parseLocationParts", () => {
             room: null,
         });
     });
+
+
+});
+
+describe("extra branch coverage for classLocation", () => {
+    test("covers readBuilding returning null when no building can be parsed", () => {
+        expect(parseClassLocation("1234")).toBe("1234");
+        expect(parseClassLocation("-510")).toBe("-510");
+    });
+
+    test("rejects malformed classroom numbers with multiple dots", () => {
+        expect(parseClassLocation("H-12.34.56")).toBe("H-12.34.56");
+    });
+
+    test("covers invalid room ending with extra letters", () => {
+        expect(parseClassLocation("H-510AB")).toBe("H-510AB");
+    });
+
+    test("covers invalid room ending with alphanumeric after trailing letter", () => {
+        expect(parseClassLocation("H-510A7")).toBe("H-510A7");
+    });
+
+    test("covers case where building parse is attempted at a non-building position", () => {
+        expect(parseClassLocation("Room: 500")).toBe("Room: 500");
+    });
 });

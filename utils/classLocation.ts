@@ -81,11 +81,22 @@ function readNumericRoomBody(
 }
 
 function isValidRoomEnding(value: string, cursor: number): boolean {
-    if (cursor < value.length && isAsciiLetterCode(codeAt(value, cursor))) {
+    if (cursor >= value.length) {
+        return true;
+    }
+
+    const nextChar = value[cursor];
+    const nextCode = codeAt(value, cursor);
+
+    if (nextChar === ".") {
         return false;
     }
 
-    if (cursor < value.length && isAsciiAlphaNumCode(codeAt(value, cursor))) {
+    if (isAsciiLetterCode(nextCode)) {
+        return false;
+    }
+
+    if (isAsciiAlphaNumCode(nextCode)) {
         return false;
     }
 
