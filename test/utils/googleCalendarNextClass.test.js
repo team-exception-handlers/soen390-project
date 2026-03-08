@@ -214,4 +214,154 @@ describe("fetchNextConcordiaClassToday", () => {
         const options = global.fetch.mock.calls[0][1];
         expect(options.headers.Authorization).toBe("Bearer secret-token");
     });
+
+    describe("fetchNextConcordiaClassToday extra branch coverage", () => {
+        const realFetch = global.fetch;
+
+        beforeEach(() => {
+            jest.useFakeTimers();
+            jest.setSystemTime(new Date("2026-03-07T10:00:00Z"));
+            global.fetch = jest.fn();
+        });
+
+        afterEach(() => {
+            jest.useRealTimers();
+            global.fetch = realFetch;
+            jest.clearAllMocks();
+        });
+
+        test("returns null when items is missing", async () => {
+            global.fetch.mockResolvedValue({
+                ok: true,
+                json: async () => ({}),
+            });
+
+            const result = await fetchNextConcordiaClassToday("token");
+            expect(result).toBeNull();
+        });
+
+        test("ignores events with missing summary", async () => {
+            global.fetch.mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    items: [
+                        {
+                            id: "1",
+                            location: "H-510",
+                            start: { dateTime: "2026-03-07T11:00:00Z" },
+                        },
+                        {
+                            id: "2",
+                            summary: "Concordia - COMP 249",
+                            location: "H-520",
+                            start: { dateTime: "2026-03-07T12:00:00Z" },
+                        },
+                    ],
+                }),
+            });
+
+            const result = await fetchNextConcordiaClassToday("token");
+            expect(result.id).toBe("2");
+        });
+
+        test("supports events that use start.date instead of start.dateTime", async () => {
+            global.fetch.mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    items: [
+                        {
+                            id: "1",
+                            summary: "Concordia - All Day",
+                            location: "H-510",
+                            start: { date: "2026-03-07T11:00:00Z" },
+                        },
+                    ],
+                }),
+            });
+
+            const result = await fetchNextConcordiaClassToday("token");
+            expect(result.id).toBe("1");
+        });
+
+        test("ignores events with missing start", async () => {
+            global.fetch.mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    items: [
+                        {
+                            id: "1",
+                            summary: "Concordia - No Start",
+                            location: "H-510",
+                        },
+                        {
+                            id: "2",
+                            summary: "Concordia - Valid",
+                            location: "EV-1.605",
+                            start: { dateTime: "2026-03-07T11:00:00Z" },
+                        },
+                    ],
+                }),
+            });
+
+            const result = await fetchNextConcordiaClassToday("token");
+            expect(result.id).toBe("2");
+        });
+
+        test("sorts correctly when one event uses date and another uses dateTime", async () => {
+            global.fetch.mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    items: [
+                        {
+                            id: "1",
+                            summary: "Concordia - Later",
+                            start: { dateTime: "2026-03-07T12:00:00Z" },
+                        },
+                        {
+                            id: "2",
+                            summary: "Concordia - Earlier",
+                            start: { date: "2026-03-07T11:00:00Z" },
+                        },
+                    ],
+                }),
+            });
+
+            const result = await fetchNextConcordiaClassToday("token");
+            expect(result.id).toBe("2");
+        });
+
+        test("uses a custom calendarId when provided", async () => {
+            global.fetch.mockResolvedValue({
+                ok: true,
+                json: async () => ({ items: [] }),
+            });
+
+            await fetchNextConcordiaClassToday("token", "my-calendar-id");
+
+            const calledUrl = global.fetch.mock.calls[0][0];
+            expect(calledUrl).toContain("/calendars/my-calendar-id/events");
+        });
+
+        test("encodes a custom calendarId when provided", async () => {
+            global.fetch.mockResolvedValue({
+                ok: true,
+                json: async () => ({ items: [] }),
+            });
+
+            await fetchNextConcordiaClassToday("token", "abc@group.calendar.google.com");
+
+            const calledUrl = global.fetch.mock.calls[0][0];
+            expect(calledUrl).toContain(
+                encodeURIComponent("abc@group.calendar.google.com"),
+            );
+        });
+
+        test("propagates fetch rejection", async () => {
+            global.fetch.mockRejectedValue(new Error("network fail"));
+
+            await expect(fetchNextConcordiaClassToday("token")).rejects.toThrow(
+                "network fail",
+            );
+        });
+    });
 });
