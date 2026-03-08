@@ -9,9 +9,12 @@ import { calculateArrivalTime, Campus, getShuttleInfo, ShuttleInfo } from '../ut
 interface ShuttleDirectionsProps {
     origin: RoutePoint | null;
     destination: BuildingRecord | null;
+    routeStarted?: boolean;
+    routeInstructions?: any[];
+    onDepartureSelect?: (time: string) => void;
 }
 
-const ShuttleDirections: React.FC<ShuttleDirectionsProps> = ({ origin, destination }) => {
+const ShuttleDirections: React.FC<ShuttleDirectionsProps> = ({ origin, destination, routeStarted, routeInstructions, onDepartureSelect }) => {
     const [shuttleInfo, setShuttleInfo] = useState<ShuttleInfo | null>(null);
     const [nearestStop, setNearestStop] = useState<{ stop: Campus; destination: Campus } | null>(null);
     const [countdown, setCountdown] = useState<string>('');
@@ -22,6 +25,12 @@ const ShuttleDirections: React.FC<ShuttleDirectionsProps> = ({ origin, destinati
     const [walkFromStopMinutes, setWalkFromStopMinutes] = useState<number | null>(null);
 
     const [selectedDeparture, setSelectedDeparture] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (selectedDeparture && onDepartureSelect) {
+            onDepartureSelect(selectedDeparture);
+        }
+    }, [selectedDeparture, onDepartureSelect]);
 
     useEffect(() => {
         if (!origin || !destination) {
@@ -114,7 +123,7 @@ const ShuttleDirections: React.FC<ShuttleDirectionsProps> = ({ origin, destinati
         );
     }
 
-    if(shuttleInfo?.serviceUnavailable) return(
+    if (shuttleInfo?.serviceUnavailable) return (
         <View style={styles.card}>
 
             <View style={styles.timelineItem}>
@@ -129,7 +138,7 @@ const ShuttleDirections: React.FC<ShuttleDirectionsProps> = ({ origin, destinati
                     </View>
 
                     <Text style={styles.unavailableText}>{shuttleInfo.message}</Text>
-                    
+
                 </View>
             </View>
         </View>
@@ -226,6 +235,18 @@ const ShuttleDirections: React.FC<ShuttleDirectionsProps> = ({ origin, destinati
                     <Text style={styles.timelineSub}>{walkFromStopMinutes} min Walk</Text>
                 </View>
             </View>
+
+            {/* ROUTE INSTRUCTIONS (If Started) */}
+            {routeStarted && routeInstructions && routeInstructions.length > 0 && (
+                <View style={styles.instructionsContainer}>
+                    <Text style={styles.instructionsTitle}>Journey Details</Text>
+                    {routeInstructions.map((instruction: any, index: number) => (
+                        <Text key={`${index}-${instruction.text}`} style={styles.instructionText}>
+                            {`${index + 1}. ${instruction.text}`}
+                        </Text>
+                    ))}
+                </View>
+            )}
         </View>
     );
 };
@@ -403,6 +424,24 @@ const styles = StyleSheet.create({
         color: '#D32F2F',
         textAlign: 'center',
         fontSize: 14,
+    },
+    instructionsContainer: {
+        marginTop: 20,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#E0E0E0',
+    },
+    instructionsTitle: {
+        fontSize: 17,
+        fontWeight: '700',
+        marginBottom: 16,
+        color: '#1C1C1E',
+    },
+    instructionText: {
+        fontSize: 16,
+        lineHeight: 24,
+        color: '#333',
+        marginBottom: 14,
     },
 });
 
