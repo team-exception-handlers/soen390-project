@@ -1,4 +1,7 @@
 
+import { parseLocationParts } from "@/utils/classLocation";
+import { fetchNextConcordiaClassToday } from "@/utils/googleCalendarNextClass";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import { useLocalSearchParams } from "expo-router";
@@ -49,10 +52,9 @@ import {
   type TransitItinerary
 } from "../../utils/transitousDirections";
 
-
 const WebViewComponent =
   Platform.OS === "web" ? null : require("react-native-webview").WebView;
-  let MapViewComponent: React.ComponentType<any> | null = null;
+let MapViewComponent: React.ComponentType<any> | null = null;
 let MapMarkerComponent: React.ComponentType<any> | null = null;
 let MapCalloutComponent: React.ComponentType<any> | null = null;
 let MapPolygonComponent: React.ComponentType<any> | null = null;
@@ -370,7 +372,7 @@ const RouteStepsPopup = (props: any) => {
 };
 
 export default function MapScreen() {
-  
+
   // Tracks whether the user is editing the start or destination
   const [editingField, setEditingField] = useState<"from" | "to" | undefined>(
     undefined,
@@ -386,17 +388,17 @@ export default function MapScreen() {
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const [destinationBuildingCode, setDestinationBuildingCode] =
     useState<string>(DEFAULT_DESTINATION_BUILDING_CODE);
-    useEffect(() => {
-      if (typeof toBuilding === "string" && toBuilding.trim()) {
-        setDestinationBuildingCode(toBuilding.trim().toUpperCase());
-        setIsDirectionsMode(true);
-      }
-    
-      if (typeof toRoom === "string") {
-        setDestinationRoom(toRoom.trim());
-      }
-    }, [toBuilding, toRoom]);
-    
+  useEffect(() => {
+    if (typeof toBuilding === "string" && toBuilding.trim()) {
+      setDestinationBuildingCode(toBuilding.trim().toUpperCase());
+      setIsDirectionsMode(true);
+    }
+
+    if (typeof toRoom === "string") {
+      setDestinationRoom(toRoom.trim());
+    }
+  }, [toBuilding, toRoom]);
+
 
   // Tracks the selected origin building (or null if using current location)i
   const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
@@ -405,11 +407,11 @@ export default function MapScreen() {
   const [originRoom, setOriginRoom] = useState<string>("");
   const [destinationRoom, setDestinationRoom] = useState<string>("");
   const [isDirectionsMode, setIsDirectionsMode] = useState(false);
-  
+
   const [routeMode, setRouteMode] = useState<
     RouteProfile | "transit" | "shuttle"
   >("walking");
-  
+
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
@@ -447,7 +449,8 @@ export default function MapScreen() {
     Set<string>
   >(new Set());
   const [routeStarted, setRouteStarted] = useState(false);
-
+  const [nextClassLoading, setNextClassLoading] = useState(false);
+  const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
   const routeInstructionsDismissedRef = useRef(false);
   const webIframeRef = useRef<HTMLIFrameElement | null>(null);
   const routeSheetPanResponder = useRef(
@@ -517,6 +520,15 @@ export default function MapScreen() {
     campusRef.current = campus;
   }, [campus]);
 
+  useEffect(() => {
+    if (!nextClassMessage) return;
+
+    const timeout = setTimeout(() => {
+      setNextClassMessage(null);
+    }, 4000); // disappears after 4 seconds
+
+    return () => clearTimeout(timeout);
+  }, [nextClassMessage]);
   // Styles defined inside component
   const styles = StyleSheet.create({
     floorPlanButtonActive: {
@@ -1157,6 +1169,46 @@ export default function MapScreen() {
       fontSize: 12,
       fontWeight: "700",
     },
+    nextClassButton: {
+      position: "absolute",
+      right: 16,
+      bottom: "11%",
+      width: 100,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: "#912338",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 1200,
+      shadowColor: "#000",
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 6,
+    },
+
+    nextClassButtonText: {
+      color: "white",
+      fontSize: 11,
+      fontWeight: "700",
+    },
+
+    nextClassAlert: {
+      position: "absolute",
+      top: "27%",
+      alignSelf: "center",
+      backgroundColor: "rgba(0,0,0,0.85)",
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 12,
+      zIndex: 1200,
+    },
+
+    nextClassAlertText: {
+      color: "white",
+      fontSize: 12,
+      fontWeight: "600",
+    },
   });
 
   let MapViewComponent: React.ComponentType<any> | null = null;
@@ -1457,7 +1509,7 @@ export default function MapScreen() {
     setShuttleDriveCoords([]);
     setShuttleWalkFromCoords([]);
     setOriginRoom("");
-    
+
   };
 
   const exitDirectionsMode = () => {
@@ -1475,6 +1527,60 @@ export default function MapScreen() {
     }
     setCampus(nextCampus);
   };
+
+  const handleNextClassDirections = useCallback(async () => {
+    setNextClassLoading(true);
+    setNextClassMessage(null);
+
+    try {
+      const accessToken = await AsyncStorage.getItem("google_access_token");
+
+      if (!accessToken) {
+        setNextClassMessage("Please sign in to Google Calendar first.");
+        return;
+      }
+
+      const nextEvent = await fetchNextConcordiaClassToday(accessToken, "primary");
+
+      if (!nextEvent) {
+        setNextClassMessage("No upcoming classes today.");
+        return;
+      }
+
+      const { building, room } = parseLocationParts(nextEvent.location);
+
+      if (!building) {
+        setNextClassMessage(
+          "Your next class does not have a valid location in Google Calendar.",
+        );
+        return;
+      }
+
+      setDestinationBuildingCode(building);
+      setDestinationRoom(room ?? "");
+      setIsDirectionsMode(true);
+      setEditingField(undefined);
+      setSelectedBuilding(null);
+      setSearchText("");
+      routeInstructionsDismissedRef.current = false;
+      setShowRouteInstructions(true);
+
+      const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
+      if (destinationRecord && destinationRecord.campus !== campus) {
+        setCampus(destinationRecord.campus);
+      }
+
+      setNextClassMessage(
+        `Directions set to ${nextEvent.summary ?? "your next class"}${room ? ` (${building}-${room})` : ` (${building})`
+        }.`,
+      );
+    } catch (error) {
+      console.error("Failed to get next class directions:", error);
+      setNextClassMessage("Could not load your next class.");
+    } finally {
+      setNextClassLoading(false);
+    }
+  }, [campus, routeInstructionsDismissedRef]);
 
   const clearDirections = () => {
     setSearchText("");
@@ -1517,6 +1623,7 @@ export default function MapScreen() {
       );
     }
   };
+
 
   const searchResults = useMemo(() => {
     const query = searchText.trim().toLowerCase();
@@ -2352,40 +2459,40 @@ export default function MapScreen() {
 
   const webViewSource = useMemo(() => ({ html: mapHTML }), [mapHTML]);
 
-const shouldUseWebFallback = Platform.OS === "web" || !MapViewComponent;
+  const shouldUseWebFallback = Platform.OS === "web" || !MapViewComponent;
 
-useEffect(() => {
-  if (Platform.OS !== "web") {
-    setWebMapReady(false);
-  }
-}, [campus]);
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      setWebMapReady(false);
+    }
+  }, [campus]);
 
-const renderWebMapContent = () => {
-  if (Platform.OS === "web") {
-    return (
-      <iframe
-        ref={webIframeRef}
+  const renderWebMapContent = () => {
+    if (Platform.OS === "web") {
+      return (
+        <iframe
+          ref={webIframeRef}
+          key={campus}
+          srcDoc={mapHTML}
+          style={{ ...(StyleSheet.flatten(styles.map) as object), border: 0 }}
+          allowFullScreen
+          title="Concordia map"
+        />
+      );
+    }
+
+    return WebViewComponent ? (
+      <WebViewComponent
         key={campus}
-        srcDoc={mapHTML}
-        style={{ ...(StyleSheet.flatten(styles.map) as object), border: 0 }}
-        allowFullScreen
-        title="Concordia map"
-      />
-    );
-  }
-
-  return WebViewComponent ? (
-    <WebViewComponent
-      key={campus}
-      testID="map-webview"
-      source={webViewSource}
-      style={styles.map}
-      javaScriptEnabled
-      domStorageEnabled
-      startInLoadingState
-      scalesPageToFit
-      originWhitelist={["*"]}
-      injectedJavaScriptBeforeContentLoaded={`
+        testID="map-webview"
+        source={webViewSource}
+        style={styles.map}
+        javaScriptEnabled
+        domStorageEnabled
+        startInLoadingState
+        scalesPageToFit
+        originWhitelist={["*"]}
+        injectedJavaScriptBeforeContentLoaded={`
         window.ReactNativeWebView = {
           postMessage: function(data) {
             window.location.href = 'rnmsg://' + encodeURIComponent(data);
@@ -2393,29 +2500,29 @@ const renderWebMapContent = () => {
         };
         true;
       `}
-      onLoadEnd={() => setWebMapReady(true)}
-      onShouldStartLoadWithRequest={(request: { url: string }) => {
-        if (request.url.startsWith("rnmsg://")) {
-          const data = JSON.parse(
-            decodeURIComponent(request.url.replace("rnmsg://", ""))
-          );
-          if (data?.type === "buildingSelected") {
-            setSelectedBuilding(data.buildingCode);
-          } else if (data?.type === "buildingDeselected") {
-            setSelectedBuilding(null);
+        onLoadEnd={() => setWebMapReady(true)}
+        onShouldStartLoadWithRequest={(request: { url: string }) => {
+          if (request.url.startsWith("rnmsg://")) {
+            const data = JSON.parse(
+              decodeURIComponent(request.url.replace("rnmsg://", ""))
+            );
+            if (data?.type === "buildingSelected") {
+              setSelectedBuilding(data.buildingCode);
+            } else if (data?.type === "buildingDeselected") {
+              setSelectedBuilding(null);
+            }
+            return false;
           }
-          return false;
-        }
-        return true;
-      }}
-    />
-  ) : null;
-};
+          return true;
+        }}
+      />
+    ) : null;
+  };
 
-const NativeMapView = MapViewComponent as React.ComponentType<any>;
-const NativeMapMarker = MapMarkerComponent as React.ComponentType<any>;
-const NativeMapPolygon = MapPolygonComponent as React.ComponentType<any>;
-const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
+  const NativeMapView = MapViewComponent as React.ComponentType<any>;
+  const NativeMapMarker = MapMarkerComponent as React.ComponentType<any>;
+  const NativeMapPolygon = MapPolygonComponent as React.ComponentType<any>;
+  const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
 
   const webMapContent = renderWebMapContent();
 
@@ -2574,59 +2681,59 @@ const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
           );
         })}
 
-      {activeMapBuildings.map((building) => {
-        const hasExactPolygon = activeMapPolygons.features.some(
-          (f: any) => f.properties.code === building.code,
-        );
+        {activeMapBuildings.map((building) => {
+          const hasExactPolygon = activeMapPolygons.features.some(
+            (f: any) => f.properties.code === building.code,
+          );
 
-        const polygonCode =
-          hasExactPolygon
-            ? building.code
-            : activeMapPolygons.features.find(
+          const polygonCode =
+            hasExactPolygon
+              ? building.code
+              : activeMapPolygons.features.find(
                 (f: any) =>
                   building.code.startsWith(f.properties.code) &&
                   f.properties.code.length >= 2,
               )?.properties.code || building.code;
 
-        return (
-          <NativeMapMarker
-            key={building.code}
-            testID={`marker-${building.code}`}
-            identifier={`marker-${building.code}`}
-            accessible
-            accessibilityLabel={`marker-${building.code}`}
-            accessibilityRole="button"
-            coordinate={{
-              latitude: building.latitude,
-              longitude: building.longitude,
-            }}
-            onPress={() =>
-              setSelectedBuilding(selectedBuilding === polygonCode ? null : polygonCode)
-            }
-          >
-            <View
-              style={styles.markerContainer}
-              testID={`marker-view-${building.code}`}
+          return (
+            <NativeMapMarker
+              key={building.code}
+              testID={`marker-${building.code}`}
+              identifier={`marker-${building.code}`}
               accessible
               accessibilityLabel={`marker-${building.code}`}
               accessibilityRole="button"
+              coordinate={{
+                latitude: building.latitude,
+                longitude: building.longitude,
+              }}
+              onPress={() =>
+                setSelectedBuilding(selectedBuilding === polygonCode ? null : polygonCode)
+              }
             >
-              <View style={styles.markerBadge}>
-                <Text style={styles.markerText}>{building.code}</Text>
+              <View
+                style={styles.markerContainer}
+                testID={`marker-view-${building.code}`}
+                accessible
+                accessibilityLabel={`marker-${building.code}`}
+                accessibilityRole="button"
+              >
+                <View style={styles.markerBadge}>
+                  <Text style={styles.markerText}>{building.code}</Text>
+                </View>
+                <View style={styles.markerStem} />
               </View>
-              <View style={styles.markerStem} />
-            </View>
-          </NativeMapMarker>
-        );
-      })}
-    </NativeMapView>
-  ) : (
-    <View style={styles.webFallback}>
-      <Text style={styles.webFallbackText}>
-        Map view is unavailable in this environment.
-      </Text>
-    </View>
-  );
+            </NativeMapMarker>
+          );
+        })}
+      </NativeMapView>
+    ) : (
+      <View style={styles.webFallback}>
+        <Text style={styles.webFallbackText}>
+          Map view is unavailable in this environment.
+        </Text>
+      </View>
+    );
   const searchInputRef = useRef<TextInput>(null);
 
   return (
@@ -2663,431 +2770,447 @@ const NativeMapPolyline = MapPolylineComponent as React.ComponentType<any>;
         </View>
       )}
 
-<View style={styles.directionsPanel} testID="directions-panel">
-  <View style={styles.directionFieldRow}>
-    {/* FROM FIELD */}
-    <View style={{ flex: 1 }}>
-      <Pressable
-        testID="direction-from-button"
-        onPress={() => {
-          setEditingField("from");
-          searchInputRef.current?.focus?.();
-        }}
-        style={[
-          styles.directionFieldButton,
-          editingField === "from" && styles.directionFieldButtonActive,
-        ]}
-      >
-        <Text style={styles.directionFieldLabel}>From</Text>
-        <Text
-          style={styles.directionFieldValue}
-          numberOfLines={1}
-          testID={
-            originBuilding
-              ? `direction-from-value-${originBuilding.code}`
-              : "direction-from-value-empty"
-          }
-        >
-          {originBuilding
-            ? `${originBuilding.code} - ${originBuilding.shortName}`
-            : "Current location"}
-        </Text>
-      </Pressable>
-
-      {originBuilding &&
-        (() => {
-          const details = getRoomDetails(originBuilding.code, originRoom);
-          const floorKey = details
-            ? `${details.buildingCode}-${details.floor}`
-            : null;
-          const hasPlan =
-            !!floorKey && getFloorPlanAsset(floorKey) !== null;
-
-          return (
-            <View style={styles.roomInputContainer}>
-              <TextInput
-                style={styles.roomInput}
-                placeholder="Room #"
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                value={originRoom}
-                onChangeText={setOriginRoom}
-                keyboardType="default"
-              />
-              <Pressable
-                style={
-                  hasPlan
-                    ? styles.floorPlanButtonActive
-                    : styles.floorPlanButtonDisabled
-                }
-                disabled={!hasPlan}
-                accessibilityLabel="View Floor Plan"
-                onPress={() => {
-                  if (floorKey) {
-                    setActiveFloorPlan(getFloorPlanAsset(floorKey));
-                    setFloorPlanModalVisible(true);
-                  }
-                }}
-              >
-                <Map
-                  size={16}
-                  color={hasPlan ? "#FFFFFF" : "rgba(255,255,255,0.3)"}
-                />
-              </Pressable>
-            </View>
-          );
-        })()}
-    </View>
-
-    {/* TO FIELD */}
-    <View style={{ flex: 1 }}>
-      <Pressable
-        testID="direction-to-button"
-        onPress={() => {
-          setEditingField("to");
-          setSearchText("");
-          searchInputRef.current?.focus?.();
-        }}
-        style={[
-          styles.directionFieldButton,
-          editingField === "to" && styles.directionFieldButtonActive,
-        ]}
-      >
-        <Text style={styles.directionFieldLabel}>To</Text>
-        <Text
-          style={styles.directionFieldValue}
-          numberOfLines={1}
-          testID={
-            destinationBuilding
-              ? `direction-to-value-${destinationBuilding.code}`
-              : "direction-to-value-empty"
-          }
-        >
-          {destinationBuilding
-            ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
-            : "Where to?"}
-        </Text>
-      </Pressable>
-
-      {destinationBuilding &&
-        (() => {
-          const details = getRoomDetails(
-            destinationBuilding.code,
-            destinationRoom,
-          );
-          const floorKey = details
-            ? `${details.buildingCode}-${details.floor}`
-            : null;
-          const hasPlan =
-            !!floorKey && getFloorPlanAsset(floorKey) !== null;
-
-          return (
-            <View style={styles.roomInputContainer}>
-              <TextInput
-                style={styles.roomInput}
-                placeholder="Room #"
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                value={destinationRoom}
-                onChangeText={setDestinationRoom}
-                keyboardType="default"
-              />
-              <Pressable
-                style={
-                  hasPlan
-                    ? styles.floorPlanButtonActive
-                    : styles.floorPlanButtonDisabled
-                }
-                disabled={!hasPlan}
-                accessibilityLabel="View Floor Plan"
-                onPress={() => {
-                  if (floorKey) {
-                    setActiveFloorPlan(getFloorPlanAsset(floorKey));
-                    setFloorPlanModalVisible(true);
-                  }
-                }}
-              >
-                <Map
-                  size={16}
-                  color={hasPlan ? "#FFFFFF" : "rgba(255,255,255,0.3)"}
-                />
-              </Pressable>
-            </View>
-          );
-        })()}
-    </View>
-
-    {/* GO / CANCEL BUTTON */}
-    <Pressable
-      testID="direction-go-button"
-      onPress={clearDirections}
-      style={styles.clearRouteButton}
-    >
-      <Text style={styles.clearRouteText}>
-        {isDirectionsMode ? "Cancel" : "Go"}
-      </Text>
-    </Pressable>
-  </View>
-
-  {isDirectionsMode && !isSameCampus && (
-    <View style={styles.modeSelectorGrid}>
-      <View style={styles.modeSelectorRow}>
-        <View style={styles.modePillGroup}>
-          <Pressable
-            testID="route-mode-walking"
-            style={[
-              styles.modePill,
-              routeMode === "walking" && styles.modePillActive,
-            ]}
-            onPress={() => setRouteMode("walking")}
-          >
-            <Text
+      <View style={styles.directionsPanel} testID="directions-panel">
+        <View style={styles.directionFieldRow}>
+          {/* FROM FIELD */}
+          <View style={{ flex: 1 }}>
+            <Pressable
+              testID="direction-from-button"
+              onPress={() => {
+                setEditingField("from");
+                searchInputRef.current?.focus?.();
+              }}
               style={[
-                styles.modePillText,
-                routeMode === "walking" && styles.modePillTextActive,
+                styles.directionFieldButton,
+                editingField === "from" && styles.directionFieldButtonActive,
               ]}
             >
-              Bike -{" "}
-              {formatOptionalDuration(modeDurations.walking)}
-            </Text>
-          </Pressable>
-          <Pressable
-            testID="route-mode-driving"
-            style={[
-              styles.modePill,
-              routeMode === "driving" && styles.modePillActive,
-            ]}
-            onPress={() => setRouteMode("driving")}
-          >
-            <Text
+              <Text style={styles.directionFieldLabel}>From</Text>
+              <Text
+                style={styles.directionFieldValue}
+                numberOfLines={1}
+                testID={
+                  originBuilding
+                    ? `direction-from-value-${originBuilding.code}`
+                    : "direction-from-value-empty"
+                }
+              >
+                {originBuilding
+                  ? `${originBuilding.code} - ${originBuilding.shortName}`
+                  : "Current location"}
+              </Text>
+            </Pressable>
+
+            {originBuilding &&
+              (() => {
+                const details = getRoomDetails(originBuilding.code, originRoom);
+                const floorKey = details
+                  ? `${details.buildingCode}-${details.floor}`
+                  : null;
+                const hasPlan =
+                  !!floorKey && getFloorPlanAsset(floorKey) !== null;
+
+                return (
+                  <View style={styles.roomInputContainer}>
+                    <TextInput
+                      style={styles.roomInput}
+                      placeholder="Room #"
+                      placeholderTextColor="rgba(255,255,255,0.4)"
+                      value={originRoom}
+                      onChangeText={setOriginRoom}
+                      keyboardType="default"
+                    />
+                    <Pressable
+                      style={
+                        hasPlan
+                          ? styles.floorPlanButtonActive
+                          : styles.floorPlanButtonDisabled
+                      }
+                      disabled={!hasPlan}
+                      accessibilityLabel="View Floor Plan"
+                      onPress={() => {
+                        if (floorKey) {
+                          setActiveFloorPlan(getFloorPlanAsset(floorKey));
+                          setFloorPlanModalVisible(true);
+                        }
+                      }}
+                    >
+                      <Map
+                        size={16}
+                        color={hasPlan ? "#FFFFFF" : "rgba(255,255,255,0.3)"}
+                      />
+                    </Pressable>
+                  </View>
+                );
+              })()}
+          </View>
+
+          {/* TO FIELD */}
+          <View style={{ flex: 1 }}>
+            <Pressable
+              testID="direction-to-button"
+              onPress={() => {
+                setEditingField("to");
+                setSearchText("");
+                searchInputRef.current?.focus?.();
+              }}
               style={[
-                styles.modePillText,
-                routeMode === "driving" && styles.modePillTextActive,
+                styles.directionFieldButton,
+                editingField === "to" && styles.directionFieldButtonActive,
               ]}
             >
-              Car -{" "}
-              {formatOptionalDuration(modeDurations.driving)}
+              <Text style={styles.directionFieldLabel}>To</Text>
+              <Text
+                style={styles.directionFieldValue}
+                numberOfLines={1}
+                testID={
+                  destinationBuilding
+                    ? `direction-to-value-${destinationBuilding.code}`
+                    : "direction-to-value-empty"
+                }
+              >
+                {destinationBuilding
+                  ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
+                  : "Where to?"}
+              </Text>
+            </Pressable>
+
+            {destinationBuilding &&
+              (() => {
+                const details = getRoomDetails(
+                  destinationBuilding.code,
+                  destinationRoom,
+                );
+                const floorKey = details
+                  ? `${details.buildingCode}-${details.floor}`
+                  : null;
+                const hasPlan =
+                  !!floorKey && getFloorPlanAsset(floorKey) !== null;
+
+                return (
+                  <View style={styles.roomInputContainer}>
+                    <TextInput
+                      style={styles.roomInput}
+                      placeholder="Room #"
+                      placeholderTextColor="rgba(255,255,255,0.4)"
+                      value={destinationRoom}
+                      onChangeText={setDestinationRoom}
+                      keyboardType="default"
+                    />
+                    <Pressable
+                      style={
+                        hasPlan
+                          ? styles.floorPlanButtonActive
+                          : styles.floorPlanButtonDisabled
+                      }
+                      disabled={!hasPlan}
+                      accessibilityLabel="View Floor Plan"
+                      onPress={() => {
+                        if (floorKey) {
+                          setActiveFloorPlan(getFloorPlanAsset(floorKey));
+                          setFloorPlanModalVisible(true);
+                        }
+                      }}
+                    >
+                      <Map
+                        size={16}
+                        color={hasPlan ? "#FFFFFF" : "rgba(255,255,255,0.3)"}
+                      />
+                    </Pressable>
+                  </View>
+                );
+              })()}
+          </View>
+
+          {/* GO / CANCEL BUTTON */}
+          <Pressable
+            testID="direction-go-button"
+            onPress={clearDirections}
+            style={styles.clearRouteButton}
+          >
+            <Text style={styles.clearRouteText}>
+              {isDirectionsMode ? "Cancel" : "Go"}
             </Text>
           </Pressable>
         </View>
-        <Pressable
-          testID="direction-start-button"
-          style={styles.modeActionButton}
-          onPress={() => {
-            setRouteStarted(true);
-            routeInstructionsDismissedRef.current = false;
-            setShowRouteInstructions(true);
+
+        {isDirectionsMode && !isSameCampus && (
+          <View style={styles.modeSelectorGrid}>
+            <View style={styles.modeSelectorRow}>
+              <View style={styles.modePillGroup}>
+                <Pressable
+                  testID="route-mode-walking"
+                  style={[
+                    styles.modePill,
+                    routeMode === "walking" && styles.modePillActive,
+                  ]}
+                  onPress={() => setRouteMode("walking")}
+                >
+                  <Text
+                    style={[
+                      styles.modePillText,
+                      routeMode === "walking" && styles.modePillTextActive,
+                    ]}
+                  >
+                    Bike -{" "}
+                    {formatOptionalDuration(modeDurations.walking)}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  testID="route-mode-driving"
+                  style={[
+                    styles.modePill,
+                    routeMode === "driving" && styles.modePillActive,
+                  ]}
+                  onPress={() => setRouteMode("driving")}
+                >
+                  <Text
+                    style={[
+                      styles.modePillText,
+                      routeMode === "driving" && styles.modePillTextActive,
+                    ]}
+                  >
+                    Car -{" "}
+                    {formatOptionalDuration(modeDurations.driving)}
+                  </Text>
+                </Pressable>
+              </View>
+              <Pressable
+                testID="direction-start-button"
+                style={styles.modeActionButton}
+                onPress={() => {
+                  setRouteStarted(true);
+                  routeInstructionsDismissedRef.current = false;
+                  setShowRouteInstructions(true);
+                }}
+              >
+                <Text style={styles.modeActionButtonText}>Start</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.modeSelectorRow}>
+              <View style={styles.modePillGroup}>
+                <Pressable
+                  testID="route-mode-transit"
+                  style={[
+                    styles.modePill,
+                    routeMode === "transit" && styles.modePillActive,
+                  ]}
+                  onPress={() => setRouteMode("transit")}
+                >
+                  <Text
+                    style={[
+                      styles.modePillText,
+                      routeMode === "transit" && styles.modePillTextActive,
+                    ]}
+                  >
+                    Public Transit -{" "}
+                    {formatOptionalDuration(modeDurations.transit)}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  testID="route-mode-shuttle"
+                  style={[
+                    styles.modePill,
+                    routeMode === "shuttle" && styles.modePillActive,
+                  ]}
+                  onPress={() => setRouteMode("shuttle")}
+                >
+                  <Text
+                    style={[
+                      styles.modePillText,
+                      routeMode === "shuttle" && styles.modePillTextActive,
+                    ]}
+                  >
+                    Shuttle
+                  </Text>
+                </Pressable>
+              </View>
+              <Pressable
+                testID="direction-exit-button"
+                style={styles.modeActionButton}
+                onPress={clearDirections}
+              >
+                <Text style={styles.modeActionButtonText}>Exit</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {isDirectionsMode && isSameCampus && (
+          <View style={styles.modeSelectorGrid}>
+            <View style={styles.modeSelectorRow}>
+              <Pressable
+                testID="route-mode-walking"
+                style={[styles.modePill, styles.modePillActive]}
+              >
+                <Text style={[styles.modePillText, styles.modePillTextActive]}>
+                  Walk{" "}
+                  {formatOptionalDuration(modeDurations.walking)}
+                </Text>
+              </Pressable>
+              <Text style={styles.sameCampusHint}>Same campus</Text>
+              <Pressable
+                testID="direction-exit-button"
+                style={styles.modeActionButton}
+                onPress={clearDirections}
+              >
+                <Text style={styles.modeActionButtonText}>Exit</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+      </View>
+
+      {currentBuilding &&
+        (() => {
+          const building = BUILDINGS.find((b) => b.code === currentBuilding);
+          return building ? (
+            <View
+              style={[
+                styles.buildingInfo,
+                !isWebPlatform && { top: insets.top + 44 },
+              ]}
+              testID="current-building-info"
+            >
+              <Text style={styles.buildingInfoTitle}>Current Building:</Text>
+              <Text
+                style={styles.buildingInfoText}
+                testID="current-building-name"
+              >
+                {building.longName} ({building.shortName}) - [{building.code}]
+              </Text>
+            </View>
+          ) : null;
+        })()}
+      {locationPermissionDenied && (
+        <TouchableOpacity
+          testID="location-permission-banner"
+          style={[
+            styles.permissionBanner,
+            { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 },
+          ]}
+          onPress={async () => {
+            const { canAskAgain } =
+              await Location.getForegroundPermissionsAsync();
+            if (canAskAgain) {
+              await requestLocationPermission();
+            } else {
+              await Linking.openSettings();
+            }
           }}
+          activeOpacity={0.7}
         >
-          <Text style={styles.modeActionButtonText}>Start</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.modeSelectorRow}>
-        <View style={styles.modePillGroup}>
-          <Pressable
-            testID="route-mode-transit"
-            style={[
-              styles.modePill,
-              routeMode === "transit" && styles.modePillActive,
-            ]}
-            onPress={() => setRouteMode("transit")}
-          >
-            <Text
-              style={[
-                styles.modePillText,
-                routeMode === "transit" && styles.modePillTextActive,
-              ]}
-            >
-              Public Transit -{" "}
-              {formatOptionalDuration(modeDurations.transit)}
-            </Text>
-          </Pressable>
-          <Pressable
-            testID="route-mode-shuttle"
-            style={[
-              styles.modePill,
-              routeMode === "shuttle" && styles.modePillActive,
-            ]}
-            onPress={() => setRouteMode("shuttle")}
-          >
-            <Text
-              style={[
-                styles.modePillText,
-                routeMode === "shuttle" && styles.modePillTextActive,
-              ]}
-            >
-              Shuttle
-            </Text>
-          </Pressable>
-        </View>
-        <Pressable
-          testID="direction-exit-button"
-          style={styles.modeActionButton}
-          onPress={clearDirections}
-        >
-          <Text style={styles.modeActionButtonText}>Exit</Text>
-        </Pressable>
-      </View>
-    </View>
-  )}
-
-  {isDirectionsMode && isSameCampus && (
-    <View style={styles.modeSelectorGrid}>
-      <View style={styles.modeSelectorRow}>
-        <Pressable
-          testID="route-mode-walking"
-          style={[styles.modePill, styles.modePillActive]}
-        >
-          <Text style={[styles.modePillText, styles.modePillTextActive]}>
-            Walk{" "}
-            {formatOptionalDuration(modeDurations.walking)}
+          <Text style={styles.permissionText}>
+            Enable location permissions to see where you are on campus. Tap
+            here.
           </Text>
-        </Pressable>
-        <Text style={styles.sameCampusHint}>Same campus</Text>
-        <Pressable
-          testID="direction-exit-button"
-          style={styles.modeActionButton}
-          onPress={clearDirections}
-        >
-          <Text style={styles.modeActionButtonText}>Exit</Text>
-        </Pressable>
-      </View>
-    </View>
-  )}
-</View>
-
-{currentBuilding &&
-  (() => {
-    const building = BUILDINGS.find((b) => b.code === currentBuilding);
-    return building ? (
-      <View
-        style={[
-          styles.buildingInfo,
-          !isWebPlatform && { top: insets.top + 44 },
-        ]}
-        testID="current-building-info"
-      >
-        <Text style={styles.buildingInfoTitle}>Current Building:</Text>
-        <Text
-          style={styles.buildingInfoText}
-          testID="current-building-name"
-        >
-          {building.longName} ({building.shortName}) - [{building.code}]
-        </Text>
-      </View>
-    ) : null;
-  })()}
-  {locationPermissionDenied && (
-  <TouchableOpacity
-    testID="location-permission-banner"
-    style={[
-      styles.permissionBanner,
-      { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 },
-    ]}
-    onPress={async () => {
-      const { canAskAgain } =
-        await Location.getForegroundPermissionsAsync();
-      if (canAskAgain) {
-        await requestLocationPermission();
-      } else {
-        await Linking.openSettings();
-      }
-    }}
-    activeOpacity={0.7}
-  >
-    <Text style={styles.permissionText}>
-      Enable location permissions to see where you are on campus. Tap
-      here.
-    </Text>
-  </TouchableOpacity>
-)}
-{shouldUseWebFallback ? webMapContent : nativeMapContent}
-{showE2EHooks && (
-  <View style={styles.e2eControls} pointerEvents="box-none">
-    <TouchableOpacity
-      testID="e2e-select-H"
-      accessibilityLabel="e2e-select-H"
-      accessibilityRole="button"
-      style={styles.e2eButton}
-      onPress={() => setSelectedBuilding("H")}
-    >
-      <Text style={styles.e2eButtonText}>H</Text>
-    </TouchableOpacity>
-    <TouchableOpacity
-      testID="e2e-select-SP"
-      accessibilityLabel="e2e-select-SP"
-      accessibilityRole="button"
-      style={styles.e2eButton}
-      onPress={() => setSelectedBuilding("SP")}
-    >
-      <Text style={styles.e2eButtonText}>SP</Text>
-    </TouchableOpacity>
-  </View>
-  
-)}
-{isDirectionsMode &&
-  showRouteInstructions &&
-  (routeInstructions.length > 0 || routeMode === "shuttle") && (
-    <RouteStepsPopup styles={styles} formatTime={formatTime} routeSheetPanResponder={routeSheetPanResponder} routeInstructionsDismissedRef={routeInstructionsDismissedRef} setShowRouteInstructions={setShowRouteInstructions} routeMode={routeMode} actualOriginPoint={actualOriginPoint} destinationBuilding={destinationBuilding} transitItineraries={transitItineraries} routeStarted={routeStarted} selectedItineraryIndex={selectedItineraryIndex} expandedItineraries={expandedItineraries} setSelectedItineraryIndex={setSelectedItineraryIndex} setRouteDurationMinutes={setRouteDurationMinutes} setRouteDistanceMeters={setRouteDistanceMeters} setRouteInstructions={setRouteInstructions} setExpandedItineraries={setExpandedItineraries} expandedIntermediateStops={expandedIntermediateStops} setExpandedIntermediateStops={setExpandedIntermediateStops} routeInstructions={routeInstructions} />
-  )}{isDirectionsMode &&
-    !showRouteInstructions &&
-    (routeInstructions.length > 0 || routeMode === "shuttle") && (
-      <Pressable
-        {...routeSheetPanResponder.panHandlers}
-        style={styles.routeStepsCollapsedTab}
-        testID="route-steps-collapsed-tab"
-        onPress={() => {
-          routeInstructionsDismissedRef.current = false;
-          setShowRouteInstructions(true);
-        }}
-      >
-        <ChevronUp size={24} color="#1F1F24" strokeWidth={2.5} />
-      </Pressable>
-    )}
-    <BuildingInformation
-  buildingCode={selectedBuilding}
-  onClose={() => setSelectedBuilding(null)}
-  buildingName={buildingName}
-  buildingInfo={buildingInfo}
-  buildingPhotoLink={buildingPhotoLink}
-  editingField={editingField}
-  onSelectDestination={(code: string) => {
-    if (editingField === "from") {
-      originModeRef.current = "manual";
-      setOriginBuildingCode(code);
-    } else {
-      setDestinationBuildingCode(code);
-      setIsDirectionsMode(true);
-    }
-    setSelectedBuilding(null);
-    setEditingField(undefined);
-  }}
-/><Modal
-  visible={floorPlanModalVisible}
-  animationType="fade"
-  transparent={true}
->
-  <View style={styles.modalOverlay}>
-    <View style={styles.modalContent}>
-      <Pressable
-        style={styles.modalCloseButton}
-        onPress={() => setFloorPlanModalVisible(false)}
-      >
-        <X size={24} color="#1F1F24" strokeWidth={2.5} />
-      </Pressable>
-
-      {activeFloorPlan && (
-        <Image
-          source={activeFloorPlan}
-          style={styles.floorPlanImage}
-          resizeMode="contain"
-        />
+        </TouchableOpacity>
       )}
+      {shouldUseWebFallback ? webMapContent : nativeMapContent}
+      <Pressable
+        testID="next-class-floating-button"
+        style={styles.nextClassButton}
+        onPress={handleNextClassDirections}
+        disabled={nextClassLoading}
+      >
+        <Text style={styles.nextClassButtonText}>
+          {nextClassLoading ? "…" : "Go to Next Class"}
+        </Text>
+      </Pressable>
+
+      {nextClassMessage && (
+        <View style={styles.nextClassAlert}>
+          <Text style={styles.nextClassAlertText}>{nextClassMessage}</Text>
+        </View>
+      )}
+      {showE2EHooks && (
+        <View style={styles.e2eControls} pointerEvents="box-none">
+          <TouchableOpacity
+            testID="e2e-select-H"
+            accessibilityLabel="e2e-select-H"
+            accessibilityRole="button"
+            style={styles.e2eButton}
+            onPress={() => setSelectedBuilding("H")}
+          >
+            <Text style={styles.e2eButtonText}>H</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="e2e-select-SP"
+            accessibilityLabel="e2e-select-SP"
+            accessibilityRole="button"
+            style={styles.e2eButton}
+            onPress={() => setSelectedBuilding("SP")}
+          >
+            <Text style={styles.e2eButtonText}>SP</Text>
+          </TouchableOpacity>
+        </View>
+
+      )}
+      {isDirectionsMode &&
+        showRouteInstructions &&
+        (routeInstructions.length > 0 || routeMode === "shuttle") && (
+          <RouteStepsPopup styles={styles} formatTime={formatTime} routeSheetPanResponder={routeSheetPanResponder} routeInstructionsDismissedRef={routeInstructionsDismissedRef} setShowRouteInstructions={setShowRouteInstructions} routeMode={routeMode} actualOriginPoint={actualOriginPoint} destinationBuilding={destinationBuilding} transitItineraries={transitItineraries} routeStarted={routeStarted} selectedItineraryIndex={selectedItineraryIndex} expandedItineraries={expandedItineraries} setSelectedItineraryIndex={setSelectedItineraryIndex} setRouteDurationMinutes={setRouteDurationMinutes} setRouteDistanceMeters={setRouteDistanceMeters} setRouteInstructions={setRouteInstructions} setExpandedItineraries={setExpandedItineraries} expandedIntermediateStops={expandedIntermediateStops} setExpandedIntermediateStops={setExpandedIntermediateStops} routeInstructions={routeInstructions} />
+        )}{isDirectionsMode &&
+          !showRouteInstructions &&
+          (routeInstructions.length > 0 || routeMode === "shuttle") && (
+            <Pressable
+              {...routeSheetPanResponder.panHandlers}
+              style={styles.routeStepsCollapsedTab}
+              testID="route-steps-collapsed-tab"
+              onPress={() => {
+                routeInstructionsDismissedRef.current = false;
+                setShowRouteInstructions(true);
+              }}
+            >
+              <ChevronUp size={24} color="#1F1F24" strokeWidth={2.5} />
+            </Pressable>
+          )}
+      <BuildingInformation
+        buildingCode={selectedBuilding}
+        onClose={() => setSelectedBuilding(null)}
+        buildingName={buildingName}
+        buildingInfo={buildingInfo}
+        buildingPhotoLink={buildingPhotoLink}
+        editingField={editingField}
+        onSelectDestination={(code: string) => {
+          if (editingField === "from") {
+            originModeRef.current = "manual";
+            setOriginBuildingCode(code);
+          } else {
+            setDestinationBuildingCode(code);
+            setIsDirectionsMode(true);
+          }
+          setSelectedBuilding(null);
+          setEditingField(undefined);
+        }}
+      /><Modal
+        visible={floorPlanModalVisible}
+        animationType="fade"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Pressable
+              style={styles.modalCloseButton}
+              onPress={() => setFloorPlanModalVisible(false)}
+            >
+              <X size={24} color="#1F1F24" strokeWidth={2.5} />
+            </Pressable>
+
+            {activeFloorPlan && (
+              <Image
+                source={activeFloorPlan}
+                style={styles.floorPlanImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
-  </View>
-</Modal>
-    </View>
-    
-    
-  
+
+
+
   );
 }
