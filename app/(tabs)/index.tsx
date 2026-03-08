@@ -70,13 +70,6 @@ if (Platform.OS !== "web") {
 
 const roundCoord = (value: number) => Number(value.toFixed(4));
 
-const TRAVEL_MODES: { value: RouteProfile | "transit"; label: string }[] = [
-  { value: "walking", label: "Walk" },
-  { value: "driving", label: "Drive" },
-  { value: "transit", label: "Transit" },
-];
-
-const HALL_BUILDING_CODE = "H";
 
 const formatDuration = (minutes: number) => {
   if (minutes < 60) return `${minutes} min`;
@@ -85,10 +78,6 @@ const formatDuration = (minutes: number) => {
   return mins === 0 ? `${hours} h` : `${hours} h ${mins} min`;
 };
 
-const formatDistance = (meters: number) => {
-  if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
-  return `${Math.round(meters)} m`;
-};
 const DEFAULT_START_BUILDING_CODE = "H";
 const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
 type PinVisibilityMode = "all" | "campus-summary";
@@ -211,7 +200,6 @@ export default function MapScreen() {
   const [, setRouteDurationMinutes] = useState<number | null>(null);
   const [, setRouteDistanceMeters] = useState<number | null>(null);
   const [, setRouteLoading] = useState(false);
-  const [, setRouteError] = useState<string | null>(null);
   const [routeInstructions, setRouteInstructions] = useState<
     RouteInstruction[]
   >([]);
@@ -1850,9 +1838,6 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
   };
 
   const webMapContent = renderWebMapContent();
-
-  const shouldRenderRoutePolyline =
-    isDirectionsMode && MapPolylineComponent && routeCoordinates.length > 1;
 
   const nativeMapContent =
     MapViewComponent &&
