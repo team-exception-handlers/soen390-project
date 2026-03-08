@@ -29,7 +29,6 @@ export function parseClassLocation(raw?: string | null): string | null {
         }
 
         if (cursor === i) continue;
-        if (cursor < s.length && isAsciiLetterCode(codeAt(s, cursor))) continue;
 
         const building = s.slice(i, cursor);
 
@@ -41,14 +40,30 @@ export function parseClassLocation(raw?: string | null): string | null {
 
         const roomStart = cursor;
         let digitCount = 0;
+        let dotCount = 0;
 
-        while (
-            cursor < s.length &&
-            isAsciiDigitCode(codeAt(s, cursor)) &&
-            digitCount < 4
-        ) {
+        if (cursor < s.length && isAsciiLetterCode(codeAt(s, cursor))){
             cursor += 1;
-            digitCount += 1;
+        }
+        
+        while (cursor < s.length) {
+            const char = s[cursor];
+            const code = codeAt(s, cursor);
+
+            if(isAsciiDigitCode(code)){
+                digitCount++;
+                cursor++;
+                continue;
+            }
+
+            if(char === "."){
+                if(dotCount > 0) break;
+                dotCount++;
+                cursor++;
+                continue;
+            }
+
+            break;
         }
 
         if (digitCount === 0) continue;
