@@ -181,7 +181,11 @@ export default function CalendarScreen() {
                 }
 
                 const data = await res.json();
-                setEvents((data.items as CalendarEvent[]) ?? []);
+
+                const concordiaEvents = ((data.items as CalendarEvent[]) ?? []).filter(
+                    (event) => /^concordia\s*-\s*/i.test(event.summary ?? "")
+                );
+                setEvents(concordiaEvents);
             } catch {
                 setError("Failed to load events. Pull down to retry.");
             } finally {
