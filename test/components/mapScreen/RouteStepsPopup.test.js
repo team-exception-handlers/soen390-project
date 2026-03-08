@@ -300,6 +300,7 @@ describe("components/mapScreen/RouteStepsPopup", () => {
 
     const updater = props.setExpandedItineraries.mock.calls[0][0];
     expect(updater([])).toEqual([0]);
+    expect(updater([0])).toEqual([]);
   });
 
   test("renders transit itinerary cards, selects an itinerary, and expands details", () => {
@@ -337,6 +338,36 @@ describe("components/mapScreen/RouteStepsPopup", () => {
     timeline.props.onToggleStops("stop-1");
     const updater = setExpandedIntermediateStops.mock.calls[0][0];
     expect(Array.from(updater(new Set()))).toEqual(["stop-1"]);
+  });
+
+  test("falls back to the bus leg style for unknown transit modes", () => {
+    const props = createProps({
+      routeMode: "transit",
+      transitItineraries: [
+        {
+          ...itinerary,
+          legs: [
+            {
+              mode: "FERRY",
+              route: "",
+              from: { name: "Dock A" },
+              to: { name: "Dock B" },
+              duration: 420,
+              distance: 900,
+              legGeometry: { points: "xyz" },
+            },
+          ],
+        },
+      ],
+    });
+    const el = renderTree(RouteStepsPopup(props));
+
+    const fallbackLeg = findText(el, "FERRY");
+    expect(fallbackLeg).toBeTruthy();
+    expect(fallbackLeg.props.style).toEqual([
+      props.styles.legPill,
+      props.styles.legPillBus,
+    ]);
   });
 
   test("renders plain numbered instructions when not in shuttle or transit mode", () => {
