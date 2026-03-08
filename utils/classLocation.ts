@@ -43,17 +43,20 @@ function readBuilding(value: string, start: number): { building: string; cursor:
     };
 }
 
-function readRoom(
+function readOptionalLeadingLetter(value: string, start: number): number {
+    if (start < value.length && isAsciiLetterCode(codeAt(value, start))) {
+        return start + 1;
+    }
+    return start;
+}
+
+function readNumericRoomBody(
     value: string,
     start: number,
-): { room: string; cursor: number } | null {
+): { cursor: number; digitCount: number } {
     let cursor = start;
     let digitCount = 0;
     let dotCount = 0;
-
-    if (cursor < value.length && isAsciiLetterCode(codeAt(value, cursor))) {
-        cursor += 1;
-    }
 
     while (cursor < value.length) {
         const char = value[cursor];
@@ -65,10 +68,7 @@ function readRoom(
             continue;
         }
 
-        if (char === ".") {
-            if (dotCount > 0) {
-                break;
-            }
+        if (char === "." && dotCount === 0) {
             dotCount += 1;
             cursor += 1;
             continue;
@@ -77,7 +77,33 @@ function readRoom(
         break;
     }
 
-    if (digitCount === 0) {
+    return { cursor, digitCount };
+}
+
+function isValidRoomEnding(value: string, cursor: number): boolean {
+    if (cursor < value.length && isAsciiLetterCode(codeAt(value, cursor))) {
+        return false;
+    }
+
+    if (cursor < value.length && isAsciiAlphaNumCode(codeAt(value, cursor))) {
+        return false;
+    }
+
+    return true;
+}
+
+function readRoom(
+    value: string,
+    start: number,
+): { room: string; cursor: number } | null {
+    const roomStart = start;
+
+    let cursor = readOptionalLeadingLetter(value, start);
+
+    const roomBody = readNumericRoomBody(value, cursor);
+    cursor = roomBody.cursor;
+
+    if (roomBody.digitCount === 0) {
         return null;
     }
 
@@ -85,20 +111,13 @@ function readRoom(
         return null;
     }
 
-    if (cursor < value.length && isAsciiLetterCode(codeAt(value, cursor))) {
-        cursor += 1;
-    }
 
-    if (cursor < value.length && isAsciiLetterCode(codeAt(value, cursor))) {
-        return null;
-    }
-
-    if (cursor < value.length && isAsciiAlphaNumCode(codeAt(value, cursor))) {
+    if (!isValidRoomEnding(value, cursor)) {
         return null;
     }
 
     return {
-        room: value.slice(start, cursor),
+        room: value.slice(roomStart, cursor),
         cursor,
     };
 }
