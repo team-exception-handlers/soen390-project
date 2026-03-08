@@ -1,56 +1,61 @@
-import BuildingInformation from "@/components/BuildingInformation";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
+import { useLocalSearchParams } from "expo-router";
 import { ChevronDown, ChevronUp, Map, X } from "lucide-react-native";
 import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 import {
-    Image,
-    Keyboard,
-    Linking,
-    Modal,
-    PanResponder,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  Keyboard,
+  Linking,
+  Modal,
+  PanResponder,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader, { Campus } from "../../components/AppHeader";
+import BuildingInformation from "../../components/BuildingInformation";
 import ShuttleDirections from "../../components/ShuttleDirections";
 import TransitLegTimeline from "../../components/TransitLegTimeline";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
+import { parseLocationParts } from "../../utils/classLocation";
+import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import { getNearestStop, STOPS } from "../../utils/locationLogic";
 import {
-    findUserBuilding,
-    hasLocationPermission,
-    requestLocationPermission,
-    startWatchingLocation,
+  findUserBuilding,
+  hasLocationPermission,
+  requestLocationPermission,
+  startWatchingLocation,
 } from "../../utils/locationUtils";
 import { getCampusRegion } from "../../utils/mapRegions";
 import {
-    fetchOsrmRoute,
-    type RouteInstruction,
-    type RouteProfile,
+  fetchOsrmRoute,
+  type RouteInstruction,
+  type RouteProfile,
 } from "../../utils/osrmDirections";
 import { getRoomDetails } from "../../utils/roomUtils";
 import { calculateArrivalTime, getShuttleInfo } from "../../utils/shuttleLogic";
 import {
-    decodePolyline,
-    fetchTransitItineraries,
-    formatTime,
-    type TransitItinerary,
+  decodePolyline,
+  fetchTransitItineraries,
+  formatTime,
+  type TransitItinerary,
 } from "../../utils/transitousDirections";
 
 let WebView: React.ComponentType<any> | null = null;
@@ -789,27 +794,46 @@ const DirectionsPanel = ({
 };
 
 export default function MapScreen() {
+
   // Tracks whether the user is editing the start or destination
   const [editingField, setEditingField] = useState<"from" | "to" | undefined>(
     undefined,
   );
   const [floorPlanModalVisible, setFloorPlanModalVisible] = useState(false);
   const [activeFloorPlan, setActiveFloorPlan] = useState<any>(null);
+  const { toBuilding, toRoom } = useLocalSearchParams<{
+    toBuilding?: string;
+    toRoom?: string;
+  }>();
   const [campus, setCampus] = useState<Campus>("SGW");
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const [destinationBuildingCode, setDestinationBuildingCode] =
     useState<string>(DEFAULT_DESTINATION_BUILDING_CODE);
-  // Tracks the selected origin building (or null if using current location)
+  useEffect(() => {
+    if (typeof toBuilding === "string" && toBuilding.trim()) {
+      setDestinationBuildingCode(toBuilding.trim().toUpperCase());
+      setIsDirectionsMode(true);
+    }
+
+    if (typeof toRoom === "string") {
+      setDestinationRoom(toRoom.trim());
+    }
+  }, [toBuilding, toRoom]);
+
+
+  // Tracks the selected origin building (or null if using current location)i
   const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
     null,
   );
   const [originRoom, setOriginRoom] = useState<string>("");
   const [destinationRoom, setDestinationRoom] = useState<string>("");
   const [isDirectionsMode, setIsDirectionsMode] = useState(false);
+
   const [routeMode, setRouteMode] = useState<
     RouteProfile | "transit" | "shuttle"
   >("walking");
+
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
@@ -850,6 +874,8 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
     Set<string>
   >(new Set());
   const [routeStarted, setRouteStarted] = useState(false);
+  const [nextClassLoading, setNextClassLoading] = useState(false);
+  const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
   const [mapViewportRegion, setMapViewportRegion] = useState(() =>
     getCampusRegion("SGW", SGW_POLYGONS.features),
   );
@@ -923,6 +949,15 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
     campusRef.current = campus;
   }, [campus]);
 
+  useEffect(() => {
+    if (!nextClassMessage) return;
+
+    const timeout = setTimeout(() => {
+      setNextClassMessage(null);
+    }, 4000); // disappears after 4 seconds
+
+    return () => clearTimeout(timeout);
+  }, [nextClassMessage]);
   // Styles defined inside component
   const styles = StyleSheet.create({
     floorPlanButtonActive: {
@@ -1566,6 +1601,46 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
       fontSize: 12,
       fontWeight: "700",
     },
+    nextClassButton: {
+      position: "absolute",
+      right: 16,
+      bottom: "11%",
+      width: 100,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: "#912338",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 1200,
+      shadowColor: "#000",
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 6,
+    },
+
+    nextClassButtonText: {
+      color: "white",
+      fontSize: 11,
+      fontWeight: "700",
+    },
+
+    nextClassAlert: {
+      position: "absolute",
+      top: "27%",
+      alignSelf: "center",
+      backgroundColor: "rgba(0,0,0,0.85)",
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 12,
+      zIndex: 1200,
+    },
+
+    nextClassAlertText: {
+      color: "white",
+      fontSize: 12,
+      fontWeight: "600",
+    },
   });
 
   let MapViewComponent: React.ComponentType<any> | null = null;
@@ -1929,6 +2004,60 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
     setCampus(nextCampus);
   };
 
+  const handleNextClassDirections = useCallback(async () => {
+    setNextClassLoading(true);
+    setNextClassMessage(null);
+
+    try {
+      const accessToken = await AsyncStorage.getItem("google_access_token");
+
+      if (!accessToken) {
+        setNextClassMessage("Please sign in to Google Calendar first.");
+        return;
+      }
+
+      const nextEvent = await fetchNextConcordiaClassToday(accessToken, "primary");
+
+      if (!nextEvent) {
+        setNextClassMessage("No upcoming classes today.");
+        return;
+      }
+
+      const { building, room } = parseLocationParts(nextEvent.location);
+
+      if (!building) {
+        setNextClassMessage(
+          "Your next class does not have a valid location in Google Calendar.",
+        );
+        return;
+      }
+
+      setDestinationBuildingCode(building);
+      setDestinationRoom(room ?? "");
+      setIsDirectionsMode(true);
+      setEditingField(undefined);
+      setSelectedBuilding(null);
+      setSearchText("");
+      routeInstructionsDismissedRef.current = false;
+      setShowRouteInstructions(true);
+
+      const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
+      if (destinationRecord && destinationRecord.campus !== campus) {
+        setCampus(destinationRecord.campus);
+      }
+
+      const className = nextEvent.summary ?? "your next class";
+      const location = room ? `${building}-${room}` : building;
+
+      setNextClassMessage(`Directions set to ${className} (${location}).`);
+    } catch (error) {
+      console.error("Failed to get next class directions:", error);
+      setNextClassMessage("Could not load your next class.");
+    } finally {
+      setNextClassLoading(false);
+    }
+  }, [campus, routeInstructionsDismissedRef]);
+
   const clearDirections = () => {
     setSearchText("");
     setSelectedBuilding(null);
@@ -1970,6 +2099,7 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
       );
     }
   };
+
 
   const searchResults = useMemo(() => {
     const query = searchText.trim().toLowerCase();
@@ -2578,29 +2708,29 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
               const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               const routeMode = ${JSON.stringify(routeMode)};
               const routeCoordinates = ${JSON.stringify(
-                routeCoordinates.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      routeCoordinates.map((point) => [
+        point.latitude,
+        point.longitude,
+      ]),
+    )};
               const shuttleWalkToCoords = ${JSON.stringify(
-                shuttleWalkToCoords.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      shuttleWalkToCoords.map((point) => [
+        point.latitude,
+        point.longitude,
+      ]),
+    )};
               const shuttleDriveCoords = ${JSON.stringify(
-                shuttleDriveCoords.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      shuttleDriveCoords.map((point) => [
+        point.latitude,
+        point.longitude,
+      ]),
+    )};
               const shuttleWalkFromCoords = ${JSON.stringify(
-                shuttleWalkFromCoords.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      shuttleWalkFromCoords.map((point) => [
+        point.latitude,
+        point.longitude,
+      ]),
+    )};
 
               // Per-leg transit segments for Leaflet
               const transitSegments = ${JSON.stringify(webTransitSegments)};
@@ -2914,9 +3044,8 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
 
               updateMarkerVisibility();
 
-              ${
-                userLat && userLng
-                  ? `
+              ${userLat && userLng
+        ? `
               console.log('Adding user marker at:', ${userLat}, ${userLng});
               const userIcon = L.divIcon({
                   className: 'user-marker',
@@ -2926,8 +3055,8 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
               });
               window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
               `
-                  : 'console.log("No user location available");'
-              }
+        : 'console.log("No user location available");'
+      }
           </script>
       </body>
       </html>
@@ -3011,7 +3140,7 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
                   setSelectedBuilding(data.buildingCode);
                 if (data?.type === "buildingDeselected")
                   setSelectedBuilding(null);
-              } catch {}
+              } catch { }
               return false;
             }
             return true;
@@ -3030,9 +3159,9 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
 
   const nativeMapContent =
     MapViewComponent &&
-    MapMarkerComponent &&
-    MapCalloutComponent &&
-    MapPolygonComponent ? (
+      MapMarkerComponent &&
+      MapCalloutComponent &&
+      MapPolygonComponent ? (
       <MapViewComponent
         ref={mapRef}
         testID="map-native"
@@ -3201,10 +3330,10 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
           const polygonCode = hasExactPolygon
             ? building.code
             : allPolygons.features.find(
-                (f: any) =>
-                  building.code.startsWith(f.properties.code) &&
-                  f.properties.code.length >= 2,
-              )?.properties.code || building.code;
+              (f: any) =>
+                building.code.startsWith(f.properties.code) &&
+                f.properties.code.length >= 2,
+            )?.properties.code || building.code;
 
           return (
             <MapMarkerComponent
@@ -3219,9 +3348,7 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
                 longitude: building.longitude,
               }}
               onPress={() =>
-                setSelectedBuilding(
-                  selectedBuilding === polygonCode ? null : polygonCode,
-                )
+                setSelectedBuilding(selectedBuilding === polygonCode ? null : polygonCode)
               }
             >
               <View
@@ -3383,7 +3510,22 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
       )}
 
       {shouldUseWebFallback ? webMapContent : nativeMapContent}
+      <Pressable
+        testID="next-class-floating-button"
+        style={styles.nextClassButton}
+        onPress={handleNextClassDirections}
+        disabled={nextClassLoading}
+      >
+        <Text style={styles.nextClassButtonText}>
+          {nextClassLoading ? "…" : "Go to Next Class"}
+        </Text>
+      </Pressable>
 
+      {nextClassMessage && (
+        <View style={styles.nextClassAlert}>
+          <Text style={styles.nextClassAlertText}>{nextClassMessage}</Text>
+        </View>
+      )}
       {showE2EHooks && (
         <View style={styles.e2eControls} pointerEvents="box-none">
           <TouchableOpacity
@@ -3468,8 +3610,7 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
           setSelectedBuilding(null);
           setEditingField(undefined);
         }}
-      />
-      <Modal
+      /><Modal
         visible={floorPlanModalVisible}
         animationType="fade"
         transparent={true}
@@ -3494,5 +3635,8 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
         </View>
       </Modal>
     </View>
+
+
+
   );
 }
