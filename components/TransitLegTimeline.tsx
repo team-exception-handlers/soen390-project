@@ -20,7 +20,7 @@ type Props = {
     stopKeyPrefix: string;
 };
 
-type TransitLegItemProps = {
+type TransitLegItemProps = Readonly<{
     leg: TransitLeg;
     legIndex: number;
     totalLegs: number;
@@ -31,7 +31,7 @@ type TransitLegItemProps = {
     expandedStops: Set<string>;
     onToggleStops?: (stopKey: string) => void;
     stopKeyPrefix: string;
-};
+}>;
 
 const LegIcon = ({ mode }: { mode: string }) => {
     if (mode === "WALK") return <Footprints size={20} color="#2E7D32" strokeWidth={2.5} />;
@@ -250,7 +250,7 @@ function StartRightContent({
     isStopsExpanded,
     stopKey,
     onToggleStops,
-}: {
+}: Readonly<{
     leg: TransitLeg;
     styles: Styles;
     formatTime: (iso: string) => string;
@@ -261,7 +261,7 @@ function StartRightContent({
     isStopsExpanded: boolean;
     stopKey: string;
     onToggleStops?: (stopKey: string) => void;
-}) {
+}>) {
     if (leg.mode === "WALK") {
         return (
             <>
@@ -308,14 +308,14 @@ function IntermediateStopsToggle({
     canToggleIntermediateStops,
     isStopsExpanded,
     onPress,
-}: {
+}: Readonly<{
     stopsCount: number;
     durationMinutes: number;
     alwaysShowIntermediateStops: boolean;
     canToggleIntermediateStops: boolean;
     isStopsExpanded: boolean;
     onPress: () => void;
-}) {
+}>) {
     const stopLabel = `${stopsCount} intermediate stop${stopsCount > 1 ? "s" : ""}`;
 
     if (alwaysShowIntermediateStops) {
@@ -351,11 +351,11 @@ function WalkArrivalRow({
     leg,
     styles,
     formatTime,
-}: {
+}: Readonly<{
     leg: TransitLeg;
     styles: Styles;
     formatTime: (iso: string) => string;
-}) {
+}>) {
     return (
         <TimelineRow
             styles={styles}
@@ -397,11 +397,11 @@ function FinalDestinationRow({
     leg,
     styles,
     formatTime,
-}: {
+}: Readonly<{
     leg: TransitLeg;
     styles: Styles;
     formatTime: (iso: string) => string;
-}) {
+}>) {
     return (
         <TimelineRow
             styles={styles}
