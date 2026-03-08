@@ -7,6 +7,8 @@ type CreateMapScreenStylesArgs = {
   tabBarHeight: number;
 };
 
+export type MapScreenStyles = ReturnType<typeof createMapScreenStyles>;
+
 export function createMapScreenStyles({
   isWebPlatform,
   topInset,
