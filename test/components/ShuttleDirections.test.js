@@ -363,23 +363,11 @@ describe("components/ShuttleDirections", () => {
             null,
             10,
             10,
-            null
+            "11:00"
         ];
 
-        // 1. Initial render
-        expand(
-            React.createElement(ShuttleDirections, {
-                origin: {},
-                destination: {},
-                onDepartureSelect: mockOnDepartureSelect
-            })
-        );
-
-        // 2. Simulate selection
-        const setSelectedDeparture = (v) => { mockStates[7] = v; };
-        setSelectedDeparture("11:00");
-
-        // 3. Re-render with new state, which triggers the useEffect depending on selectedDeparture
+        // 1. Initial render bypasses the re-render state hook shift problem by
+        //    immediately loading selectedDeparture from mockStates[7] as "11:00"
         expand(
             React.createElement(ShuttleDirections, {
                 origin: {},
