@@ -378,4 +378,35 @@ describe("components/ShuttleDirections", () => {
 
         expect(mockOnDepartureSelect).toHaveBeenCalledWith("11:00");
     });
+
+    test("renders journey instructions when routeStarted is true", () => {
+        mockStates = [
+            {
+                nextDeparture: "10:00",
+                nextThreeDepartures: ["10:00"],
+                estimatedArrival: "10:30",
+                serviceUnavailable: false
+            },
+            { stop: "SGW", destination: "LOY" },
+            "",
+            false,
+            null,
+            10,
+            10,
+            null
+        ];
+
+        const instructions = [{ text: "Take the shuttle" }];
+
+        const tree = expand(
+            React.createElement(ShuttleDirections, {
+                origin: {},
+                destination: {},
+                routeStarted: true,
+                routeInstructions: instructions
+            })
+        );
+
+        expect(findByText(tree, /Take the shuttle/)).toBeTruthy();
+    });
 });
