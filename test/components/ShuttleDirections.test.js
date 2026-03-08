@@ -346,4 +346,48 @@ describe("components/ShuttleDirections", () => {
 
         // The console.error is mocked, so the line is covered
     });
+
+    test("calls onDepartureSelect when selectedDeparture changes", () => {
+        const mockOnDepartureSelect = jest.fn();
+
+        mockStates = [
+            {
+                nextDeparture: "10:00",
+                nextThreeDepartures: ["10:00"],
+                estimatedArrival: "10:30",
+                serviceUnavailable: false
+            },
+            { stop: "SGW", destination: "LOY" },
+            "",
+            false,
+            null,
+            10,
+            10,
+            null
+        ];
+
+        // 1. Initial render
+        expand(
+            React.createElement(ShuttleDirections, {
+                origin: {},
+                destination: {},
+                onDepartureSelect: mockOnDepartureSelect
+            })
+        );
+
+        // 2. Simulate selection
+        const setSelectedDeparture = (v) => { mockStates[7] = v; };
+        setSelectedDeparture("11:00");
+
+        // 3. Re-render with new state, which triggers the useEffect depending on selectedDeparture
+        expand(
+            React.createElement(ShuttleDirections, {
+                origin: {},
+                destination: {},
+                onDepartureSelect: mockOnDepartureSelect
+            })
+        );
+
+        expect(mockOnDepartureSelect).toHaveBeenCalledWith("11:00");
+    });
 });
