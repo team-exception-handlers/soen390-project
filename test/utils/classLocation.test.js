@@ -4,6 +4,7 @@ const {
     readBuilding,
     readRoom,
     isValidRoomEnding,
+    tryParseLocationAt
 } = require("../../utils/classLocation");
 
 describe("parseClassLocation", () => {
@@ -155,5 +156,13 @@ describe("direct branch coverage", () => {
 
     test("readRoom returns null when a digit remains after parsing", () => {
         expect(readRoom("12A7", 0)).toBeNull();
+    });
+
+    test("isValidRoomEnding returns true at end of string", () => {
+        expect(isValidRoomEnding("H-510", 5)).toBe(true);
+    });
+
+    test("tryParseLocationAt returns null when building cannot be parsed", () => {
+        expect(tryParseLocationAt("123ABC", 0)).toBeNull();
     });
 });

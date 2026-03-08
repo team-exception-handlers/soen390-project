@@ -118,11 +118,6 @@ export function readRoom(
         return null;
     }
 
-    if (cursor < value.length && isAsciiDigitCode(codeAt(value, cursor))) {
-        return null;
-    }
-
-
     if (!isValidRoomEnding(value, cursor)) {
         return null;
     }
@@ -133,7 +128,7 @@ export function readRoom(
     };
 }
 
-function tryParseLocationAt(value: string, start: number): string | null {
+export function tryParseLocationAt(value: string, start: number): string | null {
     const current = codeAt(value, start);
 
     if (!isAsciiLetterCode(current)) {
