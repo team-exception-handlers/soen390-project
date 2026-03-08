@@ -22,7 +22,7 @@ function skipSpaces(value: string, start: number): number {
     return cursor;
 }
 
-function readBuilding(value: string, start: number): { building: string; cursor: number } | null {
+export function readBuilding(value: string, start: number): { building: string; cursor: number } | null {
     let cursor = start;
 
     while (
@@ -80,7 +80,7 @@ function readNumericRoomBody(
     return { cursor, digitCount };
 }
 
-function isValidRoomEnding(value: string, cursor: number): boolean {
+export function isValidRoomEnding(value: string, cursor: number): boolean {
     if (cursor >= value.length) {
         return true;
     }
@@ -103,7 +103,7 @@ function isValidRoomEnding(value: string, cursor: number): boolean {
     return true;
 }
 
-function readRoom(
+export function readRoom(
     value: string,
     start: number,
 ): { room: string; cursor: number } | null {

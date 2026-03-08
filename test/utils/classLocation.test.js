@@ -1,6 +1,9 @@
 const {
     parseClassLocation,
     parseLocationParts,
+    readBuilding,
+    readRoom,
+    isValidRoomEnding,
 } = require("../../utils/classLocation");
 
 describe("parseClassLocation", () => {
@@ -134,5 +137,23 @@ describe("extra branch coverage for classLocation", () => {
 
     test("covers case where building parse is attempted at a non-building position", () => {
         expect(parseClassLocation("Room: 500")).toBe("Room: 500");
+    });
+});
+
+describe("direct branch coverage", () => {
+    test("readBuilding returns null when no building starts at cursor", () => {
+        expect(readBuilding("123ABC", 0)).toBeNull();
+    });
+
+    test("isValidRoomEnding returns false for trailing alphanumeric", () => {
+        expect(isValidRoomEnding("H-510A7", 6)).toBe(false);
+    });
+
+    test("isValidRoomEnding returns true at end of string", () => {
+        expect(isValidRoomEnding("H-510", 5)).toBe(true);
+    });
+
+    test("readRoom returns null when a digit remains after parsing", () => {
+        expect(readRoom("12A7", 0)).toBeNull();
     });
 });
