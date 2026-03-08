@@ -1818,7 +1818,51 @@ export default function MapScreen() {
 
   const handleCampusChange = (nextCampus: Campus) => {
     if (isDirectionsMode) {
-      exitDirectionsMode();
+      setCampus(nextCampus);
+      const polygons =
+        nextCampus === "SGW" ? SGW_POLYGONS.features : LOY_POLYGONS.features;
+      const newRegion = getCampusRegion(nextCampus, polygons);
+      setMapViewportRegion(newRegion);
+      if (!isWebPlatform && mapRef.current?.animateToRegion) {
+        mapRef.current.animateToRegion(newRegion, 450);
+      }
+      if (Platform.OS === "web") {
+        const minLat = newRegion.latitude - newRegion.latitudeDelta / 2;
+        const maxLat = newRegion.latitude + newRegion.latitudeDelta / 2;
+        const minLng = newRegion.longitude - newRegion.longitudeDelta / 2;
+        const maxLng = newRegion.longitude + newRegion.longitudeDelta / 2;
+        postToWebIframe({
+          type: "focusBounds",
+          bounds: [
+            [minLat, minLng],
+            [maxLat, maxLng],
+          ],
+          campus: nextCampus,
+          padding: [20, 20],
+        });
+      }
+      if (webViewRef.current && webMapReady) {
+        const bounds: [number, number][] = [
+          [
+            newRegion.latitude - newRegion.latitudeDelta / 2,
+            newRegion.longitude - newRegion.longitudeDelta / 2,
+          ],
+          [
+            newRegion.latitude + newRegion.latitudeDelta / 2,
+            newRegion.longitude + newRegion.longitudeDelta / 2,
+          ],
+        ];
+        const script = `
+          (function() {
+            if (window.setMapBounds) {
+              window.setMapBounds(${JSON.stringify(bounds)}, [20, 20], ${JSON.stringify(nextCampus)});
+            }
+          })();
+          true;
+        `;
+        webViewRef.current.injectJavaScript(script);
+      }
+      return;
     }
     setCampus(nextCampus);
   };
