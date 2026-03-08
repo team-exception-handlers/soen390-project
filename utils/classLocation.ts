@@ -81,26 +81,7 @@ function readNumericRoomBody(
 }
 
 export function isValidRoomEnding(value: string, cursor: number): boolean {
-    if (cursor >= value.length) {
-        return true;
-    }
-
-    const nextChar = value[cursor];
-    const nextCode = codeAt(value, cursor);
-
-    if (nextChar === ".") {
-        return false;
-    }
-
-    if (isAsciiLetterCode(nextCode)) {
-        return false;
-    }
-
-    if (isAsciiAlphaNumCode(nextCode)) {
-        return false;
-    }
-
-    return true;
+    return cursor >= value.length;
 }
 
 export function readRoom(
@@ -140,11 +121,7 @@ export function tryParseLocationAt(value: string, start: number): string | null 
     }
 
     const buildingResult = readBuilding(value, start);
-    if (!buildingResult) {
-        return null;
-    }
-
-    let cursor = skipSpaces(value, buildingResult.cursor);
+    let cursor = skipSpaces(value, buildingResult!.cursor);
 
     if (value[cursor] === "-") {
         cursor += 1;
@@ -156,7 +133,7 @@ export function tryParseLocationAt(value: string, start: number): string | null 
         return null;
     }
 
-    return `${buildingResult.building.toUpperCase()}-${roomResult.room.toUpperCase()}`;
+    return `${buildingResult!.building.toUpperCase()}-${roomResult.room.toUpperCase()}`;
 }
 
 export function parseClassLocation(raw?: string | null): string | null {

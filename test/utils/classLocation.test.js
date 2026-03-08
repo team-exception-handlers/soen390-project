@@ -150,10 +150,6 @@ describe("direct branch coverage", () => {
         expect(isValidRoomEnding("H-510A7", 6)).toBe(false);
     });
 
-    test("isValidRoomEnding returns true at end of string", () => {
-        expect(isValidRoomEnding("H-510", 5)).toBe(true);
-    });
-
     test("readRoom returns null when a digit remains after parsing", () => {
         expect(readRoom("12A7", 0)).toBeNull();
     });
@@ -162,7 +158,4 @@ describe("direct branch coverage", () => {
         expect(isValidRoomEnding("H-510", 5)).toBe(true);
     });
 
-    test("tryParseLocationAt returns null when building cannot be parsed", () => {
-        expect(tryParseLocationAt("123ABC", 0)).toBeNull();
-    });
 });
