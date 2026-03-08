@@ -125,4 +125,4 @@ appId: host.exp.Exponent
 - assertVisible:
     id: "route-steps-popup"
 - tapOn:
-    id: "route-steps-close-button"
+    id: "direction-start-button"
