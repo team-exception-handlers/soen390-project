@@ -1,4 +1,5 @@
 import * as AuthSession from "expo-auth-session";
+import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -9,15 +10,17 @@ import {
     RefreshControl,
     StyleSheet,
     Text,
-    View,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CALENDAR_BASE, CLIENT_ID, SCOPES } from "../../constants/googleCalendar";
-import { CalendarEvent, GoogleCalendar, formatEventTime, isToday } from "../../utils/calendarHelpers";
+import { CalendarEvent, formatEventTime, GoogleCalendar, isToday } from "../../utils/calendarHelpers";
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function CalendarScreen() {
+    const [directionsMessage, setDirectionsMessage] = useState<string | null>(null);
+    const router = useRouter();
     const [accessToken, setAccessToken] = useState<string | null>(null);
 
     const [calendars, setCalendars] = useState<GoogleCalendar[]>([]);
@@ -27,6 +30,7 @@ export default function CalendarScreen() {
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+  
 
     // Build the auth request
     const discovery = AuthSession.useAutoDiscovery("https://accounts.google.com");
@@ -144,7 +148,8 @@ export default function CalendarScreen() {
     // Load events 
     const loadEvents = useCallback(
         async (token: string, isRefresh: boolean) => {
-            isRefresh ? setRefreshing(true) : setLoading(true);
+            if (isRefresh) setRefreshing(true);
+            else setLoading(true);
             setError(null);
 
             try {
@@ -216,6 +221,7 @@ export default function CalendarScreen() {
     if (!accessToken) {
         return (
             <SafeAreaView style={styles.centered}>
+                
                 <Text style={styles.welcomeTitle}>Google Calendar</Text>
                 <Text style={styles.welcomeSub}>See your upcoming events right inside the app.</Text>
                 {error && <Text style={styles.errorText}>{error}</Text>}
@@ -247,7 +253,114 @@ export default function CalendarScreen() {
         (selectedCalendar as any)?.summaryOverride ??
         selectedCalendar?.summary ??
         (selectedCalendarId === "primary" ? "Primary" : "Selected calendar");
+        const now = new Date();
 
+        const nextEvent =
+        (events ?? [])
+          .filter((e) => {
+            const start = e?.start?.dateTime ?? e?.start?.date;
+            return start ? new Date(start) >= now : false;
+          })
+          .sort((a, b) => {
+            const aStart = new Date(a?.start?.dateTime ?? a?.start?.date ?? 0).getTime();
+            const bStart = new Date(b?.start?.dateTime ?? b?.start?.date ?? 0).getTime();
+            return aStart - bStart;
+          })[0] ?? null;
+
+          const isAsciiLetterCode = (code: number) =>
+            (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+          const isAsciiDigitCode = (code: number) => code >= 48 && code <= 57;
+          const isAsciiAlphaNumCode = (code: number) =>
+            isAsciiLetterCode(code) || isAsciiDigitCode(code);
+          const codeAt = (value: string, index: number) =>
+            value.codePointAt(index) ?? -1;
+
+          const parseClassLocation = (raw?: string | null) => {
+            if (!raw) return null;
+
+            const s = raw.trim();
+
+            for (let i = 0; i < s.length; i += 1) {
+              const current = codeAt(s, i);
+              if (!isAsciiLetterCode(current)) continue;
+              if (i > 0 && isAsciiAlphaNumCode(codeAt(s, i - 1))) continue;
+
+              let cursor = i;
+              while (
+                cursor < s.length &&
+                isAsciiLetterCode(codeAt(s, cursor)) &&
+                cursor - i < 4
+              ) {
+                cursor += 1;
+              }
+              if (cursor === i) continue;
+              if (cursor < s.length && isAsciiLetterCode(codeAt(s, cursor))) continue;
+
+              const building = s.slice(i, cursor);
+
+              while (cursor < s.length && s[cursor] === " ") cursor += 1;
+              if (s[cursor] === "-") {
+                cursor += 1;
+                while (cursor < s.length && s[cursor] === " ") cursor += 1;
+              }
+
+              const roomStart = cursor;
+              let digitCount = 0;
+              while (
+                cursor < s.length &&
+                isAsciiDigitCode(codeAt(s, cursor)) &&
+                digitCount < 4
+              ) {
+                cursor += 1;
+                digitCount += 1;
+              }
+              if (digitCount === 0) continue;
+              if (cursor < s.length && isAsciiDigitCode(codeAt(s, cursor))) continue;
+
+              if (cursor < s.length && isAsciiLetterCode(codeAt(s, cursor))) {
+                cursor += 1;
+              }
+              if (cursor < s.length && isAsciiLetterCode(codeAt(s, cursor))) continue;
+              if (cursor < s.length && isAsciiAlphaNumCode(codeAt(s, cursor))) continue;
+
+              const room = s.slice(roomStart, cursor);
+              return `${building.toUpperCase()}-${room.toUpperCase()}`;
+            }
+
+            return s; // fallback: show original text
+          };
+
+          const parseLocationParts = (location?: string) => {
+            const raw = location?.trim();
+            if (!raw) return { building: null, room: null };
+
+            const parts = raw.split("-");
+            const building = parts[0]?.trim()?.toUpperCase() || null;
+            const room = parts.slice(1).join("-").trim() || null;
+
+            return { building, room };
+          };
+
+          const handleDirectionsPress = () => {
+            const { building, room } = parseLocationParts(nextEvent?.location);
+
+            if (!building) {
+              setDirectionsMessage(
+                "Directions cannot be generated because this class has no location. Please add a building/room such as H-510 to the calendar event."
+              );
+              return;
+            }
+
+            setDirectionsMessage(null);
+
+            router.push({
+              pathname: "/(tabs)",
+              params: {
+                toBuilding: building,
+                toRoom: room ?? "",
+              },
+            } as any);
+          };
     // List of events
     return (
         <SafeAreaView style={styles.container}>
@@ -258,7 +371,6 @@ export default function CalendarScreen() {
                 </Pressable>
             </View>
 
-            {/* Calendar Selector */}
             <View style={styles.pickerWrap}>
                 <Text style={styles.pickerLabel}>Calendar</Text>
 
@@ -312,12 +424,46 @@ export default function CalendarScreen() {
                     <Text style={styles.emptyText}>No upcoming events in the next two weeks.</Text>
                 </View>
             ) : (
+                <>
+                
+                {nextEvent && (
+  <View style={styles.nextClassCard}>
+
+    
+    <Text style={styles.nextClassTitle}>Next Class</Text>
+
+    <Text style={styles.nextClassCourse}>
+      {nextEvent?.summary ?? "Untitled class"}
+    </Text>
+
+    <Text style={styles.nextClassTime}>
+      {nextEvent?.start ? formatEventTime(nextEvent.start) : "Time not provided"}
+    </Text>
+
+    <Text style={styles.nextClassLocation}>
+  {nextEvent?.location?.trim()
+    ? parseClassLocation(nextEvent.location)
+    : "Location not provided"}
+</Text>
+
+<Pressable style={styles.directionsButton} onPress={handleDirectionsPress}>
+  <Text style={styles.directionsButtonText}>Directions</Text>
+</Pressable>
+{directionsMessage ? (
+  <Text style={styles.directionsMessage}>
+    {directionsMessage}
+  </Text>
+) : null}
+  </View>
+)}
                 <FlatList
                     data={events}
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.listContent}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#912338" />
+                        
+                        
                     }
                     renderItem={({ item }) => (
                         <View style={[styles.card, isToday(item) && styles.cardToday]}>
@@ -329,20 +475,21 @@ export default function CalendarScreen() {
                             <Text style={styles.cardTitle} numberOfLines={2}>
                                 {item.summary ?? "(No title)"}
                             </Text>
-                            <Text style={styles.cardTime}>{formatEventTime(item.start)}</Text>
-                            {item.location ? (
-                                <Text style={styles.cardLocation} numberOfLines={1}>
-                                    {item.location}
-                                </Text>
-                            ) : null}
+                            <Text style={styles.cardLocation} numberOfLines={1}>
+                                  {item.location?.trim()
+                                  ? parseClassLocation(item.location)
+                                      : "Location not provided"}
+                            </Text>
                             {item.description ? (
                                 <Text style={styles.cardDescription} numberOfLines={2}>
                                     {item.description}
                                 </Text>
                             ) : null}
+                           
                         </View>
                     )}
                 />
+                </>
             )}
         </SafeAreaView>
     );
@@ -561,4 +708,48 @@ const styles = StyleSheet.create({
         fontSize: 13,
         textAlign: "center",
     },
+    nextClassCard: {
+        borderWidth: 1,
+        borderColor: "#ddd",
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 10,
+      },
+      
+      nextClassTitle: {
+        fontWeight: "700",
+        fontSize: 16,
+        marginBottom: 4,
+      },
+      
+      nextClassCourse: {
+        fontWeight: "600",
+        fontSize: 14,
+      },
+      
+      nextClassLocation: {
+        marginTop: 4,
+      },
+      nextClassTime: {
+        fontSize: 14,
+        color: "#666",
+        marginTop: 4,
+      },
+      directionsButton: {
+        marginTop: 10,
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignItems: "center",
+        backgroundColor: "#912338",
+      },
+      directionsButtonText: {
+        color: "white",
+        fontWeight: "600",
+      },
+      directionsMessage: {
+        marginTop: 8,
+        color: "#A32638",
+        fontSize: 12,
+        fontWeight: "600",
+      },
 });
