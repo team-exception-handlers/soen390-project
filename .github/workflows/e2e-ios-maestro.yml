@@ -77,8 +77,10 @@ jobs:
           echo "pods=$PODS_HASH" >> "$GITHUB_OUTPUT"
           echo "derived_data=$DD_HASH" >> "$GITHUB_OUTPUT"
 
-      - name: Boot iOS Simulator (early, in parallel with later steps)
+      - name: Select iOS Simulator device
         run: |
+          # Only resolve the UDID here — booting is deferred until after xcodebuild
+          # so that the build doesn't compete with the simulator for the runner's 14 GB RAM.
           LINE=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro\s*\(" | head -1)
           if [ -z "$LINE" ]; then
             LINE=$(xcrun simctl list devices available | grep -E "iPhone 17\s*\(" | head -1)
@@ -92,11 +94,7 @@ jobs:
             xcrun simctl list devices available
             exit 1
           fi
-          # Ensure any previous stale boot is cleared before starting fresh
-          xcrun simctl shutdown "$DEVICE" 2>/dev/null || true
-          xcrun simctl boot "$DEVICE" 2>/dev/null || true
-          # Open Simulator.app so the runtime fully initialises (required for bootstatus to work)
-          open -a Simulator --args -CurrentDeviceUDID "$DEVICE" 2>/dev/null || true
+          echo "Selected simulator: $DEVICE"
           echo "DEVICE_UDID=$DEVICE" >> $GITHUB_ENV
 
       - name: Restore prebuilt ios folder
@@ -110,10 +108,7 @@ jobs:
 
       - name: Ensure iOS native project
         run: |
-          # Re-run prebuild whenever the exact cache key missed (package.json/app.json changed,
-          # e.g. a new native dependency was added). A restore-keys fallback restores an old ios
-          # folder, but that folder won't have the new native module linked, so we must regenerate.
-          if [ "${{ steps.cache-ios.outputs.cache-hit }}" != "true" ]; then
+          if [ ! -d ios ] || [ -z "$(ls -A ios 2>/dev/null)" ]; then
             npx expo prebuild -p ios --no-install --non-interactive
           fi
 
@@ -233,46 +228,47 @@ jobs:
           echo "Resolved .app: $APP"
           if [ ! -d "$APP" ]; then echo "::error::Built .app not found"; exit 1; fi
 
-      - name: Wait for Simulator ready
+      - name: Boot iOS Simulator (after build to avoid memory pressure)
         run: |
-          # Poll up to 5 minutes for the Booted state (build can take a while)
-          MAX_WAIT=300
-          INTERVAL=5
+          # Boot now that xcodebuild has released memory. The runner has only 14 GB RAM and
+          # running the simulator during the build caused silent OOM boot failures.
+          xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
+
+          # Poll for Booted state — avoid simctl bootstatus which is broken on Xcode 16 /
+          # macOS 15 and returns "Restriction Failed on Client API".
+          echo "Polling for Booted state..."
           WAITED=0
-          while [ $WAITED -lt $MAX_WAIT ]; do
-            STATE=$(xcrun simctl list devices | grep "$DEVICE_UDID" | grep -oE 'Booted|Booting|Shutdown' | head -1)
-            echo "Simulator state: ${STATE:-unknown} (${WAITED}s elapsed)"
-            if [ "$STATE" = "Booted" ]; then
+          MAX_WAIT=120
+          while true; do
+            STATUS=$(xcrun simctl list devices | grep "$DEVICE_UDID" | grep -oE "(Booted|Shutdown|Booting)" | head -1)
+            if [ "$STATUS" = "Booted" ]; then
               break
             fi
-            # If it ended up Shutdown for some reason, try booting again
-            if [ "$STATE" = "Shutdown" ] && [ $WAITED -gt 30 ]; then
-              echo "Simulator shut down unexpectedly; rebooting..."
-              xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
-              open -a Simulator --args -CurrentDeviceUDID "$DEVICE_UDID" 2>/dev/null || true
+            if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+              echo "::error::Simulator did not reach Booted state after ${MAX_WAIT}s"
+              xcrun simctl list devices
+              exit 1
             fi
-            sleep $INTERVAL
-            WAITED=$((WAITED + INTERVAL))
+            sleep 3
+            WAITED=$((WAITED + 3))
           done
+          echo "Device is Booted. Waiting for SpringBoard (true UI-ready signal)..."
 
-          if [ $WAITED -ge $MAX_WAIT ]; then
-            echo "::error::Simulator did not reach Booted state after ${MAX_WAIT}s"
-            xcrun simctl list devices
-            exit 1
-          fi
-
-          echo "Simulator reached Booted state. Waiting for SpringBoard (system services)..."
-          # bootstatus -b blocks until all services are ready; timeout guards against hangs.
-          # If it fails or takes longer than 120s the simulator is not usable — fail fast.
-          if ! timeout 120 xcrun simctl bootstatus "$DEVICE_UDID" -b; then
-            echo "::error::Simulator system services did not become ready (bootstatus failed or timed out)"
-            xcrun simctl list devices
-            exit 1
-          fi
-
-          # Brief settle so Springboard is fully interactive before app install
-          sleep 3
-          echo "Simulator ready."
+          # SpringBoard running = simulator is fully ready for app install and UI automation.
+          WAITED=0
+          MAX_WAIT=90
+          while true; do
+            if xcrun simctl spawn "$DEVICE_UDID" launchctl list 2>/dev/null | grep -q "com.apple.SpringBoard"; then
+              echo "SpringBoard is running. Simulator is ready."
+              break
+            fi
+            if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+              echo "::warning::SpringBoard check timed out after ${MAX_WAIT}s, proceeding anyway..."
+              break
+            fi
+            sleep 3
+            WAITED=$((WAITED + 3))
+          done
 
       - name: Install Maestro CLI
         run: |
@@ -320,7 +316,11 @@ jobs:
 
           if [ $FLOW_EXIT -ne 0 ] && grep -q "iOS driver not ready in time" "$LOG_FILE"; then
             echo "::warning::Driver startup timeout for suite run. Retrying once..."
-            xcrun simctl bootstatus "$DEVICE_UDID" -b || true
+            # Wait for SpringBoard instead of the broken simctl bootstatus on Xcode 16
+            for _i in $(seq 1 20); do
+              xcrun simctl spawn "$DEVICE_UDID" launchctl list 2>/dev/null | grep -q "com.apple.SpringBoard" && break
+              sleep 3
+            done
             sleep 5
             set +e
             maestro --device "$DEVICE_UDID" test "$SUITE_FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >>"$LOG_FILE" 2>&1
