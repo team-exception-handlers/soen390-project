@@ -1,85 +1,154 @@
-export function parseClassLocation(raw?: string | null): string | null {
-    if (!raw) return null;
+function isAsciiLetterCode(code: number): boolean {
+    return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
 
-    const s = raw.trim();
+function isAsciiDigitCode(code: number): boolean {
+    return code >= 48 && code <= 57;
+}
 
-    const isAsciiLetterCode = (code: number) =>
-        (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+function isAsciiAlphaNumCode(code: number): boolean {
+    return isAsciiLetterCode(code) || isAsciiDigitCode(code);
+}
 
-    const isAsciiDigitCode = (code: number) => code >= 48 && code <= 57;
+function codeAt(value: string, index: number): number {
+    return value.codePointAt(index) ?? -1;
+}
 
-    const isAsciiAlphaNumCode = (code: number) =>
-        isAsciiLetterCode(code) || isAsciiDigitCode(code);
+function skipSpaces(value: string, start: number): number {
+    let cursor = start;
+    while (cursor < value.length && value[cursor] === " ") {
+        cursor += 1;
+    }
+    return cursor;
+}
 
-    const codeAt = (value: string, index: number) =>
-        value.codePointAt(index) ?? -1;
+function readBuilding(value: string, start: number): { building: string; cursor: number } | null {
+    let cursor = start;
 
-    for (let i = 0; i < s.length; i += 1) {
-        const current = codeAt(s, i);
-        if (!isAsciiLetterCode(current)) continue;
-        if (i > 0 && isAsciiAlphaNumCode(codeAt(s, i - 1))) continue;
-
-        let cursor = i;
-        while (
-            cursor < s.length &&
-            isAsciiLetterCode(codeAt(s, cursor)) &&
-            cursor - i < 4
-        ) {
-            cursor += 1;
-        }
-
-        if (cursor === i) continue;
-
-        const building = s.slice(i, cursor);
-
-        while (cursor < s.length && s[cursor] === " ") cursor += 1;
-        if (s[cursor] === "-") {
-            cursor += 1;
-            while (cursor < s.length && s[cursor] === " ") cursor += 1;
-        }
-
-        const roomStart = cursor;
-        let digitCount = 0;
-        let dotCount = 0;
-
-        if (cursor < s.length && isAsciiLetterCode(codeAt(s, cursor))){
-            cursor += 1;
-        }
-        
-        while (cursor < s.length) {
-            const char = s[cursor];
-            const code = codeAt(s, cursor);
-
-            if(isAsciiDigitCode(code)){
-                digitCount++;
-                cursor++;
-                continue;
-            }
-
-            if(char === "."){
-                if(dotCount > 0) break;
-                dotCount++;
-                cursor++;
-                continue;
-            }
-
-            break;
-        }
-
-        if (digitCount === 0) continue;
-        if (cursor < s.length && isAsciiDigitCode(codeAt(s, cursor))) continue;
-
-        if (cursor < s.length && isAsciiLetterCode(codeAt(s, cursor))) {
-            cursor += 1;
-        }
-        if (cursor < s.length && isAsciiLetterCode(codeAt(s, cursor))) continue;
-        if (cursor < s.length && isAsciiAlphaNumCode(codeAt(s, cursor))) continue;
-
-        const room = s.slice(roomStart, cursor);
-        return `${building.toUpperCase()}-${room.toUpperCase()}`;
+    while (
+        cursor < value.length &&
+        isAsciiLetterCode(codeAt(value, cursor)) &&
+        cursor - start < 4
+    ) {
+        cursor += 1;
     }
 
-    return s;
+    if (cursor === start) {
+        return null;
+    }
+
+    return {
+        building: value.slice(start, cursor),
+        cursor,
+    };
+}
+
+function readRoom(
+    value: string,
+    start: number,
+): { room: string; cursor: number } | null {
+    let cursor = start;
+    let digitCount = 0;
+    let dotCount = 0;
+
+    if (cursor < value.length && isAsciiLetterCode(codeAt(value, cursor))) {
+        cursor += 1;
+    }
+
+    while (cursor < value.length) {
+        const char = value[cursor];
+        const code = codeAt(value, cursor);
+
+        if (isAsciiDigitCode(code)) {
+            digitCount += 1;
+            cursor += 1;
+            continue;
+        }
+
+        if (char === ".") {
+            if (dotCount > 0) {
+                break;
+            }
+            dotCount += 1;
+            cursor += 1;
+            continue;
+        }
+
+        break;
+    }
+
+    if (digitCount === 0) {
+        return null;
+    }
+
+    if (cursor < value.length && isAsciiDigitCode(codeAt(value, cursor))) {
+        return null;
+    }
+
+    if (cursor < value.length && isAsciiLetterCode(codeAt(value, cursor))) {
+        cursor += 1;
+    }
+
+    if (cursor < value.length && isAsciiLetterCode(codeAt(value, cursor))) {
+        return null;
+    }
+
+    if (cursor < value.length && isAsciiAlphaNumCode(codeAt(value, cursor))) {
+        return null;
+    }
+
+    return {
+        room: value.slice(start, cursor),
+        cursor,
+    };
+}
+
+function tryParseLocationAt(value: string, start: number): string | null {
+    const current = codeAt(value, start);
+
+    if (!isAsciiLetterCode(current)) {
+        return null;
+    }
+
+    if (start > 0 && isAsciiAlphaNumCode(codeAt(value, start - 1))) {
+        return null;
+    }
+
+    const buildingResult = readBuilding(value, start);
+    if (!buildingResult) {
+        return null;
+    }
+
+    let cursor = skipSpaces(value, buildingResult.cursor);
+
+    if (value[cursor] === "-") {
+        cursor += 1;
+        cursor = skipSpaces(value, cursor);
+    }
+
+    const roomResult = readRoom(value, cursor);
+    if (!roomResult) {
+        return null;
+    }
+
+    return `${buildingResult.building.toUpperCase()}-${roomResult.room.toUpperCase()}`;
+}
+
+export function parseClassLocation(raw?: string | null): string | null {
+    if (!raw) {
+        return null;
+    }
+
+    const value = raw.trim();
+
+    for (let i = 0; i < value.length; i += 1) {
+        const parsed = tryParseLocationAt(value, i);
+        if (parsed) {
+            return parsed;
+        }
+    }
+
+    return value;
 }
 
 export function parseLocationParts(location?: string | null): {
@@ -99,3 +168,4 @@ export function parseLocationParts(location?: string | null): {
 
     return { building, room };
 }
+

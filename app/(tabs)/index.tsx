@@ -2008,10 +2008,10 @@ export default function MapScreen() {
         setCampus(destinationRecord.campus);
       }
 
-      setNextClassMessage(
-        `Directions set to ${nextEvent.summary ?? "your next class"}${room ? ` (${building}-${room})` : ` (${building})`
-        }.`,
-      );
+      const className = nextEvent.summary ?? "your next class";
+      const location = room ? `${building}-${room}` : building;
+
+      setNextClassMessage(`Directions set to ${className} (${location}).`);
     } catch (error) {
       console.error("Failed to get next class directions:", error);
       setNextClassMessage("Could not load your next class.");

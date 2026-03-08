@@ -1,22 +1,22 @@
 const { fetchNextConcordiaClassToday } = require("../../utils/googleCalendarNextClass");
 
 describe("fetchNextConcordiaClassToday", () => {
-    const realFetch = global.fetch;
+    const realFetch = globalThis.fetch;
 
     beforeEach(() => {
         jest.useFakeTimers();
         jest.setSystemTime(new Date("2026-03-07T10:00:00Z"));
-        global.fetch = jest.fn();
+        globalThis.fetch = jest.fn();
     });
 
     afterEach(() => {
         jest.useRealTimers();
-        global.fetch = realFetch;
+        globalThis.fetch = realFetch;
         jest.clearAllMocks();
     });
 
     test("returns earliest upcoming Concordia class", async () => {
-        global.fetch.mockResolvedValue({
+        globalThis.fetch.mockResolvedValue({
             ok: true,
             json: async () => ({
                 items: [
@@ -43,7 +43,7 @@ describe("fetchNextConcordiaClassToday", () => {
     });
 
     test("matches concordia prefix case-insensitively", async () => {
-        global.fetch.mockResolvedValue({
+        globalThis.fetch.mockResolvedValue({
             ok: true,
             json: async () => ({
                 items: [
@@ -63,7 +63,7 @@ describe("fetchNextConcordiaClassToday", () => {
     });
 
     test("matches concordia prefix with flexible spacing", async () => {
-        global.fetch.mockResolvedValue({
+        globalThis.fetch.mockResolvedValue({
             ok: true,
             json: async () => ({
                 items: [
@@ -89,7 +89,7 @@ describe("fetchNextConcordiaClassToday", () => {
     });
 
     test("ignores non-Concordia events", async () => {
-        global.fetch.mockResolvedValue({
+        globalThis.fetch.mockResolvedValue({
             ok: true,
             json: async () => ({
                 items: [
@@ -115,7 +115,7 @@ describe("fetchNextConcordiaClassToday", () => {
     });
 
     test("ignores past events", async () => {
-        global.fetch.mockResolvedValue({
+        globalThis.fetch.mockResolvedValue({
             ok: true,
             json: async () => ({
                 items: [
@@ -141,7 +141,7 @@ describe("fetchNextConcordiaClassToday", () => {
     });
 
     test("returns null when no Concordia classes exist", async () => {
-        global.fetch.mockResolvedValue({
+        globalThis.fetch.mockResolvedValue({
             ok: true,
             json: async () => ({
                 items: [
@@ -160,7 +160,7 @@ describe("fetchNextConcordiaClassToday", () => {
     });
 
     test("returns null when there are no upcoming Concordia classes today", async () => {
-        global.fetch.mockResolvedValue({
+        globalThis.fetch.mockResolvedValue({
             ok: true,
             json: async () => ({
                 items: [
@@ -180,7 +180,7 @@ describe("fetchNextConcordiaClassToday", () => {
     });
 
     test("returns null when API returns no items", async () => {
-        global.fetch.mockResolvedValue({
+        globalThis.fetch.mockResolvedValue({
             ok: true,
             json: async () => ({ items: [] }),
         });
@@ -191,7 +191,7 @@ describe("fetchNextConcordiaClassToday", () => {
     });
 
     test("throws on API error", async () => {
-        global.fetch.mockResolvedValue({
+        globalThis.fetch.mockResolvedValue({
             ok: false,
             status: 401,
         });
@@ -202,36 +202,36 @@ describe("fetchNextConcordiaClassToday", () => {
     });
 
     test("sends access token in Authorization header", async () => {
-        global.fetch.mockResolvedValue({
+        globalThis.fetch.mockResolvedValue({
             ok: true,
             json: async () => ({ items: [] }),
         });
 
         await fetchNextConcordiaClassToday("secret-token");
 
-        expect(global.fetch).toHaveBeenCalledTimes(1);
+        expect(globalThis.fetch).toHaveBeenCalledTimes(1);
 
-        const options = global.fetch.mock.calls[0][1];
+        const options = globalThis.fetch.mock.calls[0][1];
         expect(options.headers.Authorization).toBe("Bearer secret-token");
     });
 
     describe("fetchNextConcordiaClassToday extra branch coverage", () => {
-        const realFetch = global.fetch;
+        const realFetch = globalThis.fetch;
 
         beforeEach(() => {
             jest.useFakeTimers();
             jest.setSystemTime(new Date("2026-03-07T10:00:00Z"));
-            global.fetch = jest.fn();
+            globalThis.fetch = jest.fn();
         });
 
         afterEach(() => {
             jest.useRealTimers();
-            global.fetch = realFetch;
+            globalThis.fetch = realFetch;
             jest.clearAllMocks();
         });
 
         test("returns null when items is missing", async () => {
-            global.fetch.mockResolvedValue({
+            globalThis.fetch.mockResolvedValue({
                 ok: true,
                 json: async () => ({}),
             });
@@ -241,7 +241,7 @@ describe("fetchNextConcordiaClassToday", () => {
         });
 
         test("ignores events with missing summary", async () => {
-            global.fetch.mockResolvedValue({
+            globalThis.fetch.mockResolvedValue({
                 ok: true,
                 json: async () => ({
                     items: [
@@ -265,7 +265,7 @@ describe("fetchNextConcordiaClassToday", () => {
         });
 
         test("supports events that use start.date instead of start.dateTime", async () => {
-            global.fetch.mockResolvedValue({
+            globalThis.fetch.mockResolvedValue({
                 ok: true,
                 json: async () => ({
                     items: [
@@ -284,7 +284,7 @@ describe("fetchNextConcordiaClassToday", () => {
         });
 
         test("ignores events with missing start", async () => {
-            global.fetch.mockResolvedValue({
+            globalThis.fetch.mockResolvedValue({
                 ok: true,
                 json: async () => ({
                     items: [
@@ -308,7 +308,7 @@ describe("fetchNextConcordiaClassToday", () => {
         });
 
         test("sorts correctly when one event uses date and another uses dateTime", async () => {
-            global.fetch.mockResolvedValue({
+            globalThis.fetch.mockResolvedValue({
                 ok: true,
                 json: async () => ({
                     items: [
@@ -331,33 +331,33 @@ describe("fetchNextConcordiaClassToday", () => {
         });
 
         test("uses a custom calendarId when provided", async () => {
-            global.fetch.mockResolvedValue({
+            globalThis.fetch.mockResolvedValue({
                 ok: true,
                 json: async () => ({ items: [] }),
             });
 
             await fetchNextConcordiaClassToday("token", "my-calendar-id");
 
-            const calledUrl = global.fetch.mock.calls[0][0];
+            const calledUrl = globalThis.fetch.mock.calls[0][0];
             expect(calledUrl).toContain("/calendars/my-calendar-id/events");
         });
 
         test("encodes a custom calendarId when provided", async () => {
-            global.fetch.mockResolvedValue({
+            globalThis.fetch.mockResolvedValue({
                 ok: true,
                 json: async () => ({ items: [] }),
             });
 
             await fetchNextConcordiaClassToday("token", "abc@group.calendar.google.com");
 
-            const calledUrl = global.fetch.mock.calls[0][0];
+            const calledUrl = globalThis.fetch.mock.calls[0][0];
             expect(calledUrl).toContain(
                 encodeURIComponent("abc@group.calendar.google.com"),
             );
         });
 
         test("propagates fetch rejection", async () => {
-            global.fetch.mockRejectedValue(new Error("network fail"));
+            globalThis.fetch.mockRejectedValue(new Error("network fail"));
 
             await expect(fetchNextConcordiaClassToday("token")).rejects.toThrow(
                 "network fail",
