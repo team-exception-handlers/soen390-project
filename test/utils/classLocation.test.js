@@ -1,0 +1,113 @@
+const {
+    parseClassLocation,
+    parseLocationParts,
+} = require("../../utils/classLocation");
+
+describe("parseClassLocation", () => {
+    test("returns null when input is missing", () => {
+        expect(parseClassLocation(undefined)).toBeNull();
+        expect(parseClassLocation(null)).toBeNull();
+        expect(parseClassLocation("")).toBeNull();
+    });
+
+    test("parses standard building-room format", () => {
+        expect(parseClassLocation("H-510")).toBe("H-510");
+        expect(parseClassLocation("MB-2")).toBe("MB-2");
+    });
+
+    test("normalizes lowercase input", () => {
+        expect(parseClassLocation("h-510")).toBe("H-510");
+        expect(parseClassLocation("mb-s2.330")).toBe("MB-S2.330");
+    });
+
+    test("handles spaces around hyphen", () => {
+        expect(parseClassLocation("H - 510")).toBe("H-510");
+        expect(parseClassLocation("MB - S2.330")).toBe("MB-S2.330");
+    });
+
+    test("supports classrooms with decimal room numbers", () => {
+        expect(parseClassLocation("EV-1.605")).toBe("EV-1.605");
+        expect(parseClassLocation("MB-2.330")).toBe("MB-2.330");
+    });
+
+    test("supports classrooms with a letter prefix before digits", () => {
+        expect(parseClassLocation("MB-S2.330")).toBe("MB-S2.330");
+        expect(parseClassLocation("H-S1")).toBe("H-S1");
+    });
+
+    test("handles multi-letter building codes", () => {
+        expect(parseClassLocation("EV-1")).toBe("EV-1");
+        expect(parseClassLocation("VL-101")).toBe("VL-101");
+    });
+
+    test("falls back to trimmed input when format is unknown", () => {
+        expect(parseClassLocation("Online class")).toBe("Online class");
+        expect(parseClassLocation("TBA")).toBe("TBA");
+    });
+
+    test("trims whitespace", () => {
+        expect(parseClassLocation("   H-510   ")).toBe("H-510");
+        expect(parseClassLocation("   MB-S2.330   ")).toBe("MB-S2.330");
+    });
+});
+
+describe("parseLocationParts", () => {
+    test("returns null parts when input is missing", () => {
+        expect(parseLocationParts(undefined)).toEqual({
+            building: null,
+            room: null,
+        });
+
+        expect(parseLocationParts(null)).toEqual({
+            building: null,
+            room: null,
+        });
+    });
+
+    test("splits building and room correctly", () => {
+        expect(parseLocationParts("H-510")).toEqual({
+            building: "H",
+            room: "510",
+        });
+
+        expect(parseLocationParts("MB-2")).toEqual({
+            building: "MB",
+            room: "2",
+        });
+    });
+
+    test("supports decimal room numbers", () => {
+        expect(parseLocationParts("EV-1.605")).toEqual({
+            building: "EV",
+            room: "1.605",
+        });
+    });
+
+    test("supports prefixed room numbers like S2.330", () => {
+        expect(parseLocationParts("MB-S2.330")).toEqual({
+            building: "MB",
+            room: "S2.330",
+        });
+    });
+
+    test("normalizes input before splitting", () => {
+        expect(parseLocationParts("mb - s2.330")).toEqual({
+            building: "MB",
+            room: "S2.330",
+        });
+    });
+
+    test("returns building only if no room", () => {
+        expect(parseLocationParts("H")).toEqual({
+            building: "H",
+            room: null,
+        });
+    });
+
+    test("falls back to raw building text", () => {
+        expect(parseLocationParts("Online")).toEqual({
+            building: "ONLINE",
+            room: null,
+        });
+    });
+});
