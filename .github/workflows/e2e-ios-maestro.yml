@@ -73,6 +73,13 @@ jobs:
           fi
           rm -f "$DD_LIST"
 
+          # Include a hash of JS source so that app code changes invalidate the
+          # DerivedData cache and force Xcode to re-bundle the JS with Metro.
+          JS_HASH=$(find app components utils -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" \) 2>/dev/null \
+            | sort | xargs shasum 2>/dev/null | shasum | awk '{print $1}')
+          [ -z "$JS_HASH" ] && JS_HASH="no-js-sources"
+          DD_HASH="${DD_HASH}-js-${JS_HASH}"
+
           echo "prebuild=$PREBUILD_HASH" >> "$GITHUB_OUTPUT"
           echo "pods=$PODS_HASH" >> "$GITHUB_OUTPUT"
           echo "derived_data=$DD_HASH" >> "$GITHUB_OUTPUT"
