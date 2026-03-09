@@ -151,12 +151,8 @@ jobs:
             pods-${{ runner.os }}-
 
       - name: Install CocoaPods
-        run: |
-          if [ "${{ steps.cache-pods.outputs.cache-hit }}" != "true" ] || [ ! -f ios/Podfile.lock ]; then
-            cd ios && pod install && cd ..
-          else
-            echo "CocoaPods cache hit and Podfile.lock exists; skipping pod install."
-          fi
+        run: cd ios && pod install && cd ..
+        # Always run so sandbox stays in sync with Podfile.lock (restored ios/ and Pods can be from different runs).
 
       - name: Resolve Xcode project and scheme
         id: xcode
@@ -188,9 +184,12 @@ jobs:
       - name: Build iOS app for Simulator
         run: |
           export EXPO_PUBLIC_ENABLE_E2E_HOOKS=1
-          cd ios
           DD="$GITHUB_WORKSPACE/build/ios/DerivedData"
+          mkdir -p "$(dirname "$DD")"
+          rm -rf "$DD"
           mkdir -p "$DD"
+          cd ios
+          set -o pipefail
           if [ "${{ steps.xcode.outputs.using }}" = "workspace" ]; then
             xcodebuild -workspace "${{ steps.xcode.outputs.workspace }}" \
               -scheme "${{ steps.xcode.outputs.scheme }}" \
@@ -201,7 +200,7 @@ jobs:
               COMPILER_INDEX_STORE_ENABLE=NO \
               CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
               -parallelizeTargets \
-              -quiet build
+              build 2>&1 | tee "$GITHUB_WORKSPACE/build/xcodebuild.log" | tail -100
           else
             xcodebuild -project "${{ steps.xcode.outputs.project }}" \
               -scheme "${{ steps.xcode.outputs.scheme }}" \
@@ -212,9 +211,17 @@ jobs:
               COMPILER_INDEX_STORE_ENABLE=NO \
               CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
               -parallelizeTargets \
-              -quiet build
+              build 2>&1 | tee "$GITHUB_WORKSPACE/build/xcodebuild.log" | tail -100
           fi
           cd ..
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: build/xcodebuild.log
+          if-no-files-found: ignore
 
       - name: Locate built .app
         id: app
