@@ -2,6 +2,3 @@ appId: com.anonymous.concordiaclassfinder
 
 ---
 - launchApp
-# Allow splash to hide and main screen to paint before flows look for header-title
-- waitForAnimationToEnd:
-    timeout: 3000
