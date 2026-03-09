@@ -109,14 +109,15 @@ jobs:
         id: cache-ios
         with:
           path: ios
-          key: ios-prebuild-${{ runner.os }}-${{ steps.cache-keys.outputs.prebuild }}
+          key: ios-prebuild-v2-${{ runner.os }}-${{ steps.cache-keys.outputs.prebuild }}
           restore-keys: |
-            ios-prebuild-${{ runner.os }}-
+            ios-prebuild-v2-${{ runner.os }}-
 
       - name: Ensure iOS native project
         run: |
-          if [ ! -d ios ] || [ -z "$(ls -A ios 2>/dev/null)" ]; then
-            npx expo prebuild -p ios --no-install --non-interactive
+          if [ "${{ steps.cache-ios.outputs.cache-hit }}" != "true" ]; then
+            echo "Prebuild cache miss or partial restore — regenerating native project"
+            npx expo prebuild -p ios --clean --no-install --non-interactive
           fi
 
       - name: Patch Podfile for React-Core umbrella header
