@@ -275,6 +275,23 @@ jobs:
           # the device process is Booted and SpringBoard is running.
           open -a Simulator
 
+          # Also wait for installd — without this, simctl install hangs indefinitely (no timeout).
+          echo "Waiting for installd..."
+          WAITED=0
+          MAX_WAIT=60
+          while true; do
+            if xcrun simctl spawn "$DEVICE_UDID" launchctl list 2>/dev/null | grep -q "com.apple.mobile.installd"; then
+              echo "installd is ready."
+              break
+            fi
+            if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+              echo "::warning::installd not visible after ${MAX_WAIT}s, proceeding anyway..."
+              break
+            fi
+            sleep 3
+            WAITED=$((WAITED + 3))
+          done
+
       - name: Install Maestro CLI
         run: |
           curl --proto '=https' --tlsv1.2 -fsSL "https://get.maestro.mobile.dev" | bash
@@ -286,7 +303,47 @@ jobs:
         run: |
           APP_PATH="${{ steps.app.outputs.path }}"
           echo "App size: $(du -sh "$APP_PATH" | cut -f1)"
-          xcrun simctl install "$DEVICE_UDID" "$APP_PATH"
+
+          install_with_timeout() {
+            local udid="$1" app="$2" max_secs="$3"
+            xcrun simctl install "$udid" "$app" &
+            local pid=$!
+            local waited=0
+            while kill -0 "$pid" 2>/dev/null; do
+              if [ "$waited" -ge "$max_secs" ]; then
+                echo "::warning::simctl install hung after ${max_secs}s — killing."
+                kill "$pid" 2>/dev/null || true
+                wait "$pid" 2>/dev/null || true
+                return 1
+              fi
+              sleep 3
+              waited=$((waited + 3))
+            done
+            wait "$pid"
+            return $?
+          }
+
+          # First attempt — 3 minute watchdog
+          if install_with_timeout "$DEVICE_UDID" "$APP_PATH" 180; then
+            echo "App installed successfully."
+          else
+            # installd was unresponsive; bounce the simulator and retry once
+            echo "Bouncing simulator and retrying install..."
+            xcrun simctl shutdown "$DEVICE_UDID" 2>/dev/null || true
+            sleep 5
+            xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
+            open -a Simulator
+
+            echo "Waiting for installd after bounce..."
+            for _i in $(seq 1 30); do
+              xcrun simctl spawn "$DEVICE_UDID" launchctl list 2>/dev/null | grep -q "com.apple.mobile.installd" && break
+              sleep 3
+            done
+            sleep 5
+
+            echo "Retrying install..."
+            install_with_timeout "$DEVICE_UDID" "$APP_PATH" 180
+          fi
 
       - name: Run Maestro CI flows
         run: |
