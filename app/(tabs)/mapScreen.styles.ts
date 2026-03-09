@@ -637,7 +637,7 @@ export function createMapScreenStyles({
     },
     e2eControls: {
       position: "absolute",
-      right: 12,
+      left: 12,
       bottom: 110,
       gap: 8,
       zIndex: 1100,
