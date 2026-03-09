@@ -1,11 +1,17 @@
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 
-// Keep splash visible until the main screen hides it (so E2E can see header-title)
+// Keep splash visible until we hide it
 SplashScreen.preventAutoHideAsync?.();
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Hide splash once the root layout has mounted
+    SplashScreen.hideAsync?.();
+  }, []);
+
   return (
     <>
       <StatusBar style="light" />

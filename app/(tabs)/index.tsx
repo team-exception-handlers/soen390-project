@@ -1,8 +1,6 @@
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
-import * as SplashScreen from "expo-splash-screen";
 import { useLocalSearchParams } from "expo-router";
 import { ChevronUp, X } from "lucide-react-native";
 import React, {
@@ -27,7 +25,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { createMapScreenStyles } from "./mapScreen.styles";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import BuildingInformation from "../../components/BuildingInformation";
 import DirectionsPanel from "../../components/mapScreen/DirectionsPanel";
@@ -58,6 +55,7 @@ import {
   formatTime,
   type TransitItinerary,
 } from "../../utils/transitousDirections";
+import { createMapScreenStyles } from "./mapScreen.styles";
 
 let WebView: React.ComponentType<any> | null = null;
 if (Platform.OS !== "web") {
@@ -70,7 +68,6 @@ if (Platform.OS !== "web") {
 }
 
 const roundCoord = (value: number) => Number(value.toFixed(4));
-
 
 const formatDuration = (minutes: number) => {
   if (minutes < 60) return `${minutes} min`;
@@ -155,7 +152,6 @@ const getTransitColor = (mode: string, route?: string) => {
 };
 
 export default function MapScreen() {
-
   // Tracks whether the user is editing the start or destination
   const [editingField, setEditingField] = useState<"from" | "to" | undefined>(
     undefined,
@@ -181,7 +177,6 @@ export default function MapScreen() {
       setDestinationRoom(toRoom.trim());
     }
   }, [toBuilding, toRoom]);
-
 
   // Tracks the selected origin building (or null if using current location)i
   const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
@@ -218,7 +213,9 @@ export default function MapScreen() {
   >([]);
   const [selectedItineraryIndex, setSelectedItineraryIndex] = useState(0);
 
-const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string | null>(null);
+  const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<
+    string | null
+  >(null);
   const [shuttleWalkToCoords, setShuttleWalkToCoords] = useState<
     { latitude: number; longitude: number }[]
   >([]);
@@ -308,13 +305,6 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
   useEffect(() => {
     campusRef.current = campus;
   }, [campus]);
-
-  // Hide splash once this screen (with header) has mounted so E2E can see header-title
-  useEffect(() => {
-    if (Platform.OS !== "web") {
-      SplashScreen.hideAsync?.();
-    }
-  }, []);
 
   useEffect(() => {
     if (!nextClassMessage) return;
@@ -709,7 +699,10 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
         return;
       }
 
-      const nextEvent = await fetchNextConcordiaClassToday(accessToken, "primary");
+      const nextEvent = await fetchNextConcordiaClassToday(
+        accessToken,
+        "primary",
+      );
 
       if (!nextEvent) {
         setNextClassMessage("No upcoming classes today.");
@@ -793,7 +786,6 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
     }
   };
 
-
   const searchResults = useMemo(() => {
     const query = searchText.trim().toLowerCase();
     if (!query) return [];
@@ -876,103 +868,169 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
 
         const walkToMinutes = Math.round(walkTo.durationSeconds / 60);
         const arrivalAtStopDate = new Date(mockedNow);
-        arrivalAtStopDate.setMinutes(arrivalAtStopDate.getMinutes() + walkToMinutes);
+        arrivalAtStopDate.setMinutes(
+          arrivalAtStopDate.getMinutes() + walkToMinutes,
+        );
 
         let validDeparture: Date | undefined;
 
         if (selectedShuttleDeparture) {
-          const [h, m] = selectedShuttleDeparture.split(':').map(Number);
+          const [h, m] = selectedShuttleDeparture.split(":").map(Number);
           validDeparture = new Date(mockedNow);
           validDeparture.setHours(h, m, 0, 0);
-          if (validDeparture < mockedNow && h < 5) validDeparture.setDate(validDeparture.getDate() + 1);
+          if (validDeparture < mockedNow && h < 5)
+            validDeparture.setDate(validDeparture.getDate() + 1);
         } else {
-          const activeDepartures = shuttleInfo.nextThreeDepartures.map((t: string) => {
-            const [h, m] = t.split(':').map(Number);
-            const d = new Date(mockedNow);
-            d.setHours(h, m, 0, 0);
-            if (d < mockedNow && h < 5) d.setDate(d.getDate() + 1); // handle overnight if needed
-            return d;
-          });
-          validDeparture = activeDepartures.find((d: Date) => d >= arrivalAtStopDate) || activeDepartures[0];
+          const activeDepartures = shuttleInfo.nextThreeDepartures.map(
+            (t: string) => {
+              const [h, m] = t.split(":").map(Number);
+              const d = new Date(mockedNow);
+              d.setHours(h, m, 0, 0);
+              if (d < mockedNow && h < 5) d.setDate(d.getDate() + 1); // handle overnight if needed
+              return d;
+            },
+          );
+          validDeparture =
+            activeDepartures.find((d: Date) => d >= arrivalAtStopDate) ||
+            activeDepartures[0];
         }
 
         let waitMinutes = 0;
         if (validDeparture) {
           const waitMs = validDeparture.getTime() - arrivalAtStopDate.getTime();
           waitMinutes = Math.max(0, Math.round(waitMs / 60000));
-          instructions.push({ text: `Arrive at ${nearest.stop} shuttle stop. Wait for ${waitMinutes} minute(s).`, distanceMeters: 0 });
+          instructions.push({
+            text: `Arrive at ${nearest.stop} shuttle stop. Wait for ${waitMinutes} minute(s).`,
+            distanceMeters: 0,
+          });
 
-          const hh = validDeparture.getHours().toString().padStart(2, '0');
-          const mm = validDeparture.getMinutes().toString().padStart(2, '0');
+          const hh = validDeparture.getHours().toString().padStart(2, "0");
+          const mm = validDeparture.getMinutes().toString().padStart(2, "0");
           const arrivalTimeString = calculateArrivalTime(`${hh}:${mm}`);
 
-          const arrH = parseInt(arrivalTimeString.split(':')[0]);
-          const arrM = parseInt(arrivalTimeString.split(':')[1]);
+          const arrH = parseInt(arrivalTimeString.split(":")[0]);
+          const arrM = parseInt(arrivalTimeString.split(":")[1]);
           const arrivalDate = new Date(validDeparture);
           arrivalDate.setHours(arrH, arrM, 0, 0);
-          if (arrivalDate < validDeparture) arrivalDate.setDate(arrivalDate.getDate() + 1);
+          if (arrivalDate < validDeparture)
+            arrivalDate.setDate(arrivalDate.getDate() + 1);
 
-          instructions.push({ text: `Take the shuttle to ${nearest.destination} campus. Estimated arrival at ${arrivalTimeString}.`, distanceMeters: drive.distanceMeters });
+          instructions.push({
+            text: `Take the shuttle to ${nearest.destination} campus. Estimated arrival at ${arrivalTimeString}.`,
+            distanceMeters: drive.distanceMeters,
+          });
 
           const walkToLeg = {
             mode: "WALK",
-            from: { name: "Current Location", lat: actualOriginPoint.latitude, lon: actualOriginPoint.longitude },
-            to: { name: `${nearest.stop} Shuttle Stop`, lat: originStopCoords.latitude, lon: originStopCoords.longitude },
+            from: {
+              name: "Current Location",
+              lat: actualOriginPoint.latitude,
+              lon: actualOriginPoint.longitude,
+            },
+            to: {
+              name: `${nearest.stop} Shuttle Stop`,
+              lat: originStopCoords.latitude,
+              lon: originStopCoords.longitude,
+            },
             startTime: mockedNow.toISOString(),
             endTime: arrivalAtStopDate.toISOString(),
             distance: walkTo.distanceMeters,
             duration: walkTo.durationSeconds,
-            legGeometry: null
+            legGeometry: null,
           };
 
           const shuttleLeg = {
             mode: "BUS",
             route: "Shuttle",
             headsign: `${nearest.destination} Campus`,
-            from: { name: `${nearest.stop} Shuttle Stop`, lat: originStopCoords.latitude, lon: originStopCoords.longitude },
-            to: { name: `${nearest.destination} Shuttle Stop`, lat: destStopCoords.latitude, lon: destStopCoords.longitude },
+            from: {
+              name: `${nearest.stop} Shuttle Stop`,
+              lat: originStopCoords.latitude,
+              lon: originStopCoords.longitude,
+            },
+            to: {
+              name: `${nearest.destination} Shuttle Stop`,
+              lat: destStopCoords.latitude,
+              lon: destStopCoords.longitude,
+            },
             startTime: validDeparture.toISOString(),
             endTime: arrivalDate.toISOString(),
             distance: drive.distanceMeters,
-            duration: Math.round((arrivalDate.getTime() - validDeparture.getTime()) / 1000),
-            legGeometry: null
+            duration: Math.round(
+              (arrivalDate.getTime() - validDeparture.getTime()) / 1000,
+            ),
+            legGeometry: null,
           };
 
           const walkFromLeg = {
             mode: "WALK",
-            from: { name: `${nearest.destination} Shuttle Stop`, lat: destStopCoords.latitude, lon: destStopCoords.longitude },
-            to: { name: destinationBuilding.shortName, lat: destinationBuilding.latitude, lon: destinationBuilding.longitude },
+            from: {
+              name: `${nearest.destination} Shuttle Stop`,
+              lat: destStopCoords.latitude,
+              lon: destStopCoords.longitude,
+            },
+            to: {
+              name: destinationBuilding.shortName,
+              lat: destinationBuilding.latitude,
+              lon: destinationBuilding.longitude,
+            },
             startTime: arrivalDate.toISOString(),
-            endTime: new Date(arrivalDate.getTime() + walkFrom.durationSeconds * 1000).toISOString(),
+            endTime: new Date(
+              arrivalDate.getTime() + walkFrom.durationSeconds * 1000,
+            ).toISOString(),
             distance: walkFrom.distanceMeters,
             duration: walkFrom.durationSeconds,
-            legGeometry: null
+            legGeometry: null,
           };
 
-          const totalDuration = walkTo.durationSeconds + shuttleLeg.duration + walkFrom.durationSeconds + waitMinutes * 60;
+          const totalDuration =
+            walkTo.durationSeconds +
+            shuttleLeg.duration +
+            walkFrom.durationSeconds +
+            waitMinutes * 60;
 
           const transitItin: TransitItinerary = {
             durationSeconds: totalDuration,
-            distanceMeters: walkTo.distanceMeters + drive.distanceMeters + walkFrom.distanceMeters,
+            distanceMeters:
+              walkTo.distanceMeters +
+              drive.distanceMeters +
+              walkFrom.distanceMeters,
             transfers: 0,
             departureTime: new Date().toISOString(),
             arrivalTime: walkFromLeg.endTime,
             legs: [walkToLeg, shuttleLeg, walkFromLeg],
             instructions,
-            coordinates: []
+            coordinates: [],
           };
 
           setTransitItineraries([transitItin]);
         } else {
-          instructions.push({ text: `Arrive at ${nearest.stop} shuttle stop.`, distanceMeters: 0 });
-          instructions.push({ text: `Take the shuttle to ${nearest.destination} campus.`, distanceMeters: drive.distanceMeters });
+          instructions.push({
+            text: `Arrive at ${nearest.stop} shuttle stop.`,
+            distanceMeters: 0,
+          });
+          instructions.push({
+            text: `Take the shuttle to ${nearest.destination} campus.`,
+            distanceMeters: drive.distanceMeters,
+          });
         }
 
         if (walkFrom.instructions) instructions.push(...walkFrom.instructions);
 
         setRouteInstructions(instructions);
-        setRouteDurationMinutes(Math.round((walkTo.durationSeconds + drive.durationSeconds + walkFrom.durationSeconds) / 60) + waitMinutes);
-        setRouteDistanceMeters(walkTo.distanceMeters + drive.distanceMeters + walkFrom.distanceMeters);
+        setRouteDurationMinutes(
+          Math.round(
+            (walkTo.durationSeconds +
+              drive.durationSeconds +
+              walkFrom.durationSeconds) /
+              60,
+          ) + waitMinutes,
+        );
+        setRouteDistanceMeters(
+          walkTo.distanceMeters +
+            drive.distanceMeters +
+            walkFrom.distanceMeters,
+        );
 
         setShuttleWalkToCoords(walkTo.coordinates);
         setShuttleDriveCoords(drive.coordinates);
@@ -1401,29 +1459,29 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
               const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               const routeMode = ${JSON.stringify(routeMode)};
               const routeCoordinates = ${JSON.stringify(
-      routeCoordinates.map((point) => [
-        point.latitude,
-        point.longitude,
-      ]),
-    )};
+                routeCoordinates.map((point) => [
+                  point.latitude,
+                  point.longitude,
+                ]),
+              )};
               const shuttleWalkToCoords = ${JSON.stringify(
-      shuttleWalkToCoords.map((point) => [
-        point.latitude,
-        point.longitude,
-      ]),
-    )};
+                shuttleWalkToCoords.map((point) => [
+                  point.latitude,
+                  point.longitude,
+                ]),
+              )};
               const shuttleDriveCoords = ${JSON.stringify(
-      shuttleDriveCoords.map((point) => [
-        point.latitude,
-        point.longitude,
-      ]),
-    )};
+                shuttleDriveCoords.map((point) => [
+                  point.latitude,
+                  point.longitude,
+                ]),
+              )};
               const shuttleWalkFromCoords = ${JSON.stringify(
-      shuttleWalkFromCoords.map((point) => [
-        point.latitude,
-        point.longitude,
-      ]),
-    )};
+                shuttleWalkFromCoords.map((point) => [
+                  point.latitude,
+                  point.longitude,
+                ]),
+              )};
 
               // Per-leg transit segments for Leaflet
               const transitSegments = ${JSON.stringify(webTransitSegments)};
@@ -1737,8 +1795,9 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
 
               updateMarkerVisibility();
 
-              ${userLat && userLng
-        ? `
+              ${
+                userLat && userLng
+                  ? `
               console.log('Adding user marker at:', ${userLat}, ${userLng});
               const userIcon = L.divIcon({
                   className: 'user-marker',
@@ -1748,8 +1807,8 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
               });
               window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
               `
-        : 'console.log("No user location available");'
-      }
+                  : 'console.log("No user location available");'
+              }
           </script>
       </body>
       </html>
@@ -1833,7 +1892,7 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
                   setSelectedBuilding(data.buildingCode);
                 if (data?.type === "buildingDeselected")
                   setSelectedBuilding(null);
-              } catch { }
+              } catch {}
               return false;
             }
             return true;
@@ -1849,9 +1908,9 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
 
   const nativeMapContent =
     MapViewComponent &&
-      MapMarkerComponent &&
-      MapCalloutComponent &&
-      MapPolygonComponent ? (
+    MapMarkerComponent &&
+    MapCalloutComponent &&
+    MapPolygonComponent ? (
       <MapViewComponent
         ref={mapRef}
         testID="map-native"
@@ -2020,10 +2079,10 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
           const polygonCode = hasExactPolygon
             ? building.code
             : allPolygons.features.find(
-              (f: any) =>
-                building.code.startsWith(f.properties.code) &&
-                f.properties.code.length >= 2,
-            )?.properties.code || building.code;
+                (f: any) =>
+                  building.code.startsWith(f.properties.code) &&
+                  f.properties.code.length >= 2,
+              )?.properties.code || building.code;
 
           return (
             <MapMarkerComponent
@@ -2038,7 +2097,9 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
                 longitude: building.longitude,
               }}
               onPress={() =>
-                setSelectedBuilding(selectedBuilding === polygonCode ? null : polygonCode)
+                setSelectedBuilding(
+                  selectedBuilding === polygonCode ? null : polygonCode,
+                )
               }
             >
               <View
@@ -2300,7 +2361,8 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
           setSelectedBuilding(null);
           setEditingField(undefined);
         }}
-      /><Modal
+      />
+      <Modal
         visible={floorPlanModalVisible}
         animationType="fade"
         transparent={true}
@@ -2325,8 +2387,5 @@ const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<string 
         </View>
       </Modal>
     </View>
-
-
-
   );
 }
