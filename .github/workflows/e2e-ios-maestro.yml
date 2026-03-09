@@ -73,12 +73,21 @@ jobs:
           fi
           rm -f "$DD_LIST"
 
+          # Include a hash of JS source so that app code changes invalidate the
+          # DerivedData cache and force Xcode to re-bundle the JS with Metro.
+          JS_HASH=$(find app components utils -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" \) 2>/dev/null \
+            | sort | xargs shasum 2>/dev/null | shasum | awk '{print $1}')
+          [ -z "$JS_HASH" ] && JS_HASH="no-js-sources"
+          DD_HASH="${DD_HASH}-js-${JS_HASH}"
+
           echo "prebuild=$PREBUILD_HASH" >> "$GITHUB_OUTPUT"
           echo "pods=$PODS_HASH" >> "$GITHUB_OUTPUT"
           echo "derived_data=$DD_HASH" >> "$GITHUB_OUTPUT"
 
-      - name: Boot iOS Simulator (early, in parallel with later steps)
+      - name: Select iOS Simulator device
         run: |
+          # Only resolve the UDID here — booting is deferred until after xcodebuild
+          # so that the build doesn't compete with the simulator for the runner's 14 GB RAM.
           LINE=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro\s*\(" | head -1)
           if [ -z "$LINE" ]; then
             LINE=$(xcrun simctl list devices available | grep -E "iPhone 17\s*\(" | head -1)
@@ -92,7 +101,7 @@ jobs:
             xcrun simctl list devices available
             exit 1
           fi
-          xcrun simctl boot "$DEVICE" 2>/dev/null || true
+          echo "Selected simulator: $DEVICE"
           echo "DEVICE_UDID=$DEVICE" >> $GITHUB_ENV
 
       - name: Restore prebuilt ios folder
@@ -100,29 +109,35 @@ jobs:
         id: cache-ios
         with:
           path: ios
-          key: ios-prebuild-${{ runner.os }}-${{ steps.cache-keys.outputs.prebuild }}
+          key: ios-prebuild-v2-${{ runner.os }}-${{ steps.cache-keys.outputs.prebuild }}
           restore-keys: |
-            ios-prebuild-${{ runner.os }}-
+            ios-prebuild-v2-${{ runner.os }}-
 
       - name: Ensure iOS native project
         run: |
-          if [ ! -d ios ] || [ -z "$(ls -A ios 2>/dev/null)" ]; then
-            npx expo prebuild -p ios --no-install --non-interactive
+          if [ "${{ steps.cache-ios.outputs.cache-hit }}" != "true" ]; then
+            echo "Prebuild cache miss or partial restore — regenerating native project"
+            npx expo prebuild -p ios --clean --no-install --non-interactive
           fi
 
       - name: Patch Podfile for React-Core umbrella header
         run: |
           if [ -f ios/Podfile ]; then
-            # Ensure we don't duplicate the hook if it's already there (though unlikely in clean CI)
             if ! grep -q "CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES" ios/Podfile; then
-              sed -i '' '/post_install do |installer|/a \
-                installer.pods_project.targets.each do |target| \
-                  if target.name == "React-Core" \
-                    target.build_configurations.each do |config| \
-                      config.build_settings["CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES"] = "YES" \
-                    end \
-                  end \
-                end' ios/Podfile
+              ruby -e '
+                content = File.read("ios/Podfile")
+                patch = <<~RUBY
+                    installer.pods_project.targets.each do |target|
+                      if target.name == "React-Core"
+                        target.build_configurations.each do |config|
+                          config.build_settings["CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES"] = "YES"
+                        end
+                      end
+                    end
+                RUBY
+                content.sub!("post_install do |installer|", "post_install do |installer|\n#{patch}")
+                File.write("ios/Podfile", content)
+              '
             fi
           fi
 
@@ -136,12 +151,8 @@ jobs:
             pods-${{ runner.os }}-
 
       - name: Install CocoaPods
-        run: |
-          if [ "${{ steps.cache-pods.outputs.cache-hit }}" != "true" ] || [ ! -f ios/Podfile.lock ]; then
-            cd ios && pod install && cd ..
-          else
-            echo "CocoaPods cache hit and Podfile.lock exists; skipping pod install."
-          fi
+        run: cd ios && pod install && cd ..
+        # Always run so sandbox stays in sync with Podfile.lock (restored ios/ and Pods can be from different runs).
 
       - name: Resolve Xcode project and scheme
         id: xcode
@@ -173,9 +184,12 @@ jobs:
       - name: Build iOS app for Simulator
         run: |
           export EXPO_PUBLIC_ENABLE_E2E_HOOKS=1
-          cd ios
           DD="$GITHUB_WORKSPACE/build/ios/DerivedData"
+          mkdir -p "$(dirname "$DD")"
+          rm -rf "$DD"
           mkdir -p "$DD"
+          cd ios
+          set -o pipefail
           if [ "${{ steps.xcode.outputs.using }}" = "workspace" ]; then
             xcodebuild -workspace "${{ steps.xcode.outputs.workspace }}" \
               -scheme "${{ steps.xcode.outputs.scheme }}" \
@@ -186,7 +200,7 @@ jobs:
               COMPILER_INDEX_STORE_ENABLE=NO \
               CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
               -parallelizeTargets \
-              -quiet build
+              build 2>&1 | tee "$GITHUB_WORKSPACE/build/xcodebuild.log" | tail -100
           else
             xcodebuild -project "${{ steps.xcode.outputs.project }}" \
               -scheme "${{ steps.xcode.outputs.scheme }}" \
@@ -197,9 +211,17 @@ jobs:
               COMPILER_INDEX_STORE_ENABLE=NO \
               CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
               -parallelizeTargets \
-              -quiet build
+              build 2>&1 | tee "$GITHUB_WORKSPACE/build/xcodebuild.log" | tail -100
           fi
           cd ..
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: build/xcodebuild.log
+          if-no-files-found: ignore
 
       - name: Locate built .app
         id: app
@@ -226,20 +248,69 @@ jobs:
           echo "Resolved .app: $APP"
           if [ ! -d "$APP" ]; then echo "::error::Built .app not found"; exit 1; fi
 
-      - name: Wait for Simulator ready
+      - name: Boot iOS Simulator (after build to avoid memory pressure)
         run: |
-          for i in $(seq 1 25); do
-            if xcrun simctl list devices | grep "$DEVICE_UDID" | grep -q Booted; then
-              echo "Simulator reported Booted. Waiting for full boot status..."
-              xcrun simctl bootstatus "$DEVICE_UDID" -b || true
-              echo "Simulator ready."
-              exit 0
+          # Boot now that xcodebuild has released memory. The runner has only 14 GB RAM and
+          # running the simulator during the build caused silent OOM boot failures.
+          xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
+
+          # Poll for Booted state — avoid simctl bootstatus which is broken on Xcode 16 /
+          # macOS 15 and returns "Restriction Failed on Client API".
+          echo "Polling for Booted state..."
+          WAITED=0
+          MAX_WAIT=120
+          while true; do
+            STATUS=$(xcrun simctl list devices | grep "$DEVICE_UDID" | grep -oE "(Booted|Shutdown|Booting)" | head -1)
+            if [ "$STATUS" = "Booted" ]; then
+              break
             fi
-            sleep 2
+            if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+              echo "::error::Simulator did not reach Booted state after ${MAX_WAIT}s"
+              xcrun simctl list devices
+              exit 1
+            fi
+            sleep 3
+            WAITED=$((WAITED + 3))
           done
-          echo "::error::Simulator did not reach Booted state"
-          xcrun simctl list devices
-          exit 1
+          echo "Device is Booted. Waiting for SpringBoard (true UI-ready signal)..."
+
+          # SpringBoard running = simulator is fully ready for app install and UI automation.
+          WAITED=0
+          MAX_WAIT=90
+          while true; do
+            if xcrun simctl spawn "$DEVICE_UDID" launchctl list 2>/dev/null | grep -q "com.apple.SpringBoard"; then
+              echo "SpringBoard is running. Simulator is ready."
+              break
+            fi
+            if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+              echo "::warning::SpringBoard check timed out after ${MAX_WAIT}s, proceeding anyway..."
+              break
+            fi
+            sleep 3
+            WAITED=$((WAITED + 3))
+          done
+
+          # Open the Simulator.app GUI — required on macOS 15 / Xcode 16 for Maestro's XCTest
+          # driver to complete its port handshake. Without this the driver times out even though
+          # the device process is Booted and SpringBoard is running.
+          open -a Simulator
+
+          # Also wait for installd — without this, simctl install hangs indefinitely (no timeout).
+          echo "Waiting for installd..."
+          WAITED=0
+          MAX_WAIT=60
+          while true; do
+            if xcrun simctl spawn "$DEVICE_UDID" launchctl list 2>/dev/null | grep -q "com.apple.mobile.installd"; then
+              echo "installd is ready."
+              break
+            fi
+            if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+              echo "::warning::installd not visible after ${MAX_WAIT}s, proceeding anyway..."
+              break
+            fi
+            sleep 3
+            WAITED=$((WAITED + 3))
+          done
 
       - name: Install Maestro CLI
         run: |
@@ -250,7 +321,49 @@ jobs:
 
       - name: Install app on Simulator
         run: |
-          xcrun simctl install "$DEVICE_UDID" "${{ steps.app.outputs.path }}"
+          APP_PATH="${{ steps.app.outputs.path }}"
+          echo "App size: $(du -sh "$APP_PATH" | cut -f1)"
+
+          install_with_timeout() {
+            local udid="$1" app="$2" max_secs="$3"
+            xcrun simctl install "$udid" "$app" &
+            local pid=$!
+            local waited=0
+            while kill -0 "$pid" 2>/dev/null; do
+              if [ "$waited" -ge "$max_secs" ]; then
+                echo "::warning::simctl install hung after ${max_secs}s — killing."
+                kill "$pid" 2>/dev/null || true
+                wait "$pid" 2>/dev/null || true
+                return 1
+              fi
+              sleep 3
+              waited=$((waited + 3))
+            done
+            wait "$pid"
+            return $?
+          }
+
+          # First attempt — 3 minute watchdog
+          if install_with_timeout "$DEVICE_UDID" "$APP_PATH" 180; then
+            echo "App installed successfully."
+          else
+            # installd was unresponsive; bounce the simulator and retry once
+            echo "Bouncing simulator and retrying install..."
+            xcrun simctl shutdown "$DEVICE_UDID" 2>/dev/null || true
+            sleep 5
+            xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
+            open -a Simulator
+
+            echo "Waiting for installd after bounce..."
+            for _i in $(seq 1 30); do
+              xcrun simctl spawn "$DEVICE_UDID" launchctl list 2>/dev/null | grep -q "com.apple.mobile.installd" && break
+              sleep 3
+            done
+            sleep 5
+
+            echo "Retrying install..."
+            install_with_timeout "$DEVICE_UDID" "$APP_PATH" 180
+          fi
 
       - name: Run Maestro CI flows
         run: |
@@ -287,8 +400,13 @@ jobs:
 
           if [ $FLOW_EXIT -ne 0 ] && grep -q "iOS driver not ready in time" "$LOG_FILE"; then
             echo "::warning::Driver startup timeout for suite run. Retrying once..."
-            xcrun simctl bootstatus "$DEVICE_UDID" -b || true
-            sleep 5
+            # Re-open Simulator.app (may have lost focus) and re-confirm SpringBoard is up
+            open -a Simulator
+            for _i in $(seq 1 20); do
+              xcrun simctl spawn "$DEVICE_UDID" launchctl list 2>/dev/null | grep -q "com.apple.SpringBoard" && break
+              sleep 3
+            done
+            sleep 10
             set +e
             maestro --device "$DEVICE_UDID" test "$SUITE_FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >>"$LOG_FILE" 2>&1
             FLOW_EXIT=$?
