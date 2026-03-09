@@ -123,16 +123,21 @@ jobs:
       - name: Patch Podfile for React-Core umbrella header
         run: |
           if [ -f ios/Podfile ]; then
-            # Ensure we don't duplicate the hook if it's already there (though unlikely in clean CI)
             if ! grep -q "CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES" ios/Podfile; then
-              sed -i '' '/post_install do |installer|/a \
-                installer.pods_project.targets.each do |target| \
-                  if target.name == "React-Core" \
-                    target.build_configurations.each do |config| \
-                      config.build_settings["CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES"] = "YES" \
-                    end \
-                  end \
-                end' ios/Podfile
+              ruby -e '
+                content = File.read("ios/Podfile")
+                patch = <<~RUBY
+                    installer.pods_project.targets.each do |target|
+                      if target.name == "React-Core"
+                        target.build_configurations.each do |config|
+                          config.build_settings["CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES"] = "YES"
+                        end
+                      end
+                    end
+                RUBY
+                content.sub!("post_install do |installer|", "post_install do |installer|\n#{patch}")
+                File.write("ios/Podfile", content)
+              '
             fi
           fi
 
