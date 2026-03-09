@@ -270,6 +270,12 @@ jobs:
             WAITED=$((WAITED + 3))
           done
 
+          # Open the Simulator.app GUI — required on macOS 15 / Xcode 16 for Maestro's XCTest
+          # driver to complete its port handshake. Without this the driver times out even though
+          # the device process is Booted and SpringBoard is running.
+          open -a Simulator
+          sleep 8
+
       - name: Install Maestro CLI
         run: |
           curl --proto '=https' --tlsv1.2 -fsSL "https://get.maestro.mobile.dev" | bash
@@ -316,12 +322,13 @@ jobs:
 
           if [ $FLOW_EXIT -ne 0 ] && grep -q "iOS driver not ready in time" "$LOG_FILE"; then
             echo "::warning::Driver startup timeout for suite run. Retrying once..."
-            # Wait for SpringBoard instead of the broken simctl bootstatus on Xcode 16
+            # Re-open Simulator.app (may have lost focus) and re-confirm SpringBoard is up
+            open -a Simulator
             for _i in $(seq 1 20); do
               xcrun simctl spawn "$DEVICE_UDID" launchctl list 2>/dev/null | grep -q "com.apple.SpringBoard" && break
               sleep 3
             done
-            sleep 5
+            sleep 10
             set +e
             maestro --device "$DEVICE_UDID" test "$SUITE_FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >>"$LOG_FILE" 2>&1
             FLOW_EXIT=$?
