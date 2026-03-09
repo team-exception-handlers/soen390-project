@@ -274,7 +274,6 @@ jobs:
           # driver to complete its port handshake. Without this the driver times out even though
           # the device process is Booted and SpringBoard is running.
           open -a Simulator
-          sleep 8
 
       - name: Install Maestro CLI
         run: |
@@ -285,7 +284,9 @@ jobs:
 
       - name: Install app on Simulator
         run: |
-          xcrun simctl install "$DEVICE_UDID" "${{ steps.app.outputs.path }}"
+          APP_PATH="${{ steps.app.outputs.path }}"
+          echo "App size: $(du -sh "$APP_PATH" | cut -f1)"
+          xcrun simctl install "$DEVICE_UDID" "$APP_PATH"
 
       - name: Run Maestro CI flows
         run: |
