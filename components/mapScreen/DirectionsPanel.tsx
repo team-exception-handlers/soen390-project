@@ -1,5 +1,5 @@
 import { Map } from "lucide-react-native";
-import React, {
+import {
   type Dispatch,
   type MutableRefObject,
   type RefObject,
@@ -8,7 +8,7 @@ import React, {
 import { Pressable, Text, TextInput, View } from "react-native";
 import type { MapScreenStyles } from "../../app/(tabs)/mapScreen.styles";
 import type { BuildingRecord } from "../../constants/buildings";
-import type { RoomRecord } from "../../constants/rooms";
+import { RoomRecord } from "../../types/rooms";
 import type { RouteProfile } from "../../utils/osrmDirections";
 
 type RouteMode = RouteProfile | "transit" | "shuttle";
@@ -21,7 +21,10 @@ type RoomInputGroupProps = Readonly<{
   room: string;
   setRoom: Dispatch<SetStateAction<string>>;
   styles: MapScreenStyles;
-  getRoomDetails: (buildingCode: string, roomNumber: string) => RoomRecord | undefined;
+  getRoomDetails: (
+    buildingCode: string,
+    roomNumber: string,
+  ) => RoomRecord | undefined;
   getFloorPlanAsset: GetFloorPlanAsset;
   setActiveFloorPlan: (asset: FloorPlanAsset) => void;
   setFloorPlanModalVisible: (visible: boolean) => void;
@@ -265,7 +268,10 @@ type DirectionsPanelProps = Readonly<{
   setDestinationRoom: Dispatch<SetStateAction<string>>;
   setActiveFloorPlan: (asset: FloorPlanAsset) => void;
   setFloorPlanModalVisible: (visible: boolean) => void;
-  getRoomDetails: (buildingCode: string, roomNumber: string) => RoomRecord | undefined;
+  getRoomDetails: (
+    buildingCode: string,
+    roomNumber: string,
+  ) => RoomRecord | undefined;
   getFloorPlanAsset: GetFloorPlanAsset;
 }>;
 
