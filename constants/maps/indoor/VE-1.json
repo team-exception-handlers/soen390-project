@@ -1,0 +1,118 @@
+{
+  "nodes": [
+    {
+      "id": "VE_F1_room_1",
+      "type": "room",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 1614,
+      "y": 286,
+      "label": "101",
+      "accessible": true
+    },
+    {
+      "id": "VE_F1_room_2",
+      "type": "stair_landing",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 1443,
+      "y": 370,
+      "label": "102",
+      "accessible": true
+    },
+    {
+      "id": "VE_F1_room_3",
+      "type": "room",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 1400,
+      "y": 357,
+      "label": "103",
+      "accessible": true
+    },
+    {
+      "id": "VE_F1_doorway_1",
+      "type": "doorway",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 1581,
+      "y": 300,
+      "label": "",
+      "accessible": true
+    },
+    {
+      "id": "VE_F1_doorway_2",
+      "type": "doorway",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 1448,
+      "y": 335,
+      "label": "",
+      "accessible": true
+    },
+    {
+      "id": "VE_F1_doorway_3",
+      "type": "doorway",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 1402,
+      "y": 336,
+      "label": "",
+      "accessible": true
+    },
+    {
+      "id": "VE_F1_hallway_waypoint_1",
+      "type": "hallway_waypoint",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 1457,
+      "y": 298,
+      "label": "",
+      "accessible": true
+    }
+  ],
+  "edges": [
+    {
+      "source": "VE_F1_doorway_3",
+      "target": "VE_F1_hallway_waypoint_1",
+      "type": "door_to_hallway",
+      "weight": 67,
+      "accessible": true
+    },
+    {
+      "source": "VE_F1_doorway_2",
+      "target": "VE_F1_hallway_waypoint_1",
+      "type": "door_to_hallway",
+      "weight": 38,
+      "accessible": true
+    },
+    {
+      "source": "VE_F1_doorway_1",
+      "target": "VE_F1_hallway_waypoint_1",
+      "type": "door_to_hallway",
+      "weight": 124,
+      "accessible": true
+    },
+    {
+      "source": "VE_F1_doorway_3",
+      "target": "VE_F1_room_3",
+      "type": "room_to_door",
+      "weight": 21,
+      "accessible": true
+    },
+    {
+      "source": "VE_F1_doorway_2",
+      "target": "VE_F1_room_2",
+      "type": "door_to_hallway",
+      "weight": 35,
+      "accessible": true
+    },
+    {
+      "source": "VE_F1_doorway_1",
+      "target": "VE_F1_room_1",
+      "type": "room_to_door",
+      "weight": 36,
+      "accessible": true
+    }
+  ]
+}
