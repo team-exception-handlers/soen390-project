@@ -216,7 +216,13 @@ function getNearestRoomLabel(
 ): string | null {
   let best: { label: string; dist: number } | null = null;
   for (const n of pathNodes) {
-    if (n.type !== "room" || n.id === curr.id || !n.label) continue;
+    if (
+      n.type !== "room" ||
+      n.id === curr.id ||
+      !n.label ||
+      n.floor !== curr.floor
+    )
+      continue;
     const dx = n.x - curr.x;
     const dy = n.y - curr.y;
     const dist = Math.hypot(dx, dy);
