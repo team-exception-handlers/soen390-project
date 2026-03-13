@@ -48,6 +48,12 @@ import {
   type RouteProfile,
 } from "../../utils/osrmDirections";
 import { getRoomDetails } from "../../utils/roomUtils";
+import {
+  findIndoorRoute,
+  getFloorBounds,
+  type IndoorRoute,
+} from "../../utils/indoorDirections";
+import IndoorDirectionsModal from "../../components/IndoorDirectionsModal";
 import { calculateArrivalTime, getShuttleInfo } from "../../utils/shuttleLogic";
 import {
   decodePolyline,
@@ -55,7 +61,7 @@ import {
   formatTime,
   type TransitItinerary,
 } from "../../utils/transitousDirections";
-import { createMapScreenStyles } from "./mapScreen.styles";
+import { createMapScreenStyles } from "../../styles/mapScreen.styles";
 
 let WebView: React.ComponentType<any> | null = null;
 if (Platform.OS !== "web") {
@@ -185,6 +191,11 @@ export default function MapScreen() {
   const [originRoom, setOriginRoom] = useState<string>("");
   const [destinationRoom, setDestinationRoom] = useState<string>("");
   const [isDirectionsMode, setIsDirectionsMode] = useState(false);
+  const [indoorRoute, setIndoorRoute] = useState<IndoorRoute | null | undefined>(
+    undefined,
+  );
+  const [indoorDirectionsModalVisible, setIndoorDirectionsModalVisible] =
+    useState(false);
 
   const [routeMode, setRouteMode] = useState<
     RouteProfile | "transit" | "shuttle"
@@ -556,6 +567,26 @@ export default function MapScreen() {
   useEffect(() => {
     if (isSameCampus) setRouteMode("walking");
   }, [isSameCampus]);
+
+  // Compute indoor route whenever same building + both rooms are filled
+  useEffect(() => {
+    const isSameBuilding =
+      originBuilding &&
+      destinationBuilding &&
+      originBuilding.code === destinationBuilding.code;
+
+    if (!isSameBuilding || !originRoom.trim() || !destinationRoom.trim()) {
+      setIndoorRoute(undefined);
+      return;
+    }
+
+    const route = findIndoorRoute(
+      originBuilding!.code,
+      originRoom.trim(),
+      destinationRoom.trim(),
+    );
+    setIndoorRoute(route);
+  }, [originBuilding, destinationBuilding, originRoom, destinationRoom]);
 
   useEffect(() => {
     if (!destinationBuilding || !actualOriginPoint) {
@@ -2211,6 +2242,8 @@ export default function MapScreen() {
         setFloorPlanModalVisible={setFloorPlanModalVisible}
         getRoomDetails={getRoomDetails}
         getFloorPlanAsset={getFloorPlanAsset}
+        onShowIndoorDirections={() => setIndoorDirectionsModalVisible(true)}
+        hasIndoorRoute={indoorRoute !== undefined ? indoorRoute !== null : undefined}
       />
 
       {currentBuilding &&
@@ -2386,6 +2419,23 @@ export default function MapScreen() {
           </View>
         </View>
       </Modal>
+
+      <IndoorDirectionsModal
+        visible={indoorDirectionsModalVisible}
+        onClose={() => setIndoorDirectionsModalVisible(false)}
+        route={indoorRoute ?? null}
+        buildingCode={
+          originBuilding?.code ?? destinationBuilding?.code ?? ""
+        }
+        originRoom={originRoom}
+        destinationRoom={destinationRoom}
+        floorBounds={(floor) =>
+          getFloorBounds(
+            originBuilding?.code ?? destinationBuilding?.code ?? "",
+            floor,
+          )
+        }
+      />
     </View>
   );
 }

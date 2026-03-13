@@ -11,7 +11,7 @@ import {
   View,
   type GestureResponderHandlers,
 } from "react-native";
-import type { MapScreenStyles } from "../../app/(tabs)/mapScreen.styles";
+import type { MapScreenStyles } from "../../styles/mapScreen.styles";
 import type { BuildingRecord } from "../../constants/buildings";
 import ShuttleDirections from "../ShuttleDirections";
 import TransitLegTimeline from "../TransitLegTimeline";
