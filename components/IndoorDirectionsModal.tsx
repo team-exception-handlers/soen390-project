@@ -165,11 +165,6 @@ export default function IndoorDirectionsModal({
             <Text style={styles.routeTo} numberOfLines={1}>
               {destinationRoom ? `Room ${destinationRoom}` : "Destination"}
             </Text>
-            {route && (
-              <Text style={styles.routeDistance}>
-                {Math.round(route.totalDistance)} units
-              </Text>
-            )}
           </View>
 
           {!route ? (
