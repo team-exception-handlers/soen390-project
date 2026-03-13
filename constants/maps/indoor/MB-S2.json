@@ -301,7 +301,7 @@
       "accessible": false
     },
     {
-      "id": "MB_F-2_elevator_door_11",
+      "id": "MB_F-2_elevator_door_9",
       "type": "elevator_door",
       "buildingId": "MB",
       "floor": -2,
@@ -311,7 +311,7 @@
       "accessible": true
     },
     {
-      "id": "MB_F-2_elevator_door_12",
+      "id": "MB_F-2_elevator_door_10",
       "type": "elevator_door",
       "buildingId": "MB",
       "floor": -2,
@@ -1002,14 +1002,14 @@
     },
     {
       "source": "MB_F-2_hallway_waypoint_74",
-      "target": "MB_F-2_elevator_door_12",
+      "target": "MB_F-2_elevator_door_10",
       "type": "hallway",
       "weight": 186,
       "accessible": true
     },
     {
       "source": "MB_F-2_hallway_waypoint_74",
-      "target": "MB_F-2_elevator_door_11",
+      "target": "MB_F-2_elevator_door_9",
       "type": "hallway",
       "weight": 193,
       "accessible": true

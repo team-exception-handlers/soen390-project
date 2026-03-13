@@ -66,7 +66,8 @@ function RoomInputGroup({
         accessibilityLabel="View Floor Plan"
         onPress={() => {
           if (floorKey) {
-            setActiveFloorPlan(getFloorPlanAsset(floorKey));
+            const asset = getFloorPlanAsset(floorKey);
+            setActiveFloorPlan(asset);
             setFloorPlanModalVisible(true);
           }
         }}

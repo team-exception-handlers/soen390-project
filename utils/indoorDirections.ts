@@ -182,6 +182,13 @@ const HALLWAY_NODE_TYPES = new Set([
   "doorway",
 ]);
 
+function formatFloorLabel(node: IndoorNode): string {
+  if (node.buildingId === "MB" && node.floor === -2) {
+    return "S2";
+  }
+  return String(node.floor);
+}
+
 /** Turn direction from walking prev -> curr -> next. Uses cross product. */
 function getTurnDirection(
   prev: IndoorNode,
@@ -303,8 +310,8 @@ function buildSteps(
       pendingFloorChange = {
         instruction:
           via === "elevator"
-            ? `${distStr}take the elevator to floor ${node.floor}`
-            : `${distStr}take the stairs to floor ${node.floor}`,
+            ? `${distStr}take the elevator to floor ${formatFloorLabel(node)}`
+            : `${distStr}take the stairs to floor ${formatFloorLabel(node)}`,
         floor: node.floor,
         pathIndex: i,
       };

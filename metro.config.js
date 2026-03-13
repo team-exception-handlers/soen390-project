@@ -3,9 +3,9 @@ const { getDefaultConfig } = require("expo/metro-config");
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
-// Enable SVGs to be imported as React components
+// Enable SVGs to be imported as React components in Expo
 config.transformer.babelTransformerPath = require.resolve(
-  "react-native-svg-transformer",
+  "react-native-svg-transformer/expo",
 );
 
 const { assetExts, sourceExts } = config.resolver;

@@ -1,21 +1,22 @@
-import React, { useState, useCallback } from "react";
+import { ChevronDown, ChevronUp, Navigation, X } from "lucide-react-native";
+import React, { useCallback, useState } from "react";
 import {
-  Modal,
-  View,
-  Text,
-  Pressable,
   Image,
+  LayoutChangeEvent,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
-  LayoutChangeEvent,
+  Text,
+  View,
 } from "react-native";
-import Svg, { Polyline, Circle, type SvgProps } from "react-native-svg";
-import { X, Navigation, ChevronDown, ChevronUp } from "lucide-react-native";
+import Svg, { Circle, Polyline, type SvgProps } from "react-native-svg";
 import type { IndoorRoute } from "../utils/indoorDirections";
 
 import Hall8Plan from "../assets/floor_plans/Hall-8.svg";
 import Hall9Plan from "../assets/floor_plans/Hall-9.svg";
 import Mb1Plan from "../assets/floor_plans/MB-1.svg";
+import MbS2Plan from "../assets/floor_plans/MB-S2.svg";
 import Ve1Plan from "../assets/floor_plans/VE-1.svg";
 import Ve2Plan from "../assets/floor_plans/VE-2.svg";
 import Vl1Plan from "../assets/floor_plans/VL-1.svg";
@@ -31,10 +32,7 @@ const FLOOR_PLAN_ASSETS: Record<string, FloorPlanAsset> = {
   "H-8": { kind: "svg", component: Hall8Plan },
   "H-9": { kind: "svg", component: Hall9Plan },
   "MB-1": { kind: "svg", component: Mb1Plan },
-  "MB--2": {
-    kind: "image",
-    source: require("../assets/floor_plans/MB-S2.svg"),
-  },
+  "MB--2": { kind: "svg", component: MbS2Plan },
   "VE-1": { kind: "svg", component: Ve1Plan },
   "VE-2": { kind: "svg", component: Ve2Plan },
   "VL-1": { kind: "svg", component: Vl1Plan },
@@ -73,15 +71,21 @@ export default function IndoorDirectionsModal({
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [stepsExpanded, setStepsExpanded] = useState(true);
 
-  const effectiveFloor =
-    activeFloor ??
-    (route ? route.startFloor : null);
+  const formatFloorLabel = (floor: number | null): string => {
+    if (floor === null) return "";
+    if (buildingCode === "MB" && floor === -2) return "S2";
+    return String(floor);
+  };
+
+  const effectiveFloor = activeFloor ?? (route ? route.startFloor : null);
 
   const uniqueFloors = route
     ? [...new Set(route.steps.map((s) => s.floor))].sort((a, b) => a - b)
     : [];
 
-  const currentSegment = route?.segments.find((s) => s.floor === effectiveFloor);
+  const currentSegment = route?.segments.find(
+    (s) => s.floor === effectiveFloor,
+  );
 
   const floorAsset =
     effectiveFloor !== null
@@ -89,7 +93,9 @@ export default function IndoorDirectionsModal({
       : null;
 
   const bounds =
-    effectiveFloor !== null ? floorBounds(effectiveFloor) : { width: 2000, height: 1500 };
+    effectiveFloor !== null
+      ? floorBounds(effectiveFloor)
+      : { width: 2000, height: 1500 };
 
   const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -171,10 +177,7 @@ export default function IndoorDirectionsModal({
               <Text style={styles.noPathTitle}>No Indoor Path Available</Text>
               <Text style={styles.noPathBody}>
                 There is no navigable indoor route between{" "}
-                <Text style={{ fontWeight: "700" }}>
-                  room {originRoom}
-                </Text>{" "}
-                and{" "}
+                <Text style={{ fontWeight: "700" }}>room {originRoom}</Text> and{" "}
                 <Text style={{ fontWeight: "700" }}>
                   room {destinationRoom}
                 </Text>{" "}
@@ -207,7 +210,7 @@ export default function IndoorDirectionsModal({
                           effectiveFloor === floor && styles.floorTabTextActive,
                         ]}
                       >
-                        Floor {floor}
+                      Floor {formatFloorLabel(floor)}
                       </Text>
                     </Pressable>
                   ))}
@@ -236,7 +239,8 @@ export default function IndoorDirectionsModal({
                 ) : (
                   <View style={styles.noMapPlaceholder}>
                     <Text style={styles.noMapText}>
-                      Floor plan not available for floor {effectiveFloor}
+                      Floor plan not available for floor{" "}
+                      {formatFloorLabel(effectiveFloor)}
                     </Text>
                   </View>
                 )}
@@ -288,7 +292,9 @@ export default function IndoorDirectionsModal({
                 style={styles.stepsHeader}
                 onPress={() => setStepsExpanded((v) => !v)}
               >
-                <Text style={styles.stepsHeaderText}>Step-by-step directions</Text>
+                <Text style={styles.stepsHeaderText}>
+                  Step-by-step directions
+                </Text>
                 {stepsExpanded ? (
                   <ChevronDown size={18} color="#1F1F24" />
                 ) : (
