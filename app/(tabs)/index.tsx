@@ -2410,11 +2410,24 @@ export default function MapScreen() {
             </Pressable>
 
             {activeFloorPlan && (
-              <Image
-                source={activeFloorPlan}
-                style={styles.floorPlanImage}
-                resizeMode="contain"
-              />
+              typeof activeFloorPlan === "number" ? (
+                <Image
+                  source={activeFloorPlan}
+                  style={styles.floorPlanImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                (() => {
+                  const FloorPlanComponent =
+                    activeFloorPlan as React.ComponentType<{
+                      width?: string | number;
+                      height?: string | number;
+                    }>;
+                  return (
+                    <FloorPlanComponent width="100%" height="100%" />
+                  );
+                })()
+              )
             )}
           </View>
         </View>

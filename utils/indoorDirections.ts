@@ -66,6 +66,9 @@ const ALL_FLOOR_DATA: FloorData[] = [
 const VERTICAL_NODE_TYPES = new Set(["stair_landing", "elevator_door"]);
 const INTER_FLOOR_WEIGHT = 500;
 
+/** Graph edge weights are in same scale as floor plan units; convert to meters for display. */
+const UNITS_PER_METER = 100;
+
 function getBuildingFloors(buildingCode: string): FloorData[] {
   return ALL_FLOOR_DATA.filter((f) => {
     const firstNode = f.nodes[0] as IndoorNode | undefined;
@@ -172,39 +175,184 @@ function dijkstra(
   return { path, distance: dist.get(endId) ?? 0 };
 }
 
-function buildSteps(pathNodes: IndoorNode[]): IndoorRouteStep[] {
+const HALLWAY_NODE_TYPES = new Set([
+  "hallway",
+  "hallway_waypoint",
+  "door_to_hallway",
+  "doorway",
+]);
+
+/** Turn direction from walking prev -> curr -> next. Uses cross product. */
+function getTurnDirection(
+  prev: IndoorNode,
+  curr: IndoorNode,
+  next: IndoorNode,
+): "left" | "right" | "straight" {
+  const ax = curr.x - prev.x;
+  const ay = curr.y - prev.y;
+  const bx = next.x - curr.x;
+  const by = next.y - curr.y;
+  const cross = ax * by - ay * bx;
+  const lenA = Math.hypot(ax, ay) || 1;
+  const lenB = Math.hypot(bx, by) || 1;
+  const sinAngle = cross / (lenA * lenB);
+  if (sinAngle > 0.25) return "left";
+  if (sinAngle < -0.25) return "right";
+  return "straight";
+}
+
+/** Find the nearest room label to a node (for landmark text). */
+function getNearestRoomLabel(
+  curr: IndoorNode,
+  pathNodes: IndoorNode[],
+  maxDistance: number,
+): string | null {
+  let best: { label: string; dist: number } | null = null;
+  for (const n of pathNodes) {
+    if (n.type !== "room" || n.id === curr.id || !n.label) continue;
+    const dx = n.x - curr.x;
+    const dy = n.y - curr.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist <= maxDistance && (!best || dist < best.dist))
+      best = { label: n.label, dist };
+  }
+  return best?.label ?? null;
+}
+
+function getEdgeWeight(
+  adjacency: Map<string, { neighbor: string; weight: number }[]>,
+  fromId: string,
+  toId: string,
+): number {
+  const list = adjacency.get(fromId);
+  if (!list) return 0;
+  const edge = list.find((e) => e.neighbor === toId);
+  return edge?.weight ?? 0;
+}
+
+function formatDistanceMeters(units: number): string {
+  const m = units / UNITS_PER_METER;
+  return m % 1 === 0 ? `${Math.round(m)}` : m.toFixed(1);
+}
+
+function buildSteps(
+  pathNodes: IndoorNode[],
+  distFromStart: number[],
+  adjacency: Map<string, { neighbor: string; weight: number }[]>,
+): IndoorRouteStep[] {
   if (pathNodes.length === 0) return [];
 
   const steps: IndoorRouteStep[] = [];
   const start = pathNodes[0];
   steps.push({
-    instruction: `Start at room ${start.label ?? start.id} on floor ${start.floor}`,
+    instruction: `Start at room ${start.label ?? start.id}`,
     floor: start.floor,
   });
 
   let currentFloor = start.floor;
+  let lastStepPathIndex = 0;
+
+  // Floor-change steps are deferred so that consecutive pass-through floors
+  // (e.g. floor 1 → floor 8 → floor 2 in Hall) collapse into a single step.
+  let pendingFloorChange: {
+    instruction: string;
+    floor: number;
+    pathIndex: number;
+  } | null = null;
+
+  const flushPendingFloorChange = () => {
+    if (!pendingFloorChange) return;
+    steps.push({
+      instruction: pendingFloorChange.instruction,
+      floor: pendingFloorChange.floor,
+    });
+    lastStepPathIndex = pendingFloorChange.pathIndex;
+    pendingFloorChange = null;
+  };
+
+  // Ignore connector-only floors (for example Hall routes that briefly pass
+  // through floor 8 while going from floor 1 to floor 2). A floor is
+  // pass-through if the route leaves it again before reaching any room node.
+  const isPassThroughFloor = (startIndex: number, floor: number): boolean => {
+    for (let j = startIndex; j < pathNodes.length; j++) {
+      const lookahead = pathNodes[j];
+      if (lookahead.floor !== floor) return true;
+      if (lookahead.type === "room" && lookahead.id !== start.id) return false;
+    }
+    return false;
+  };
+
   for (let i = 1; i < pathNodes.length; i++) {
     const node = pathNodes[i];
     const prev = pathNodes[i - 1];
+    const next = pathNodes[i + 1];
 
     if (node.floor !== currentFloor) {
-      const direction = node.floor > currentFloor ? "up" : "down";
       const via =
         prev.type === "elevator_door" || node.type === "elevator_door"
           ? "elevator"
           : "stairs";
-      steps.push({
-        instruction: `Take ${via} ${direction} to floor ${node.floor}`,
+      const distFromLastStep =
+        distFromStart[i] - distFromStart[lastStepPathIndex];
+      const distStr =
+        distFromLastStep > 0
+          ? `In ${formatDistanceMeters(distFromLastStep)} m, `
+          : "";
+      // Overwrite any existing pending step — this collapses pass-through floors
+      // (e.g. the Hall building routes through floor 8 to get between floors 1 and 2).
+      pendingFloorChange = {
+        instruction:
+          via === "elevator"
+            ? `${distStr}take the elevator to floor ${node.floor}`
+            : `${distStr}take the stairs to floor ${node.floor}`,
         floor: node.floor,
-      });
+        pathIndex: i,
+      };
       currentFloor = node.floor;
     } else if (node.type === "room" && node.id !== start.id) {
+      flushPendingFloorChange();
+      const distFromLastStep =
+        distFromStart[i] - distFromStart[lastStepPathIndex];
+      const distStr =
+        distFromLastStep > 0
+          ? `In ${formatDistanceMeters(distFromLastStep)} m, `
+          : "";
+      const side = node.x < prev.x ? "left" : "right";
       steps.push({
-        instruction: `Arrive at room ${node.label ?? "destination"} on floor ${node.floor}`,
+        instruction: `${distStr}arrive at room ${node.label ?? "destination"}. It will be on your ${side}.`,
         floor: node.floor,
       });
+      lastStepPathIndex = i;
+    } else if (
+      next &&
+      currentFloor === node.floor &&
+      HALLWAY_NODE_TYPES.has(node.type)
+    ) {
+      if (pendingFloorChange && isPassThroughFloor(i, node.floor)) {
+        continue;
+      }
+      const turn = getTurnDirection(prev, node, next);
+      if (turn === "left" || turn === "right") {
+        flushPendingFloorChange();
+        const distFromLastStep =
+          distFromStart[i] - distFromStart[lastStepPathIndex];
+        const distStr =
+          distFromLastStep > 0
+            ? `In ${formatDistanceMeters(distFromLastStep)} m, `
+            : "";
+        const landmark = getNearestRoomLabel(node, pathNodes, 400);
+        const atPhrase = landmark ? ` at room ${landmark}` : "";
+        steps.push({
+          instruction: `${distStr}turn ${turn}${atPhrase}`,
+          floor: node.floor,
+        });
+        lastStepPathIndex = i;
+      }
     }
   }
+
+  // Emit any remaining floor-change step (e.g. if the route ends on a new floor).
+  flushPendingFloorChange();
 
   return steps;
 }
@@ -258,6 +406,12 @@ export function findIndoorRoute(
     .map((id) => nodes.get(id))
     .filter((n): n is IndoorNode => n !== undefined);
 
+  const distFromStart: number[] = [0];
+  for (let i = 1; i < pathNodes.length; i++) {
+    const w = getEdgeWeight(adjacency, pathNodes[i - 1].id, pathNodes[i].id);
+    distFromStart[i] = distFromStart[i - 1] + w;
+  }
+
   const segments: IndoorPathSegment[] = [];
   let currentSegment: IndoorPathSegment | null = null;
 
@@ -272,7 +426,7 @@ export function findIndoorRoute(
 
   return {
     segments,
-    steps: buildSteps(pathNodes),
+    steps: buildSteps(pathNodes, distFromStart, adjacency),
     totalDistance: result.distance,
     startFloor: startNode.floor,
     endFloor: endNode.floor,

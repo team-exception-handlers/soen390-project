@@ -9,28 +9,45 @@ import {
   StyleSheet,
   LayoutChangeEvent,
 } from "react-native";
-import Svg, { Polyline, Circle } from "react-native-svg";
+import Svg, { Polyline, Circle, type SvgProps } from "react-native-svg";
 import { X, Navigation, ChevronDown, ChevronUp } from "lucide-react-native";
 import type { IndoorRoute } from "../utils/indoorDirections";
 
-const FLOOR_PLAN_ASSETS: Record<string, () => unknown> = {
-  "H-8": () => require("../assets/floor_plans/Hall-8.svg"),
-  "H-9": () => require("../assets/floor_plans/Hall-9.svg"),
-  "H-1": () => require("../assets/floor_plans/Hall-1.png"),
-  "H-2": () => require("../assets/floor_plans/Hall-2.png"),
-  "MB-1": () => require("../assets/floor_plans/MB-1.svg"),
-  "MB--2": () => require("../assets/floor_plans/MB-S2.svg"),
-  "VE-1": () => require("../assets/floor_plans/VE-1.svg"),
-  "VE-2": () => require("../assets/floor_plans/VE-2.svg"),
-  "VL-1": () => require("../assets/floor_plans/VL-1.svg"),
-  "VL-2": () => require("../assets/floor_plans/VL-2.svg"),
-  "CC-1": () => require("../assets/floor_plans/CC1.png"),
+import Hall8Plan from "../assets/floor_plans/Hall-8.svg";
+import Hall9Plan from "../assets/floor_plans/Hall-9.svg";
+import Mb1Plan from "../assets/floor_plans/MB-1.svg";
+import Ve1Plan from "../assets/floor_plans/VE-1.svg";
+import Ve2Plan from "../assets/floor_plans/VE-2.svg";
+import Vl1Plan from "../assets/floor_plans/VL-1.svg";
+import Vl2Plan from "../assets/floor_plans/VL-2.svg";
+
+type FloorPlanAsset =
+  | { kind: "image"; source: any }
+  | { kind: "svg"; component: React.ComponentType<SvgProps> };
+
+const FLOOR_PLAN_ASSETS: Record<string, FloorPlanAsset> = {
+  "H-1": { kind: "image", source: require("../assets/floor_plans/Hall-1.png") },
+  "H-2": { kind: "image", source: require("../assets/floor_plans/Hall-2.png") },
+  "H-8": { kind: "svg", component: Hall8Plan },
+  "H-9": { kind: "svg", component: Hall9Plan },
+  "MB-1": { kind: "svg", component: Mb1Plan },
+  "MB--2": {
+    kind: "image",
+    source: require("../assets/floor_plans/MB-S2.svg"),
+  },
+  "VE-1": { kind: "svg", component: Ve1Plan },
+  "VE-2": { kind: "svg", component: Ve2Plan },
+  "VL-1": { kind: "svg", component: Vl1Plan },
+  "VL-2": { kind: "svg", component: Vl2Plan },
+  "CC-1": { kind: "image", source: require("../assets/floor_plans/CC1.png") },
 };
 
-function getFloorAsset(buildingCode: string, floor: number): unknown | null {
+function getFloorAsset(
+  buildingCode: string,
+  floor: number,
+): FloorPlanAsset | null {
   const key = `${buildingCode}-${floor}`;
-  const loader = FLOOR_PLAN_ASSETS[key];
-  return loader ? loader() : null;
+  return FLOOR_PLAN_ASSETS[key] ?? null;
 }
 
 type Props = Readonly<{
@@ -61,16 +78,15 @@ export default function IndoorDirectionsModal({
     (route ? route.startFloor : null);
 
   const uniqueFloors = route
-    ? [...new Set(route.segments.map((s) => s.floor))].sort((a, b) => a - b)
+    ? [...new Set(route.steps.map((s) => s.floor))].sort((a, b) => a - b)
     : [];
 
-  const currentSegment = route?.segments.find(
-    (s) => s.floor === effectiveFloor,
-  );
+  const currentSegment = route?.segments.find((s) => s.floor === effectiveFloor);
 
-  const floorAsset = effectiveFloor !== null
-    ? getFloorAsset(buildingCode, effectiveFloor)
-    : null;
+  const floorAsset =
+    effectiveFloor !== null
+      ? getFloorAsset(buildingCode, effectiveFloor)
+      : null;
 
   const bounds =
     effectiveFloor !== null ? floorBounds(effectiveFloor) : { width: 2000, height: 1500 };
@@ -201,11 +217,22 @@ export default function IndoorDirectionsModal({
               {/* Floor plan with route overlay */}
               <View style={styles.mapContainer} onLayout={onContainerLayout}>
                 {floorAsset ? (
-                  <Image
-                    source={floorAsset as any}
-                    style={styles.floorPlanImage}
-                    resizeMode="contain"
-                  />
+                  floorAsset.kind === "image" ? (
+                    <Image
+                      source={floorAsset.source}
+                      style={styles.floorPlanImage}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Svg
+                      width="100%"
+                      height="100%"
+                      preserveAspectRatio="xMidYMid meet"
+                      viewBox="0 0 1024 1024"
+                    >
+                      <floorAsset.component width="100%" height="100%" />
+                    </Svg>
+                  )
                 ) : (
                   <View style={styles.noMapPlaceholder}>
                     <Text style={styles.noMapText}>
@@ -450,7 +477,7 @@ const styles = StyleSheet.create({
     color: "#1F1F24",
   },
   stepsList: {
-    maxHeight: 200,
+    maxHeight: 320,
     paddingHorizontal: 20,
   },
   stepRow: {
