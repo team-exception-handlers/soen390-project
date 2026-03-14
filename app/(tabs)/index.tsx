@@ -127,14 +127,14 @@ const detectBuildingFromLocation = (
 };
 const getFloorPlanAsset = (key: string): any | null => {
   const assets: Record<string, () => any> = {
-    "H-8": () => require("../../assets/floor_plans/Hall-8.svg"),
-    "H-9": () => require("../../assets/floor_plans/Hall-9.svg"),
-    "MB-1": () => require("../../assets/floor_plans/MB-1.svg"),
-    "MB--2": () => require("../../assets/floor_plans/MB-S2.svg"),
-    "VE-1": () => require("../../assets/floor_plans/VE-1.svg"),
-    "VE-2": () => require("../../assets/floor_plans/VE-2.svg"),
-    "VL-1": () => require("../../assets/floor_plans/VL-1.svg"),
-    "VL-2": () => require("../../assets/floor_plans/VL-2.svg"),
+    "H-8": () => require("../../assets/floor_plans/hall8.svg"),
+    "H-9": () => require("../../assets/floor_plans/hall9.svg"),
+    "MB-1": () => require("../../assets/floor_plans/mb_1.png"),
+    "MB--2": () => require("../../assets/floor_plans/mb_s2.png"),
+    "VE-1": () => require("../../assets/floor_plans/ve1.svg"),
+    "VE-2": () => require("../../assets/floor_plans/ve2.svg"),
+    "VL-1": () => require("../../assets/floor_plans/vl_1.png"),
+    "VL-2": () => require("../../assets/floor_plans/vl_2.png"),
   };
   return assets[key] ? assets[key]() : null;
 };

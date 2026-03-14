@@ -1,14 +1,8 @@
-import CC1 from "../constants/maps/indoor/CC1.json";
-import HALL1 from "../constants/maps/indoor/HALL-1.json";
-import HALL2 from "../constants/maps/indoor/HALL-2.json";
-import HALL8 from "../constants/maps/indoor/HALL-8.json";
-import HALL9 from "../constants/maps/indoor/HALL-9.json";
-import MB1 from "../constants/maps/indoor/MB-1.json";
-import MBS2 from "../constants/maps/indoor/MB-S2.json";
-import VE1 from "../constants/maps/indoor/VE-1.json";
-import VE2 from "../constants/maps/indoor/VE-2.json";
-import VL1 from "../constants/maps/indoor/VL-1.json";
-import VL2 from "../constants/maps/indoor/VL-2.json";
+import cc1 from "../constants/maps/indoor/cc1.json";
+import hall from "../constants/maps/indoor/hall.json";
+import mbFloorsCombined from "../constants/maps/indoor/mb_floors_combined.json";
+import ve from "../constants/maps/indoor/ve.json";
+import vlFloorsCombined from "../constants/maps/indoor/vl_floors_combined.json";
 
 export interface IndoorNode {
   id: string;
@@ -86,18 +80,33 @@ export interface IndoorRoute {
 type FloorData = { nodes: unknown[]; edges: unknown[] };
 
 const ALL_FLOOR_DATA: FloorData[] = [
-  CC1 as FloorData,
-  HALL1 as FloorData,
-  HALL2 as FloorData,
-  HALL8 as FloorData,
-  HALL9 as FloorData,
-  MB1 as FloorData,
-  MBS2 as FloorData,
-  VE1 as FloorData,
-  VE2 as FloorData,
-  VL1 as FloorData,
-  VL2 as FloorData,
+  cc1 as FloorData,
+  hall as FloorData,
+  mbFloorsCombined as FloorData,
+  ve as FloorData,
+  vlFloorsCombined as FloorData,
 ];
+
+/** App building code "H" (Henry F. Hall) maps to JSON buildingId "Hall". */
+function buildingIdMatches(buildingCode: string, nodeBuildingId: string): boolean {
+  return (
+    nodeBuildingId === buildingCode ||
+    (buildingCode === "H" && nodeBuildingId === "Hall")
+  );
+}
+
+/** JSON may use prefixed labels (e.g. "H-822", "VL-202-30"); app often sends "822", "202-30". Match both. */
+function roomLabelMatches(
+  buildingCode: string,
+  nodeLabel: string | undefined,
+  userLabel: string,
+): boolean {
+  if (!nodeLabel) return false;
+  if (nodeLabel === userLabel) return true;
+  const prefix = buildingCode === "H" ? "H" : buildingCode;
+  if (nodeLabel === `${prefix}-${userLabel}`) return true;
+  return false;
+}
 
 const VERTICAL_NODE_TYPES = new Set(["stair_landing", "elevator_door"]);
 const INTER_FLOOR_WEIGHT = 500;
@@ -108,7 +117,7 @@ const UNITS_PER_METER = 100;
 function getBuildingFloors(buildingCode: string): FloorData[] {
   return ALL_FLOOR_DATA.filter((f) => {
     const firstNode = f.nodes[0] as IndoorNode | undefined;
-    return firstNode?.buildingId === buildingCode;
+    return firstNode != null && buildingIdMatches(buildingCode, firstNode.buildingId);
   });
 }
 
@@ -594,9 +603,9 @@ export function findIndoorRoute(
   let endNode: IndoorNode | undefined;
 
   nodes.forEach((node) => {
-    if (node.type === "room" && node.buildingId === buildingCode) {
-      if (node.label === startRoomLabel) startNode = node;
-      if (node.label === endRoomLabel) endNode = node;
+    if (node.type === "room" && buildingIdMatches(buildingCode, node.buildingId)) {
+      if (roomLabelMatches(buildingCode, node.label, startRoomLabel)) startNode = node;
+      if (roomLabelMatches(buildingCode, node.label, endRoomLabel)) endNode = node;
     }
   });
 
@@ -670,7 +679,7 @@ export function getFloorBounds(
 ): { width: number; height: number } {
   const floorData = ALL_FLOOR_DATA.find((f) => {
     const first = f.nodes[0] as IndoorNode | undefined;
-    return first?.buildingId === buildingCode && first?.floor === floor;
+    return first != null && buildingIdMatches(buildingCode, first.buildingId);
   });
 
   if (!floorData) return { width: 2000, height: 1500 };
@@ -678,6 +687,7 @@ export function getFloorBounds(
   let maxX = 0;
   let maxY = 0;
   for (const n of floorData.nodes as IndoorNode[]) {
+    if (!buildingIdMatches(buildingCode, n.buildingId) || n.floor !== floor) continue;
     if (n.x > maxX) maxX = n.x;
     if (n.y > maxY) maxY = n.y;
   }
