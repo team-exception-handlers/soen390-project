@@ -34,6 +34,7 @@ export interface IndoorPathSegment {
   points: { x: number; y: number }[];
 }
 
+/** Snap near-horizontal/near-vertical segments to right angles for cleaner display. */
 function orthogonalizeSegmentPoints(
   points: { x: number; y: number }[],
 ): { x: number; y: number }[] {
@@ -41,6 +42,13 @@ function orthogonalizeSegmentPoints(
   const result: { x: number; y: number }[] = [points[0]];
 
   for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i];
+    const p1 = points[i + 1];
+    const dx = p1.x - p0.x;
+    const dy = p1.y - p0.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1e-6) continue;
+
     const angleDeg = (Math.atan2(dy, dx) * (180 / Math.PI) + 360) % 360;
     const distToHorizontal = Math.min(
       angleDeg,
@@ -152,6 +160,54 @@ function buildGraph(floors: FloorData[]): {
   return { nodes, adjacency };
 }
 
+/** Binary min-heap keyed by cost — O(log n) push/pop vs O(n log n) array.sort. */
+class MinHeap {
+  private heap: { id: string; cost: number }[] = [];
+
+  get size() {
+    return this.heap.length;
+  }
+
+  push(id: string, cost: number) {
+    this.heap.push({ id, cost });
+    this.bubbleUp(this.heap.length - 1);
+  }
+
+  pop(): { id: string; cost: number } | undefined {
+    if (this.heap.length === 0) return undefined;
+    const min = this.heap[0];
+    const last = this.heap.pop()!;
+    if (this.heap.length > 0) {
+      this.heap[0] = last;
+      this.sinkDown(0);
+    }
+    return min;
+  }
+
+  private bubbleUp(i: number) {
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (this.heap[parent].cost <= this.heap[i].cost) break;
+      [this.heap[parent], this.heap[i]] = [this.heap[i], this.heap[parent]];
+      i = parent;
+    }
+  }
+
+  private sinkDown(i: number) {
+    const n = this.heap.length;
+    while (true) {
+      let smallest = i;
+      const l = 2 * i + 1;
+      const r = 2 * i + 2;
+      if (l < n && this.heap[l].cost < this.heap[smallest].cost) smallest = l;
+      if (r < n && this.heap[r].cost < this.heap[smallest].cost) smallest = r;
+      if (smallest === i) break;
+      [this.heap[smallest], this.heap[i]] = [this.heap[i], this.heap[smallest]];
+      i = smallest;
+    }
+  }
+}
+
 function dijkstra(
   nodes: Map<string, IndoorNode>,
   adjacency: Map<string, { neighbor: string; weight: number }[]>,
@@ -161,7 +217,7 @@ function dijkstra(
   const dist = new Map<string, number>();
   const prev = new Map<string, string | null>();
   const visited = new Set<string>();
-  const queue: { id: string; cost: number }[] = [];
+  const heap = new MinHeap();
 
   nodes.forEach((_, id) => {
     dist.set(id, Infinity);
@@ -169,11 +225,10 @@ function dijkstra(
   });
 
   dist.set(startId, 0);
-  queue.push({ id: startId, cost: 0 });
+  heap.push(startId, 0);
 
-  while (queue.length > 0) {
-    queue.sort((a, b) => a.cost - b.cost);
-    const { id: current } = queue.shift()!;
+  while (heap.size > 0) {
+    const { id: current } = heap.pop()!;
 
     if (visited.has(current)) continue;
     visited.add(current);
@@ -186,7 +241,7 @@ function dijkstra(
       if (newDist < (dist.get(neighbor) ?? Infinity)) {
         dist.set(neighbor, newDist);
         prev.set(neighbor, current);
-        queue.push({ id: neighbor, cost: newDist });
+        heap.push(neighbor, newDist);
       }
     }
   }
@@ -241,23 +296,16 @@ function getTurnDirection(
 /** Find the nearest room label to a node (for landmark text). */
 function getNearestRoomLabel(
   curr: IndoorNode,
-  pathNodes: IndoorNode[],
+  allFloorNodes: IndoorNode[],
+  excludeIds: Set<string>,
   maxDistance: number,
-  excludeEndpoints: boolean = false,
 ): string | null {
-  const excludeIds = new Set<string>();
-  if (excludeEndpoints && pathNodes.length > 0) {
-    excludeIds.add(pathNodes[0].id);
-    if (pathNodes.length > 1)
-      excludeIds.add(pathNodes[pathNodes.length - 1].id);
-  }
-
   let best: { label: string; dist: number } | null = null;
-  for (const n of pathNodes) {
+  for (const n of allFloorNodes) {
     if (
       n.type !== "room" ||
       n.id === curr.id ||
-      (excludeEndpoints && excludeIds.has(n.id)) ||
+      excludeIds.has(n.id) ||
       !n.label ||
       n.floor !== curr.floor
     )
@@ -282,9 +330,39 @@ function getEdgeWeight(
   return edge?.weight ?? 0;
 }
 
-function formatDistanceMeters(units: number): string {
+function roundDistanceHuman(units: number): string {
   const m = units / UNITS_PER_METER;
-  return m % 1 === 0 ? `${Math.round(m)}` : m.toFixed(1);
+  if (m < 2) return `${Math.round(m * 2) / 2}`;
+  if (m < 20) return `${Math.round(m)}`;
+  return `${Math.round(m / 5) * 5}`;
+}
+
+/**
+ * Determine which side of the corridor the destination room is on.
+ * Uses the dominant axis of the approach vector (y-down SVG coordinates).
+ */
+function getArrivalSide(prev: IndoorNode, dest: IndoorNode): "left" | "right" {
+  const dx = dest.x - prev.x;
+  const dy = dest.y - prev.y;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    // Mostly horizontal: left = toward top of screen (smaller y) when walking east
+    return dx > 0
+      ? dest.y <= prev.y
+        ? "left"
+        : "right"
+      : dest.y <= prev.y
+        ? "right"
+        : "left";
+  } else {
+    // Mostly vertical: left = larger x (east) when walking south (dy > 0 in y-down)
+    return dy > 0
+      ? dest.x >= prev.x
+        ? "left"
+        : "right"
+      : dest.x >= prev.x
+        ? "right"
+        : "left";
+  }
 }
 
 // Simplify the raw Dijkstra path into waypoints for step generation.
@@ -354,132 +432,151 @@ function simplifyPathForSteps(
   };
 }
 
+/**
+ * Convert a simplified indoor path into Google Maps-style step-by-step directions.
+ */
 function buildSteps(
   allPathNodes: IndoorNode[],
   allDistFromStart: number[],
-  adjacency: Map<string, { neighbor: string; weight: number }[]>,
+  _adjacency: Map<string, { neighbor: string; weight: number }[]>,
+  allFloorNodes: IndoorNode[],
 ): IndoorRouteStep[] {
   if (allPathNodes.length === 0) return [];
 
-  const { nodes: pathNodes, distances: distFromStart } = simplifyPathForSteps(
+  const { nodes, distances } = simplifyPathForSteps(
     allPathNodes,
     allDistFromStart,
   );
 
+  // IDs of start and destination — excluded from landmark references.
+  const endpointIds = new Set<string>();
+  if (allPathNodes.length > 0) endpointIds.add(allPathNodes[0].id);
+  if (allPathNodes.length > 1)
+    endpointIds.add(allPathNodes[allPathNodes.length - 1].id);
+
   const steps: IndoorRouteStep[] = [];
-  const start = pathNodes[0];
+  const start = nodes[0];
   steps.push({
     instruction: `Start at room ${start.label ?? start.id}.`,
     floor: start.floor,
   });
 
+  if (nodes.length === 1) return steps;
+
+  // Minimum walk (units) worth emitting as a standalone "Walk about X m." step.
+  const MIN_WALK_EMIT = 150; // ~1.5 m
+  // Minimum walk (units) worth appending as "and continue for about Y m" after a turn.
+  const MIN_CONTINUE = 150; // ~1.5 m
+
   let currentFloor = start.floor;
-  let lastStepIdx = 0;
+  let inPassThroughFloor = false;
+  let lastEmittedDistIdx = 0;
+  let lastLandmarkUsed: string | null = null;
 
-  // Minimum distance (units) before a "continue straight" reassurance step is
-  // worth emitting. Below this the user is practically at the next turn already.
-  const MIN_STRAIGHT_UNITS = 300; // ≈ 3 m
-
-  // Floor-change steps are deferred so that consecutive pass-through floors
-  // (e.g. Hall building routes briefly through floor 8 when going 1 → 2)
-  // collapse into a single "take the stairs to floor 2" step.
-  let pendingFloorChange: {
-    instruction: string;
-    floor: number;
-    idx: number;
-  } | null = null;
-
-  const flushPendingFloorChange = () => {
-    if (!pendingFloorChange) return;
-    steps.push({
-      instruction: pendingFloorChange.instruction,
-      floor: pendingFloorChange.floor,
-    });
-    lastStepIdx = pendingFloorChange.idx;
-    pendingFloorChange = null;
-  };
-
-  // A floor is "pass-through" if the route leaves it again before reaching any room.
-  const isPassThroughFloor = (startIdx: number, floor: number): boolean => {
-    for (let j = startIdx; j < pathNodes.length; j++) {
-      if (pathNodes[j].floor !== floor) return true;
-      if (pathNodes[j].type === "room" && pathNodes[j].id !== start.id)
-        return false;
+  // A floor is pass-through if the route exits it before reaching any room.
+  const isPassThroughFloor = (fromIdx: number, floor: number): boolean => {
+    for (let j = fromIdx; j < nodes.length; j++) {
+      if (nodes[j].floor !== floor) return true;
+      if (nodes[j].type === "room" && nodes[j].id !== start.id) return false;
     }
     return false;
   };
 
-  for (let i = 1; i < pathNodes.length; i++) {
-    const node = pathNodes[i];
-    const prev = pathNodes[i - 1];
-    const next = pathNodes[i + 1];
-    const dist = distFromStart[i] - distFromStart[lastStepIdx];
-    const walkStr =
-      dist > 0 ? `Walk ${formatDistanceMeters(dist)} m, then ` : "";
+  for (let i = 1; i < nodes.length; i++) {
+    const node = nodes[i];
+    const prev = nodes[i - 1];
+    const next = nodes[i + 1];
+    // Distance from where we last accounted for distance to this node.
+    const segDist = distances[i] - distances[lastEmittedDistIdx];
 
     // Floor change
     if (node.floor !== currentFloor) {
+      if (isPassThroughFloor(i, node.floor)) {
+        currentFloor = node.floor;
+        inPassThroughFloor = true;
+        continue;
+      }
+      inPassThroughFloor = false;
       const via =
         prev.type === "elevator_door" || node.type === "elevator_door"
           ? "elevator"
           : "stairs";
-      pendingFloorChange = {
-        instruction:
-          via === "elevator"
-            ? `${walkStr}take the elevator to floor ${formatFloorLabel(node)}.`
-            : `${walkStr}take the stairs to floor ${formatFloorLabel(node)}.`,
-        floor: node.floor,
-        idx: i,
-      };
-      currentFloor = node.floor;
-
-      // Destination room
-    } else if (node.type === "room" && node.id !== start.id) {
-      flushPendingFloorChange();
-      const side = node.x < prev.x ? "left" : "right";
+      const walkPart =
+        segDist >= MIN_WALK_EMIT
+          ? `Walk about ${roundDistanceHuman(segDist)} m, then `
+          : "";
       steps.push({
-        instruction:
-          dist > 0
-            ? `Walk ${formatDistanceMeters(dist)} m and arrive at room ${node.label ?? "destination"}. It will be on your ${side}.`
-            : `Arrive at room ${node.label ?? "destination"}. It will be on your ${side}.`,
+        instruction: `${walkPart}take the ${via} to floor ${formatFloorLabel(node)}.`,
         floor: node.floor,
       });
-      lastStepIdx = i;
-
-      // Hallway waypoint
-    } else if (
-      next &&
-      currentFloor === node.floor &&
-      HALLWAY_NODE_TYPES.has(node.type)
-    ) {
-      if (pendingFloorChange && isPassThroughFloor(i, node.floor)) continue;
-
-      const turn = getTurnDirection(prev, node, next);
-      const landmark = getNearestRoomLabel(node, allPathNodes, 400, true);
-      const atPhrase = landmark ? ` at room ${landmark}` : "";
-
-      if (turn === "left" || turn === "right") {
-        // Real turn — emit "Walk X m, then turn left/right."
-        flushPendingFloorChange();
-        steps.push({
-          instruction: `${walkStr}turn ${turn}${atPhrase}.`,
-          floor: node.floor,
-        });
-        lastStepIdx = i;
-      } else if (dist >= MIN_STRAIGHT_UNITS) {
-        // Long straight segment — emit "Walk X m, then continue straight."
-        // This reassures the user they are on the right track without implying a turn.
-        flushPendingFloorChange();
-        steps.push({
-          instruction: `${walkStr}continue straight${atPhrase}.`,
-          floor: node.floor,
-        });
-        lastStepIdx = i;
-      }
+      currentFloor = node.floor;
+      lastEmittedDistIdx = i;
+      continue;
     }
+
+    if (inPassThroughFloor) continue;
+
+    // Destination room
+    if (node.type === "room" && node.id !== start.id) {
+      if (segDist >= MIN_WALK_EMIT) {
+        steps.push({
+          instruction: `Walk about ${roundDistanceHuman(segDist)} m.`,
+          floor: node.floor,
+        });
+      }
+      const side = getArrivalSide(prev, node);
+      steps.push({
+        instruction: `Room ${node.label ?? "destination"} will be on your ${side}.`,
+        floor: node.floor,
+      });
+      lastEmittedDistIdx = i;
+      continue;
+    }
+
+    // Hallway waypoint (turn)
+    if (!next || !HALLWAY_NODE_TYPES.has(node.type)) continue;
+
+    const turn = getTurnDirection(prev, node, next);
+    if (turn === "straight") continue; // merged into the next segment's distance
+
+    // Emit the walk leading up to this turn.
+    if (segDist >= MIN_WALK_EMIT) {
+      steps.push({
+        instruction: `Walk about ${roundDistanceHuman(segDist)} m.`,
+        floor: node.floor,
+      });
+    }
+    lastEmittedDistIdx = i;
+
+    // "and continue for about Y m" — distance from this turn to the next waypoint,
+    // only when both nodes are on the same floor (stairs/elevator handled separately).
+    const nextSegDist =
+      distances[Math.min(i + 1, nodes.length - 1)] - distances[i];
+    const sameFloorNext = nodes[i + 1]?.floor === node.floor;
+    const continueStr =
+      nextSegDist >= MIN_CONTINUE && sameFloorNext
+        ? ` and continue for about ${roundDistanceHuman(nextSegDist)} m`
+        : "";
+    // Advance so node i+1 does not re-emit the distance just mentioned.
+    if (continueStr) lastEmittedDistIdx = i + 1;
+
+    // Landmark - suppress if same as the previous step's landmark.
+    const rawLandmark = getNearestRoomLabel(
+      node,
+      allFloorNodes,
+      endpointIds,
+      400,
+    );
+    const landmark = rawLandmark !== lastLandmarkUsed ? rawLandmark : null;
+    const atPhrase = landmark ? ` at room ${landmark}` : "";
+    lastLandmarkUsed = rawLandmark;
+
+    steps.push({
+      instruction: `Turn ${turn}${atPhrase}${continueStr}.`,
+      floor: node.floor,
+    });
   }
 
-  flushPendingFloorChange();
   return steps;
 }
 
@@ -555,9 +652,12 @@ export function findIndoorRoute(
     points: orthogonalizeSegmentPoints(seg.points),
   }));
 
+  // Collect every node on the building's floors for landmark lookup.
+  const allFloorNodes = Array.from(nodes.values());
+
   return {
     segments: orthogonalSegments,
-    steps: buildSteps(pathNodes, distFromStart, adjacency),
+    steps: buildSteps(pathNodes, distFromStart, adjacency, allFloorNodes), // adjacency kept for API compat
     totalDistance: result.distance,
     startFloor: startNode.floor,
     endFloor: endNode.floor,
