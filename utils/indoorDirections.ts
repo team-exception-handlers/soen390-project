@@ -217,11 +217,20 @@ class MinHeap {
   }
 }
 
+/**
+ * When set, pathfinding only follows edges that stay on this floor (no stairs/elevators
+ * to other floors). Use when start and end are on the same floor.
+ * When excludeVerticalTransit is true (same-floor), avoids elevator/stair nodes; if
+ * no path exists without them, call again with false to allow a path through them.
+ */
 function dijkstra(
   nodes: Map<string, IndoorNode>,
   adjacency: Map<string, { neighbor: string; weight: number }[]>,
   startId: string,
   endId: string,
+  restrictToFloor: number | null = null,
+  restrictToBuildingId: string | null = null,
+  excludeVerticalTransit: boolean = false,
 ): { path: string[]; distance: number } | null {
   const dist = new Map<string, number>();
   const prev = new Map<string, string | null>();
@@ -246,6 +255,25 @@ function dijkstra(
 
     for (const { neighbor, weight } of adjacency.get(current) ?? []) {
       if (visited.has(neighbor)) continue;
+      if (restrictToFloor != null || restrictToBuildingId != null) {
+        const neighborNode = nodes.get(neighbor);
+        if (neighborNode == null) continue;
+        if (
+          restrictToFloor != null &&
+          neighborNode.floor !== restrictToFloor
+        )
+          continue;
+        if (
+          excludeVerticalTransit &&
+          VERTICAL_NODE_TYPES.has(neighborNode.type)
+        )
+          continue;
+        if (
+          restrictToBuildingId != null &&
+          neighborNode.buildingId !== restrictToBuildingId
+        )
+          continue;
+      }
       const newDist = (dist.get(current) ?? 0) + weight;
       if (newDist < (dist.get(neighbor) ?? Infinity)) {
         dist.set(neighbor, newDist);
@@ -319,6 +347,8 @@ function getNearestRoomLabel(
       n.floor !== curr.floor
     )
       continue;
+    // Same-floor routes on MB should only reference MB rooms, not MB-S2 (sub-level).
+    if (curr.buildingId === "MB" && n.buildingId === "MB-S2") continue;
     const dx = n.x - curr.x;
     const dy = n.y - curr.y;
     const dist = Math.hypot(dx, dy);
@@ -598,7 +628,6 @@ export function findIndoorRoute(
   if (floors.length === 0) return null;
 
   const { nodes, adjacency } = buildGraph(floors);
-
   let startNode: IndoorNode | undefined;
   let endNode: IndoorNode | undefined;
 
@@ -631,16 +660,40 @@ export function findIndoorRoute(
     };
   }
 
-  const result = dijkstra(nodes, adjacency, startNode.id, endNode.id);
+  const sameFloor = startNode.floor === endNode.floor;
+  // When same floor, restrict to that floor only (no stairs/elevators). Do not restrict
+  // by buildingId so we can traverse shared connectors (e.g. doorways to MB room 1.210).
+  let result = dijkstra(
+    nodes,
+    adjacency,
+    startNode.id,
+    endNode.id,
+    sameFloor ? startNode.floor : null,
+    null,
+    true, // prefer route that avoids elevator/stairs
+  );
+  if (sameFloor && !result) {
+    result = dijkstra(
+      nodes,
+      adjacency,
+      startNode.id,
+      endNode.id,
+      startNode.floor,
+      null,
+      false, // fallback: allow path through elevator/stair if no alternative
+    );
+  }
+  const graphNodes = nodes;
+  const graphAdjacency = adjacency;
   if (!result) return null;
 
   const pathNodes = result.path
-    .map((id) => nodes.get(id))
+    .map((id) => graphNodes.get(id))
     .filter((n): n is IndoorNode => n !== undefined);
 
   const distFromStart: number[] = [0];
   for (let i = 1; i < pathNodes.length; i++) {
-    const w = getEdgeWeight(adjacency, pathNodes[i - 1].id, pathNodes[i].id);
+    const w = getEdgeWeight(graphAdjacency, pathNodes[i - 1].id, pathNodes[i].id);
     distFromStart[i] = distFromStart[i - 1] + w;
   }
 
@@ -661,22 +714,39 @@ export function findIndoorRoute(
     points: orthogonalizeSegmentPoints(seg.points),
   }));
 
-  // Collect every node on the building's floors for landmark lookup.
-  const allFloorNodes = Array.from(nodes.values());
+  const allFloorNodes = Array.from(graphNodes.values());
 
   return {
     segments: orthogonalSegments,
-    steps: buildSteps(pathNodes, distFromStart, adjacency, allFloorNodes), // adjacency kept for API compat
+    steps: buildSteps(pathNodes, distFromStart, graphAdjacency, allFloorNodes),
     totalDistance: result.distance,
     startFloor: startNode.floor,
     endFloor: endNode.floor,
   };
 }
 
+/**
+ * Bounds (width, height) of floor plan images. When you map JSON coordinates to a PNG,
+ * use that PNG's pixel dimensions here so the overlay aligns with the image.
+ * Key: `${buildingCode}-${floor}` (e.g. "MB-1", "MB--2" for S2).
+ */
+const FLOOR_PLAN_IMAGE_BOUNDS: Record<string, { width: number; height: number }> = {
+  "MB-1": { width: 1024, height: 1024 },
+  "MB--2": { width: 1024, height: 1024 },
+  "VL-1": { width: 1024, height: 1024 },
+  "VL-2": { width: 1024, height: 1024 },
+};
+
 export function getFloorBounds(
   buildingCode: string,
   floor: number,
 ): { width: number; height: number } {
+  const imageKey = `${buildingCode}-${floor}`;
+  const imageBounds = FLOOR_PLAN_IMAGE_BOUNDS[imageKey];
+  if (imageBounds) {
+    return imageBounds;
+  }
+
   const floorData = ALL_FLOOR_DATA.find((f) => {
     const first = f.nodes[0] as IndoorNode | undefined;
     return first != null && buildingIdMatches(buildingCode, first.buildingId);
@@ -687,7 +757,10 @@ export function getFloorBounds(
   let maxX = 0;
   let maxY = 0;
   for (const n of floorData.nodes as IndoorNode[]) {
-    if (!buildingIdMatches(buildingCode, n.buildingId) || n.floor !== floor) continue;
+    const buildingMatches =
+      buildingIdMatches(buildingCode, n.buildingId) ||
+      (buildingCode === "MB" && floor === -2 && n.buildingId === "MB-S2");
+    if (!buildingMatches || n.floor !== floor) continue;
     if (n.x > maxX) maxX = n.x;
     if (n.y > maxY) maxY = n.y;
   }

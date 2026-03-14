@@ -82,9 +82,9 @@ export default function IndoorDirectionsModal({
     ? [...new Set(route.steps.map((s) => s.floor))].sort((a, b) => a - b)
     : [];
 
-  const currentSegment = route?.segments.find(
-    (s) => s.floor === effectiveFloor,
-  );
+  const segmentsOnActiveFloor =
+    route?.segments.filter((s) => s.floor === effectiveFloor) ?? [];
+  const allPointsOnFloor = segmentsOnActiveFloor.flatMap((s) => s.points);
 
   const floorAsset =
     effectiveFloor !== null
@@ -128,17 +128,33 @@ export default function IndoorDirectionsModal({
     [containerSize, bounds],
   );
 
-  const scaledPoints =
-    currentSegment?.points.map(({ x, y }) => {
-      const { sx, sy } = scalePoint(x, y);
-      return { sx, sy };
-    }) ?? [];
+  const scaledPoints = allPointsOnFloor.map(({ x, y }) => {
+    const { sx, sy } = scalePoint(x, y);
+    return { sx, sy };
+  });
 
   const polylineStr = scaledPoints.map((p) => `${p.sx},${p.sy}`).join(" ");
 
-  const startPoint = scaledPoints[0] ?? null;
+  const firstSegmentPoints =
+    segmentsOnActiveFloor[0]?.points.map(({ x, y }) => {
+      const { sx, sy } = scalePoint(x, y);
+      return { sx, sy };
+    }) ?? [];
+  const lastSegmentPoints =
+    segmentsOnActiveFloor.length > 0
+      ? segmentsOnActiveFloor[segmentsOnActiveFloor.length - 1].points.map(
+          ({ x, y }) => {
+            const { sx, sy } = scalePoint(x, y);
+            return { sx, sy };
+          },
+        )
+      : [];
+
+  const startPoint = firstSegmentPoints[0] ?? null;
   const endPoint =
-    scaledPoints.length > 1 ? scaledPoints[scaledPoints.length - 1] : null;
+    lastSegmentPoints.length > 0
+      ? lastSegmentPoints[lastSegmentPoints.length - 1]
+      : null;
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
