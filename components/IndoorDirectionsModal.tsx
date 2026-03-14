@@ -76,14 +76,32 @@ export default function IndoorDirectionsModal({
     return String(floor);
   };
 
-  const effectiveFloor = activeFloor ?? (route ? route.startFloor : null);
+  const isS2Route =
+    buildingCode === "MB" &&
+    route != null &&
+    (originRoom.includes("S2") || destinationRoom.includes("S2"));
+
+  const defaultFloor =
+    route == null
+      ? null
+      : isS2Route
+        ? -2
+        : route.startFloor;
+
+  const effectiveFloor = activeFloor ?? defaultFloor;
 
   const uniqueFloors = route
-    ? [...new Set(route.steps.map((s) => s.floor))].sort((a, b) => a - b)
+    ? isS2Route
+      ? [-2]
+      : [...new Set(route.steps.map((s) => s.floor))].sort((a, b) => a - b)
     : [];
 
   const segmentsOnActiveFloor =
-    route?.segments.filter((s) => s.floor === effectiveFloor) ?? [];
+    route?.segments == null
+      ? []
+      : isS2Route && effectiveFloor === -2
+        ? route.segments
+        : route.segments.filter((s) => s.floor === effectiveFloor);
   const allPointsOnFloor = segmentsOnActiveFloor.flatMap((s) => s.points);
 
   const floorAsset =

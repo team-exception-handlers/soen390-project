@@ -87,11 +87,15 @@ const ALL_FLOOR_DATA: FloorData[] = [
   vlFloorsCombined as FloorData,
 ];
 
-/** App building code "H" (Henry F. Hall) maps to JSON buildingId "Hall". */
-function buildingIdMatches(buildingCode: string, nodeBuildingId: string): boolean {
+/** App building code "H" (Henry F. Hall) maps to JSON buildingId "Hall". MB includes S2 (MB-S2). */
+function buildingIdMatches(
+  buildingCode: string,
+  nodeBuildingId: string,
+): boolean {
   return (
     nodeBuildingId === buildingCode ||
-    (buildingCode === "H" && nodeBuildingId === "Hall")
+    (buildingCode === "H" && nodeBuildingId === "Hall") ||
+    (buildingCode === "MB" && nodeBuildingId === "MB-S2")
   );
 }
 
@@ -112,12 +116,14 @@ const VERTICAL_NODE_TYPES = new Set(["stair_landing", "elevator_door"]);
 const INTER_FLOOR_WEIGHT = 500;
 
 /** Graph edge weights are in same scale as floor plan units; convert to meters for display. */
-const UNITS_PER_METER = 100;
+const UNITS_PER_METER = 20;
 
 function getBuildingFloors(buildingCode: string): FloorData[] {
   return ALL_FLOOR_DATA.filter((f) => {
     const firstNode = f.nodes[0] as IndoorNode | undefined;
-    return firstNode != null && buildingIdMatches(buildingCode, firstNode.buildingId);
+    return (
+      firstNode != null && buildingIdMatches(buildingCode, firstNode.buildingId)
+    );
   });
 }
 
@@ -258,11 +264,11 @@ function dijkstra(
       if (restrictToFloor != null || restrictToBuildingId != null) {
         const neighborNode = nodes.get(neighbor);
         if (neighborNode == null) continue;
-        if (
-          restrictToFloor != null &&
-          neighborNode.floor !== restrictToFloor
-        )
-          continue;
+        if (restrictToFloor != null) {
+          const allowedFloors =
+            restrictToFloor === -2 ? [1, -2] : [restrictToFloor];
+          if (!allowedFloors.includes(neighborNode.floor)) continue;
+        }
         if (
           excludeVerticalTransit &&
           VERTICAL_NODE_TYPES.has(neighborNode.type)
@@ -309,25 +315,65 @@ function formatFloorLabel(node: IndoorNode): string {
   return String(node.floor);
 }
 
-// Returns the turn direction relative to the user's walking direction (prev→curr→next).
+// Returns the turn direction from two direction vectors (in/out at a vertex).
+function turnFromVectors(
+  inDx: number,
+  inDy: number,
+  outDx: number,
+  outDy: number,
+): "left" | "right" | "straight" {
+  const cross = inDx * outDy - inDy * outDx;
+  const lenA = Math.hypot(inDx, inDy) || 1;
+  const lenB = Math.hypot(outDx, outDy) || 1;
+  const sinAngle = cross / (lenA * lenB);
+  if (sinAngle > 0.25) return "right";
+  if (sinAngle < -0.25) return "left";
+  return "straight";
+}
+
+// Returns the turn direction using the same orthogonalized geometry as the displayed route,
+// so step-by-step instructions match what the user sees on the map.
 function getTurnDirection(
   prev: IndoorNode,
   curr: IndoorNode,
   next: IndoorNode,
 ): "left" | "right" | "straight" {
-  const ax = curr.x - prev.x;
-  const ay = curr.y - prev.y;
-  const bx = next.x - curr.x;
-  const by = next.y - curr.y;
-  const cross = ax * by - ay * bx;
-  const lenA = Math.hypot(ax, ay) || 1;
-  const lenB = Math.hypot(bx, by) || 1;
-  const sinAngle = cross / (lenA * lenB);
-  // y-down: positive cross = clockwise on screen = physical right turn
-  //         negative cross = counterclockwise on screen = physical left turn
-  if (sinAngle > 0.25) return "right";
-  if (sinAngle < -0.25) return "left";
-  return "straight";
+  const triple = [
+    { x: prev.x, y: prev.y },
+    { x: curr.x, y: curr.y },
+    { x: next.x, y: next.y },
+  ];
+  const ortho = orthogonalizeSegmentPoints(triple);
+  if (ortho.length < 3) {
+    const ax = curr.x - prev.x;
+    const ay = curr.y - prev.y;
+    const bx = next.x - curr.x;
+    const by = next.y - curr.y;
+    return turnFromVectors(ax, ay, bx, by);
+  }
+  let midIdx = 0;
+  let bestDist = Infinity;
+  for (let i = 0; i < ortho.length; i++) {
+    const d =
+      (ortho[i].x - curr.x) * (ortho[i].x - curr.x) +
+      (ortho[i].y - curr.y) * (ortho[i].y - curr.y);
+    if (d < bestDist) {
+      bestDist = d;
+      midIdx = i;
+    }
+  }
+  if (midIdx <= 0 || midIdx >= ortho.length - 1) {
+    const ax = curr.x - prev.x;
+    const ay = curr.y - prev.y;
+    const bx = next.x - curr.x;
+    const by = next.y - curr.y;
+    return turnFromVectors(ax, ay, bx, by);
+  }
+  const inDx = ortho[midIdx].x - ortho[midIdx - 1].x;
+  const inDy = ortho[midIdx].y - ortho[midIdx - 1].y;
+  const outDx = ortho[midIdx + 1].x - ortho[midIdx].x;
+  const outDy = ortho[midIdx + 1].y - ortho[midIdx].y;
+  return turnFromVectors(inDx, inDy, outDx, outDy);
 }
 
 /** Find the nearest room label to a node (for landmark text). */
@@ -336,6 +382,7 @@ function getNearestRoomLabel(
   allFloorNodes: IndoorNode[],
   excludeIds: Set<string>,
   maxDistance: number,
+  restrictToBuildingId: string | null = null,
 ): string | null {
   let best: { label: string; dist: number } | null = null;
   for (const n of allFloorNodes) {
@@ -347,8 +394,22 @@ function getNearestRoomLabel(
       n.floor !== curr.floor
     )
       continue;
-    // Same-floor routes on MB should only reference MB rooms, not MB-S2 (sub-level).
-    if (curr.buildingId === "MB" && n.buildingId === "MB-S2") continue;
+    if (restrictToBuildingId != null && n.buildingId !== restrictToBuildingId)
+      continue;
+    // Same-floor routes on MB (floor 1) should only reference MB rooms, not MB-S2.
+    if (
+      restrictToBuildingId == null &&
+      curr.buildingId === "MB" &&
+      n.buildingId === "MB-S2"
+    )
+      continue;
+    // S2 routes should only reference MB-S2 rooms, not MB (1st floor).
+    if (
+      restrictToBuildingId == null &&
+      curr.buildingId === "MB-S2" &&
+      n.buildingId === "MB"
+    )
+      continue;
     const dx = n.x - curr.x;
     const dy = n.y - curr.y;
     const dist = Math.hypot(dx, dy);
@@ -416,7 +477,7 @@ function simplifyPathForSteps(
     };
   }
 
-  const TURN_THRESHOLD_RAD = 30 * (Math.PI / 180);
+  const TURN_THRESHOLD_RAD = 18 * (Math.PI / 180);
 
   const mustKeep = (n: IndoorNode) =>
     n.type === "room" || VERTICAL_NODE_TYPES.has(n.type);
@@ -479,6 +540,7 @@ function buildSteps(
   allDistFromStart: number[],
   _adjacency: Map<string, { neighbor: string; weight: number }[]>,
   allFloorNodes: IndoorNode[],
+  landmarkBuildingId: string | null = null,
 ): IndoorRouteStep[] {
   if (allPathNodes.length === 0) return [];
 
@@ -503,9 +565,11 @@ function buildSteps(
   if (nodes.length === 1) return steps;
 
   // Minimum walk (units) worth emitting as a standalone "Walk about X m." step.
-  const MIN_WALK_EMIT = 150; // ~1.5 m
+  const MIN_WALK_EMIT = 80; // ~0.8 m
+  // Minimum walk (units) worth a "Continue straight for about X m." step.
+  const MIN_STRAIGHT_EMIT = 80; // ~0.8 m
   // Minimum walk (units) worth appending as "and continue for about Y m" after a turn.
-  const MIN_CONTINUE = 150; // ~1.5 m
+  const MIN_CONTINUE = 80; // ~0.8 m
 
   let currentFloor = start.floor;
   let inPassThroughFloor = false;
@@ -572,11 +636,20 @@ function buildSteps(
       continue;
     }
 
-    // Hallway waypoint (turn)
+    // Hallway waypoint (turn or straight)
     if (!next || !HALLWAY_NODE_TYPES.has(node.type)) continue;
 
     const turn = getTurnDirection(prev, node, next);
-    if (turn === "straight") continue; // merged into the next segment's distance
+    if (turn === "straight") {
+      if (segDist >= MIN_STRAIGHT_EMIT) {
+        steps.push({
+          instruction: `Continue straight for about ${roundDistanceHuman(segDist)} m.`,
+          floor: node.floor,
+        });
+        lastEmittedDistIdx = i;
+      }
+      continue;
+    }
 
     // Emit the walk leading up to this turn.
     if (segDist >= MIN_WALK_EMIT) {
@@ -599,16 +672,21 @@ function buildSteps(
     // Advance so node i+1 does not re-emit the distance just mentioned.
     if (continueStr) lastEmittedDistIdx = i + 1;
 
-    // Landmark - suppress if same as the previous step's landmark.
-    const rawLandmark = getNearestRoomLabel(
-      node,
-      allFloorNodes,
-      endpointIds,
-      400,
-    );
+    const nextIsDestination =
+      i + 1 === nodes.length - 1 && nodes[i + 1]?.type === "room";
+    const LANDMARK_RADIUS_UNITS = 80; // ~2.5 m at 30 units/m — only mention rooms right at the turn
+    const rawLandmark = nextIsDestination
+      ? null
+      : getNearestRoomLabel(
+          node,
+          allFloorNodes,
+          endpointIds,
+          LANDMARK_RADIUS_UNITS,
+          landmarkBuildingId,
+        );
     const landmark = rawLandmark !== lastLandmarkUsed ? rawLandmark : null;
     const atPhrase = landmark ? ` at room ${landmark}` : "";
-    lastLandmarkUsed = rawLandmark;
+    lastLandmarkUsed = rawLandmark ?? lastLandmarkUsed;
 
     steps.push({
       instruction: `Turn ${turn}${atPhrase}${continueStr}.`,
@@ -632,9 +710,14 @@ export function findIndoorRoute(
   let endNode: IndoorNode | undefined;
 
   nodes.forEach((node) => {
-    if (node.type === "room" && buildingIdMatches(buildingCode, node.buildingId)) {
-      if (roomLabelMatches(buildingCode, node.label, startRoomLabel)) startNode = node;
-      if (roomLabelMatches(buildingCode, node.label, endRoomLabel)) endNode = node;
+    if (
+      node.type === "room" &&
+      buildingIdMatches(buildingCode, node.buildingId)
+    ) {
+      if (roomLabelMatches(buildingCode, node.label, startRoomLabel))
+        startNode = node;
+      if (roomLabelMatches(buildingCode, node.label, endRoomLabel))
+        endNode = node;
     }
   });
 
@@ -693,7 +776,11 @@ export function findIndoorRoute(
 
   const distFromStart: number[] = [0];
   for (let i = 1; i < pathNodes.length; i++) {
-    const w = getEdgeWeight(graphAdjacency, pathNodes[i - 1].id, pathNodes[i].id);
+    const w = getEdgeWeight(
+      graphAdjacency,
+      pathNodes[i - 1].id,
+      pathNodes[i].id,
+    );
     distFromStart[i] = distFromStart[i - 1] + w;
   }
 
@@ -716,9 +803,20 @@ export function findIndoorRoute(
 
   const allFloorNodes = Array.from(graphNodes.values());
 
+  const landmarkBuildingId =
+    startNode.buildingId === "MB-S2" && endNode.buildingId === "MB-S2"
+      ? "MB-S2"
+      : null;
+
   return {
     segments: orthogonalSegments,
-    steps: buildSteps(pathNodes, distFromStart, graphAdjacency, allFloorNodes),
+    steps: buildSteps(
+      pathNodes,
+      distFromStart,
+      graphAdjacency,
+      allFloorNodes,
+      landmarkBuildingId,
+    ),
     totalDistance: result.distance,
     startFloor: startNode.floor,
     endFloor: endNode.floor,
@@ -730,7 +828,10 @@ export function findIndoorRoute(
  * use that PNG's pixel dimensions here so the overlay aligns with the image.
  * Key: `${buildingCode}-${floor}` (e.g. "MB-1", "MB--2" for S2).
  */
-const FLOOR_PLAN_IMAGE_BOUNDS: Record<string, { width: number; height: number }> = {
+const FLOOR_PLAN_IMAGE_BOUNDS: Record<
+  string,
+  { width: number; height: number }
+> = {
   "MB-1": { width: 1024, height: 1024 },
   "MB--2": { width: 1024, height: 1024 },
   "VL-1": { width: 1024, height: 1024 },

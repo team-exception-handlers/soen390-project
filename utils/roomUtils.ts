@@ -13,11 +13,12 @@ const ALL_FILES = [
   vlFloorsCombined,
 ];
 
-/** App building code "H" (Henry F. Hall) maps to JSON buildingId "Hall". */
+/** App building code "H" (Henry F. Hall) maps to JSON buildingId "Hall". MB includes S2 (MB-S2). */
 function buildingIdMatches(buildingCode: string, nodeBuildingId: string): boolean {
   return (
     nodeBuildingId === buildingCode ||
-    (buildingCode === "H" && nodeBuildingId === "Hall")
+    (buildingCode === "H" && nodeBuildingId === "Hall") ||
+    (buildingCode === "MB" && nodeBuildingId === "MB-S2")
   );
 }
 
