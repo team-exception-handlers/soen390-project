@@ -134,7 +134,7 @@ const getFloorPlanAsset = (key: string): any | null => {
     "MB-1": () => require("../../assets/floor_plans/png/mb_1.png"),
     "MB--2": () => require("../../assets/floor_plans/png/mb_s2.png"),
     "VE-1": () => require("../../assets/floor_plans/png/ve1.png"),
-    "VE-2": () => require("../../assets/floor_plans/svg/ve2.svg"),
+    "VE-2": () => require("../../assets/floor_plans/png/ve2.png"),
     "VL-1": () => require("../../assets/floor_plans/png/vl_1.png"),
     "VL-2": () => require("../../assets/floor_plans/png/vl_2.png"),
   };

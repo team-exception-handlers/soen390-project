@@ -1,7 +1,7 @@
 import cc1 from "../constants/maps/indoor/cc1.json";
 import hall from "../constants/maps/indoor/hall.json";
 import mbFloorsCombined from "../constants/maps/indoor/mb_floors_combined.json";
-import ve from "../constants/maps/indoor/ve1.json";
+import ve from "../constants/maps/indoor/ve2.json";
 import vlFloorsCombined from "../constants/maps/indoor/vl2.json";
 
 export interface IndoorNode {
@@ -875,7 +875,7 @@ const FLOOR_PLAN_IMAGE_BOUNDS: Record<
   "H-8": { width: 1024, height: 1024 },
   "H-9": { width: 1024, height: 1024 },
   "VE-1": { width: 1024, height: 1024 },
-  "VE-2": { width: 1024, height: 1024 },
+  "VE-2": { width: 1385, height: 650 },
   "VL-1": { width: 1024, height: 1024 },
   "VL-2": { width: 1024, height: 1024 },
 };
@@ -933,5 +933,5 @@ export function getGraphFloorBounds(
     if (n.y > maxY) maxY = n.y;
   }
 
-  return { width: maxX + 200, height: maxY + 100};
+  return { width: maxX + 150, height: maxY + 100};
 }
