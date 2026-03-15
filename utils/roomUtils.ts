@@ -1,7 +1,7 @@
 import cc1 from "../constants/maps/indoor/cc1.json";
 import hall from "../constants/maps/indoor/hall.json";
 import mbFloorsCombined from "../constants/maps/indoor/mb_floors_combined.json";
-import ve from "../constants/maps/indoor/ve.json";
+import ve from "../constants/maps/indoor/ve1.json";
 import vlFloorsCombined from "../constants/maps/indoor/vl2.json";
 import { RoomRecord } from "../types/rooms";
 

@@ -18,7 +18,6 @@ import H1Plan from "../assets/floor_plans/svg/H1.svg";
 import H2Plan from "../assets/floor_plans/svg/H2.svg";
 import Hall8Plan from "../assets/floor_plans/svg/hall8.svg";
 import Hall9Plan from "../assets/floor_plans/svg/hall9.svg";
-import Ve1Plan from "../assets/floor_plans/svg/ve1.svg";
 import Ve2Plan from "../assets/floor_plans/svg/ve2.svg";
 
 type FloorPlanAsset =
@@ -32,7 +31,7 @@ const FLOOR_PLAN_ASSETS: Record<string, FloorPlanAsset> = {
   "H-9": { kind: "svg", component: Hall9Plan },
   "MB-1": { kind: "image", source: require("../assets/floor_plans/png/mb_1.png") },
   "MB--2": { kind: "image", source: require("../assets/floor_plans/png/mb_s2.png") },
-  "VE-1": { kind: "svg", component: Ve1Plan },
+  "VE-1": { kind: "image", source: require("../assets/floor_plans/png/ve1.png") },
   "VE-2": { kind: "svg", component: Ve2Plan },
   "VL-1": { kind: "image", source: require("../assets/floor_plans/png/vl_1.png") },
   "VL-2": { kind: "image", source: require("../assets/floor_plans/png/vl_2.png") },
