@@ -1,4 +1,4 @@
-import cc1 from "../constants/maps/indoor/CC1.json";
+import cc1 from "../constants/maps/indoor/cc1.json";
 import hall from "../constants/maps/indoor/hall.json";
 import mbFloorsCombined from "../constants/maps/indoor/mb_floors_combined.json";
 import ve from "../constants/maps/indoor/ve.json";
@@ -50,7 +50,7 @@ export const getRoomDetails = (
     if (roomNode) {
       return {
         buildingCode,
-        roomNumber: roomNode.label,
+        roomNumber,
         x: roomNode.x,
         y: roomNode.y,
         floor: roomNode.floor,
