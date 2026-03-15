@@ -28,13 +28,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg from "react-native-svg";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import BuildingInformation from "../../components/BuildingInformation";
+import IndoorDirectionsModal from "../../components/IndoorDirectionsModal";
 import DirectionsPanel from "../../components/mapScreen/DirectionsPanel";
 import RouteStepsPopup from "../../components/mapScreen/RouteStepsPopup";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
+import { createMapScreenStyles } from "../../styles/mapScreen.styles";
 import { parseLocationParts } from "../../utils/classLocation";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
+import {
+  findIndoorRoute,
+  getFloorBounds,
+  getGraphFloorBounds,
+  type IndoorRoute,
+} from "../../utils/indoorDirections";
 import { getNearestStop, STOPS } from "../../utils/locationLogic";
 import {
   findUserBuilding,
@@ -49,13 +57,6 @@ import {
   type RouteProfile,
 } from "../../utils/osrmDirections";
 import { getRoomDetails } from "../../utils/roomUtils";
-import {
-  findIndoorRoute,
-  getFloorBounds,
-  getGraphFloorBounds,
-  type IndoorRoute,
-} from "../../utils/indoorDirections";
-import IndoorDirectionsModal from "../../components/IndoorDirectionsModal";
 import { calculateArrivalTime, getShuttleInfo } from "../../utils/shuttleLogic";
 import {
   decodePolyline,
@@ -63,7 +64,6 @@ import {
   formatTime,
   type TransitItinerary,
 } from "../../utils/transitousDirections";
-import { createMapScreenStyles } from "../../styles/mapScreen.styles";
 
 let WebView: React.ComponentType<any> | null = null;
 if (Platform.OS !== "web") {
@@ -129,14 +129,14 @@ const detectBuildingFromLocation = (
 };
 const getFloorPlanAsset = (key: string): any | null => {
   const assets: Record<string, () => any> = {
-    "H-8": () => require("../../assets/floor_plans/hall8.svg"),
-    "H-9": () => require("../../assets/floor_plans/hall9.svg"),
-    "MB-1": () => require("../../assets/floor_plans/mb_1.png"),
-    "MB--2": () => require("../../assets/floor_plans/mb_s2.png"),
-    "VE-1": () => require("../../assets/floor_plans/ve1.svg"),
-    "VE-2": () => require("../../assets/floor_plans/ve2.svg"),
-    "VL-1": () => require("../../assets/floor_plans/vl_1.png"),
-    "VL-2": () => require("../../assets/floor_plans/vl_2.png"),
+    "H-8": () => require("../../assets/floor_plans/svg/hall8.svg"),
+    "H-9": () => require("../../assets/floor_plans/svg/hall9.svg"),
+    "MB-1": () => require("../../assets/floor_plans/png/mb_1.png"),
+    "MB--2": () => require("../../assets/floor_plans/png/mb_s2.png"),
+    "VE-1": () => require("../../assets/floor_plans/svg/ve1.svg"),
+    "VE-2": () => require("../../assets/floor_plans/svg/ve2.svg"),
+    "VL-1": () => require("../../assets/floor_plans/png/vl_1.png"),
+    "VL-2": () => require("../../assets/floor_plans/png/vl_2.png"),
   };
   return assets[key] ? assets[key]() : null;
 };

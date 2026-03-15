@@ -13,13 +13,13 @@ import {
 import Svg, { Circle, Polyline, type SvgProps } from "react-native-svg";
 import type { IndoorRoute } from "../utils/indoorDirections";
 
-import Hall8Plan from "../assets/floor_plans/hall8.svg";
-import Hall9Plan from "../assets/floor_plans/hall9.svg";
-import H1Plan from "../assets/floor_plans/H1.svg";
-import H2Plan from "../assets/floor_plans/H2.svg";
-import CC1Plan from "../assets/floor_plans/CC1.svg";
-import Ve1Plan from "../assets/floor_plans/ve1.svg";
-import Ve2Plan from "../assets/floor_plans/ve2.svg";
+import CC1Plan from "../assets/floor_plans/svg/CC1.svg";
+import H1Plan from "../assets/floor_plans/svg/H1.svg";
+import H2Plan from "../assets/floor_plans/svg/H2.svg";
+import Hall8Plan from "../assets/floor_plans/svg/hall8.svg";
+import Hall9Plan from "../assets/floor_plans/svg/hall9.svg";
+import Ve1Plan from "../assets/floor_plans/svg/ve1.svg";
+import Ve2Plan from "../assets/floor_plans/svg/ve2.svg";
 
 type FloorPlanAsset =
   | { kind: "image"; source: any }
@@ -30,12 +30,12 @@ const FLOOR_PLAN_ASSETS: Record<string, FloorPlanAsset> = {
   "H-2": { kind: "svg", component: H2Plan },
   "H-8": { kind: "svg", component: Hall8Plan },
   "H-9": { kind: "svg", component: Hall9Plan },
-  "MB-1": { kind: "image", source: require("../assets/floor_plans/mb_1.png") },
-  "MB--2": { kind: "image", source: require("../assets/floor_plans/mb_s2.png") },
+  "MB-1": { kind: "image", source: require("../assets/floor_plans/png/mb_1.png") },
+  "MB--2": { kind: "image", source: require("../assets/floor_plans/png/mb_s2.png") },
   "VE-1": { kind: "svg", component: Ve1Plan },
   "VE-2": { kind: "svg", component: Ve2Plan },
-  "VL-1": { kind: "image", source: require("../assets/floor_plans/vl_1.png") },
-  "VL-2": { kind: "image", source: require("../assets/floor_plans/vl_2.png") },
+  "VL-1": { kind: "image", source: require("../assets/floor_plans/png/vl_1.png") },
+  "VL-2": { kind: "image", source: require("../assets/floor_plans/png/vl_2.png") },
   "CC-1": { kind: "svg", component: CC1Plan },
 };
 
