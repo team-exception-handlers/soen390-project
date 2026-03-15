@@ -575,6 +575,7 @@ function buildSteps(
   let inPassThroughFloor = false;
   let lastEmittedDistIdx = 0;
   let lastLandmarkUsed: string | null = null;
+  let lastStraightDistUnits = 0; // for merging consecutive "Continue straight" steps
 
   // A floor is pass-through if the route exits it before reaching any room.
   const isPassThroughFloor = (fromIdx: number, floor: number): boolean => {
@@ -614,6 +615,7 @@ function buildSteps(
       });
       currentFloor = node.floor;
       lastEmittedDistIdx = i;
+      lastStraightDistUnits = 0;
       continue;
     }
 
@@ -623,7 +625,7 @@ function buildSteps(
     if (node.type === "room" && node.id !== start.id) {
       if (segDist >= MIN_WALK_EMIT) {
         steps.push({
-          instruction: `Walk about ${roundDistanceHuman(segDist)} m.`,
+          instruction: `Continue straight ahead for about ${roundDistanceHuman(segDist)} m.`,
           floor: node.floor,
         });
       }
@@ -633,6 +635,7 @@ function buildSteps(
         floor: node.floor,
       });
       lastEmittedDistIdx = i;
+      lastStraightDistUnits = 0;
       continue;
     }
 
@@ -642,23 +645,52 @@ function buildSteps(
     const turn = getTurnDirection(prev, node, next);
     if (turn === "straight") {
       if (segDist >= MIN_STRAIGHT_EMIT) {
-        steps.push({
-          instruction: `Continue straight for about ${roundDistanceHuman(segDist)} m.`,
-          floor: node.floor,
-        });
+        const lastStep = steps[steps.length - 1];
+        const lastIsStraight =
+          lastStep?.instruction.startsWith("Continue straight ahead for about ");
+        if (lastIsStraight) {
+          steps.pop();
+          const mergedUnits = lastStraightDistUnits + segDist;
+          steps.push({
+            instruction: `Continue straight ahead for about ${roundDistanceHuman(mergedUnits)} m.`,
+            floor: node.floor,
+          });
+          lastStraightDistUnits = mergedUnits;
+        } else {
+          steps.push({
+            instruction: `Continue straight ahead for about ${roundDistanceHuman(segDist)} m.`,
+            floor: node.floor,
+          });
+          lastStraightDistUnits = segDist;
+        }
         lastEmittedDistIdx = i;
       }
       continue;
     }
 
-    // Emit the walk leading up to this turn.
+    // Emit the walk leading up to this turn (same direction as previous step).
     if (segDist >= MIN_WALK_EMIT) {
-      steps.push({
-        instruction: `Walk about ${roundDistanceHuman(segDist)} m.`,
-        floor: node.floor,
-      });
+      const lastStep = steps[steps.length - 1];
+      const lastIsStraight =
+        lastStep?.instruction.startsWith("Continue straight ahead for about ");
+      if (lastIsStraight) {
+        steps.pop();
+        const mergedUnits = lastStraightDistUnits + segDist;
+        steps.push({
+          instruction: `Continue straight ahead for about ${roundDistanceHuman(mergedUnits)} m.`,
+          floor: node.floor,
+        });
+        lastStraightDistUnits = mergedUnits;
+      } else {
+        steps.push({
+          instruction: `Continue straight ahead for about ${roundDistanceHuman(segDist)} m.`,
+          floor: node.floor,
+        });
+        lastStraightDistUnits = segDist;
+      }
     }
     lastEmittedDistIdx = i;
+    lastStraightDistUnits = 0; // turn ends any straight run
 
     // "and continue for about Y m" — distance from this turn to the next waypoint,
     // only when both nodes are on the same floor (stairs/elevator handled separately).
@@ -688,8 +720,12 @@ function buildSteps(
     const atPhrase = landmark ? ` at room ${landmark}` : "";
     lastLandmarkUsed = rawLandmark ?? lastLandmarkUsed;
 
+    const turnInstruction = `Turn ${turn}${atPhrase}${continueStr}.`;
+    const lastStep = steps[steps.length - 1];
+    if (lastStep?.instruction === turnInstruction) continue; // skip duplicate turn
+
     steps.push({
-      instruction: `Turn ${turn}${atPhrase}${continueStr}.`,
+      instruction: turnInstruction,
       floor: node.floor,
     });
   }
@@ -834,6 +870,10 @@ const FLOOR_PLAN_IMAGE_BOUNDS: Record<
 > = {
   "MB-1": { width: 1024, height: 1024 },
   "MB--2": { width: 1024, height: 1024 },
+  "H-1": { width: 1024, height: 1024 },
+  "H-2": { width: 1024, height: 1024 },
+  "VE-1": { width: 1024, height: 1024 },
+  "VE-2": { width: 1024, height: 1024 },
   "VL-1": { width: 1024, height: 1024 },
   "VL-2": { width: 1024, height: 1024 },
 };
@@ -848,6 +888,31 @@ export function getFloorBounds(
     return imageBounds;
   }
 
+  const floorData = ALL_FLOOR_DATA.find((f) => {
+    const first = f.nodes[0] as IndoorNode | undefined;
+    return first != null && buildingIdMatches(buildingCode, first.buildingId);
+  });
+
+  if (!floorData) return { width: 2000, height: 1500 };
+
+  let maxX = 0;
+  let maxY = 0;
+  for (const n of floorData.nodes as IndoorNode[]) {
+    const buildingMatches =
+      buildingIdMatches(buildingCode, n.buildingId) ||
+      (buildingCode === "MB" && floor === -2 && n.buildingId === "MB-S2");
+    if (!buildingMatches || n.floor !== floor) continue;
+    if (n.x > maxX) maxX = n.x;
+    if (n.y > maxY) maxY = n.y;
+  }
+
+  return { width: maxX + 200, height: maxY + 200 };
+}
+
+export function getGraphFloorBounds(
+  buildingCode: string,
+  floor: number,
+): { width: number; height: number } {
   const floorData = ALL_FLOOR_DATA.find((f) => {
     const first = f.nodes[0] as IndoorNode | undefined;
     return first != null && buildingIdMatches(buildingCode, first.buildingId);

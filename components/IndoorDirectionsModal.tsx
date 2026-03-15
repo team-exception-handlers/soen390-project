@@ -55,6 +55,7 @@ type Props = Readonly<{
   originRoom: string;
   destinationRoom: string;
   floorBounds: (floor: number) => { width: number; height: number };
+  graphFloorBounds?: (floor: number) => { width: number; height: number };
 }>;
 
 export default function IndoorDirectionsModal({
@@ -65,6 +66,7 @@ export default function IndoorDirectionsModal({
   originRoom,
   destinationRoom,
   floorBounds,
+  graphFloorBounds,
 }: Props) {
   const [activeFloor, setActiveFloor] = useState<number | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -114,6 +116,11 @@ export default function IndoorDirectionsModal({
       ? floorBounds(effectiveFloor)
       : { width: 2000, height: 1500 };
 
+  const graphBounds =
+    effectiveFloor !== null && graphFloorBounds != null
+      ? graphFloorBounds(effectiveFloor)
+      : bounds;
+
   const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     setContainerSize({ width, height });
@@ -123,6 +130,10 @@ export default function IndoorDirectionsModal({
     (x: number, y: number) => {
       if (containerSize.width === 0 || containerSize.height === 0)
         return { sx: 0, sy: 0 };
+      const xImg =
+        (x * bounds.width) / graphBounds.width;
+      const yImg =
+        (y * bounds.height) / graphBounds.height;
       const aspectRatio = bounds.width / bounds.height;
       const containerAspect = containerSize.width / containerSize.height;
       let drawW: number;
@@ -139,11 +150,11 @@ export default function IndoorDirectionsModal({
         offsetY = (containerSize.height - drawH) / 2;
       }
       return {
-        sx: offsetX + (x / bounds.width) * drawW,
-        sy: offsetY + (y / bounds.height) * drawH,
+        sx: offsetX + (xImg / bounds.width) * drawW,
+        sy: offsetY + (yImg / bounds.height) * drawH,
       };
     },
-    [containerSize, bounds],
+    [containerSize, bounds, graphBounds],
   );
 
   const scaledPoints = allPointsOnFloor.map(({ x, y }) => {
@@ -259,9 +270,12 @@ export default function IndoorDirectionsModal({
                       width="100%"
                       height="100%"
                       preserveAspectRatio="xMidYMid meet"
-                      viewBox="0 0 1024 1024"
+                      viewBox={`0 0 ${bounds.width} ${bounds.height}`}
                     >
-                      <floorAsset.component width="100%" height="100%" />
+                      <floorAsset.component
+                        width={bounds.width}
+                        height={bounds.height}
+                      />
                     </Svg>
                   )
                 ) : (

@@ -25,6 +25,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg from "react-native-svg";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import BuildingInformation from "../../components/BuildingInformation";
 import DirectionsPanel from "../../components/mapScreen/DirectionsPanel";
@@ -51,6 +52,7 @@ import { getRoomDetails } from "../../utils/roomUtils";
 import {
   findIndoorRoute,
   getFloorBounds,
+  getGraphFloorBounds,
   type IndoorRoute,
 } from "../../utils/indoorDirections";
 import IndoorDirectionsModal from "../../components/IndoorDirectionsModal";
@@ -2424,7 +2426,14 @@ export default function MapScreen() {
                       height?: string | number;
                     }>;
                   return (
-                    <FloorPlanComponent width="100%" height="100%" />
+                    <Svg
+                      width="100%"
+                      height="100%"
+                      viewBox="0 0 1024 1024"
+                      preserveAspectRatio="xMidYMid meet"
+                    >
+                      <FloorPlanComponent width={1024} height={1024} />
+                    </Svg>
                   );
                 })()
               )
@@ -2444,6 +2453,12 @@ export default function MapScreen() {
         destinationRoom={destinationRoom}
         floorBounds={(floor) =>
           getFloorBounds(
+            originBuilding?.code ?? destinationBuilding?.code ?? "",
+            floor,
+          )
+        }
+        graphFloorBounds={(floor) =>
+          getGraphFloorBounds(
             originBuilding?.code ?? destinationBuilding?.code ?? "",
             floor,
           )
