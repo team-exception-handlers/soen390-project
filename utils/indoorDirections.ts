@@ -872,6 +872,8 @@ const FLOOR_PLAN_IMAGE_BOUNDS: Record<
   "MB--2": { width: 1024, height: 1024 },
   "H-1": { width: 1024, height: 1024 },
   "H-2": { width: 1024, height: 1024 },
+  "H-8": { width: 1024, height: 1024 },
+  "H-9": { width: 1024, height: 1024 },
   "VE-1": { width: 1024, height: 1024 },
   "VE-2": { width: 1024, height: 1024 },
   "VL-1": { width: 1024, height: 1024 },
