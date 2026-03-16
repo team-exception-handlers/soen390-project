@@ -1019,7 +1019,7 @@ export function getGraphFloorBounds(
   const key = `${buildingCode}-${floor}`;
   switch (key) {
     case "VL-1":
-      return { width: maxX + 100, height: maxY + 100 };
+      return { width: maxX + 220, height: maxY + 100 };
     case "VL-2":
       return { width: maxX + 200, height: maxY + 200 };
     case "VE-1":
@@ -1036,6 +1036,10 @@ export function getGraphFloorBounds(
       return { width: maxX + 60, height: maxY + 50 };
     case "MB--2":
       return { width: maxX + 80, height: maxY + 50 };
+    case "H-8":
+      return { width: maxX + 200, height: maxY + 200 };
+    case "H-9":
+      return { width: maxX + 100, height: maxY + 200 };
     default:
       return { width: maxX + 20, height: maxY + 255 };
   }
