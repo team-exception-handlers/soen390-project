@@ -129,8 +129,10 @@ const detectBuildingFromLocation = (
 };
 const getFloorPlanAsset = (key: string): any | null => {
   const assets: Record<string, () => any> = {
-    "H-8": () => require("../../assets/floor_plans/svg/hall8.svg"),
-    "H-9": () => require("../../assets/floor_plans/svg/hall9.svg"),
+    "H-1": () => require("../../assets/floor_plans/png/H1.png"),
+    "H-2": () => require("../../assets/floor_plans/png/H2.png"),
+    "H-8": () => require("../../assets/floor_plans/png/hall8.png"),
+    "H-9": () => require("../../assets/floor_plans/png/hall9.png"),
     "MB-1": () => require("../../assets/floor_plans/png/mb_1.png"),
     "MB--2": () => require("../../assets/floor_plans/png/mb_s2.png"),
     "VE-1": () => require("../../assets/floor_plans/png/ve1.png"),

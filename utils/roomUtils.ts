@@ -1,16 +1,24 @@
 import cc1 from "../constants/maps/indoor/cc1.json";
-import hall from "../constants/maps/indoor/hall2.json";
+import hall1 from "../constants/maps/indoor/hall1.json";
+import hall2 from "../constants/maps/indoor/hall2.json";
+import hallCombined from "../constants/maps/indoor/hall.json";
 import mbFloorsCombined from "../constants/maps/indoor/mb_floors_combined.json";
-import ve from "../constants/maps/indoor/ve2.json";
-import vlFloorsCombined from "../constants/maps/indoor/vl2.json";
+import ve1 from "../constants/maps/indoor/ve1.json";
+import ve2 from "../constants/maps/indoor/ve2.json";
+import vl1 from "../constants/maps/indoor/vl1.json";
+import vl2 from "../constants/maps/indoor/vl2.json";
 import { RoomRecord } from "../types/rooms";
 
 const ALL_FILES = [
   cc1,
-  hall,
+  hall1,
+  hall2,
+  hallCombined,
   mbFloorsCombined,
-  ve,
-  vlFloorsCombined,
+  ve1,
+  ve2,
+  vl1,
+  vl2,
 ];
 
 /** App building code "H" (Henry F. Hall) maps to JSON buildingId "Hall". MB includes S2 (MB-S2). */

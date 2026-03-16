@@ -1,8 +1,12 @@
 import cc1 from "../constants/maps/indoor/cc1.json";
-import hall from "../constants/maps/indoor/hall2.json";
+import hallCombined from "../constants/maps/indoor/hall.json";
+import hall1 from "../constants/maps/indoor/hall1.json";
+import hall2 from "../constants/maps/indoor/hall2.json";
 import mbFloorsCombined from "../constants/maps/indoor/mb_floors_combined.json";
-import ve from "../constants/maps/indoor/ve2.json";
-import vlFloorsCombined from "../constants/maps/indoor/vl2.json";
+import ve1 from "../constants/maps/indoor/ve1.json";
+import ve2 from "../constants/maps/indoor/ve2.json";
+import vl1 from "../constants/maps/indoor/vl1.json";
+import vl2 from "../constants/maps/indoor/vl2.json";
 
 export interface IndoorNode {
   id: string;
@@ -81,10 +85,14 @@ type FloorData = { nodes: unknown[]; edges: unknown[] };
 
 const ALL_FLOOR_DATA: FloorData[] = [
   cc1 as FloorData,
-  hall as FloorData,
+  hall1 as unknown as FloorData,
+  hall2 as unknown as FloorData,
+  hallCombined as unknown as FloorData,
   mbFloorsCombined as FloorData,
-  ve as FloorData,
-  vlFloorsCombined as FloorData,
+  ve1 as FloorData,
+  ve2 as FloorData,
+  vl1 as FloorData,
+  vl2 as FloorData,
 ];
 
 /** App building code "H" (Henry F. Hall) maps to JSON buildingId "Hall". MB includes S2 (MB-S2). */
@@ -646,8 +654,9 @@ function buildSteps(
     if (turn === "straight") {
       if (segDist >= MIN_STRAIGHT_EMIT) {
         const lastStep = steps[steps.length - 1];
-        const lastIsStraight =
-          lastStep?.instruction.startsWith("Continue straight ahead for about ");
+        const lastIsStraight = lastStep?.instruction.startsWith(
+          "Continue straight ahead for about ",
+        );
         if (lastIsStraight) {
           steps.pop();
           const mergedUnits = lastStraightDistUnits + segDist;
@@ -671,8 +680,9 @@ function buildSteps(
     // Emit the walk leading up to this turn (same direction as previous step).
     if (segDist >= MIN_WALK_EMIT) {
       const lastStep = steps[steps.length - 1];
-      const lastIsStraight =
-        lastStep?.instruction.startsWith("Continue straight ahead for about ");
+      const lastIsStraight = lastStep?.instruction.startsWith(
+        "Continue straight ahead for about ",
+      );
       if (lastIsStraight) {
         steps.pop();
         const mergedUnits = lastStraightDistUnits + segDist;
@@ -908,6 +918,10 @@ export function getFloorBounds(
     if (n.y > maxY) maxY = n.y;
   }
 
+  const key = `${buildingCode}-${floor}`;
+  if (key === "MB-1" || key === "MB--2" || key === "H-8" || key === "H-9") {
+    return { width: maxX + 200, height: maxY + 200 };
+  }
   return { width: maxX + 200, height: maxY + 200 };
 }
 
@@ -933,5 +947,25 @@ export function getGraphFloorBounds(
     if (n.y > maxY) maxY = n.y;
   }
 
-  return { width: maxX + 20, height: maxY + 255};
+  const key = `${buildingCode}-${floor}`;
+  switch (key) {
+    case "VL-1":
+      return { width: maxX + 100, height: maxY + 200 };
+    case "VL-2":
+      return { width: maxX + 200, height: maxY + 200 };
+    case "VE-1":
+      return { width: maxX + 200, height: maxY + 100 };
+    case "VE-2":
+      return { width: maxX + 150, height: maxY + 100 };
+    case "CC-1":
+      return { width: maxX + 550, height: maxY + 170 };
+    case "H-1":
+      return { width: maxX + 20, height: maxY + 40 };
+    case "H-2":
+      return { width: maxX + 20, height: maxY + 255 };
+    case "MB-1":
+      return { width: maxX + 60, height: maxY + 50 };
+    default:
+      return { width: maxX + 20, height: maxY + 255 };
+  }
 }
