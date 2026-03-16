@@ -1,5 +1,5 @@
 import cc1 from "../constants/maps/indoor/cc1.json";
-import hall from "../constants/maps/indoor/hall1.json";
+import hall from "../constants/maps/indoor/hall2.json";
 import mbFloorsCombined from "../constants/maps/indoor/mb_floors_combined.json";
 import ve from "../constants/maps/indoor/ve2.json";
 import vlFloorsCombined from "../constants/maps/indoor/vl2.json";
@@ -933,5 +933,5 @@ export function getGraphFloorBounds(
     if (n.y > maxY) maxY = n.y;
   }
 
-  return { width: maxX + 20, height: maxY + 40};
+  return { width: maxX + 20, height: maxY + 255};
 }
