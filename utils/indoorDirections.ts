@@ -47,20 +47,9 @@ function orthogonalizeSegmentPoints(
     const len = Math.hypot(dx, dy);
     if (len < 1e-6) continue;
 
-    const angleDeg = (Math.atan2(dy, dx) * (180 / Math.PI) + 360) % 360;
-    const distToHorizontal = Math.min(
-      angleDeg,
-      360 - angleDeg,
-      Math.abs(angleDeg - 180),
-    );
-    const distToVertical = Math.min(
-      Math.abs(angleDeg - 90),
-      Math.abs(angleDeg - 270),
-    );
-
-    if (distToHorizontal <= 25) {
+    if (Math.abs(dx) >= Math.abs(dy)) {
       result.push({ x: p1.x, y: p0.y });
-    } else if (distToVertical <= 25) {
+    } else {
       result.push({ x: p0.x, y: p1.y });
     }
     result.push({ x: p1.x, y: p1.y });
@@ -124,7 +113,7 @@ const VERTICAL_NODE_TYPES = new Set(["stair_landing", "elevator_door"]);
 const INTER_FLOOR_WEIGHT = 500;
 
 /** Graph edge weights are in same scale as floor plan units; convert to meters for display. */
-const UNITS_PER_METER = 20;
+const UNITS_PER_METER = 50;
 
 function getFloorQuery(
   buildingCode: string,
@@ -396,49 +385,25 @@ function turnFromVectors(
   return "straight";
 }
 
-// Returns the turn direction using the same orthogonalized geometry as the displayed route,
-// so step-by-step instructions match what the user sees on the map.
+function snapVectorToDisplayedAxis(
+  dx: number,
+  dy: number,
+): { x: number; y: number } {
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return { x: dx, y: 0 };
+  }
+  return { x: 0, y: dy };
+}
+
+// Returns the turn direction using the same snapped axis logic as the displayed route, so instructions follow the corridor shape the user actually sees on the map.
 function getTurnDirection(
   prev: IndoorNode,
   curr: IndoorNode,
   next: IndoorNode,
 ): "left" | "right" | "straight" {
-  const triple = [
-    { x: prev.x, y: prev.y },
-    { x: curr.x, y: curr.y },
-    { x: next.x, y: next.y },
-  ];
-  const ortho = orthogonalizeSegmentPoints(triple);
-  if (ortho.length < 3) {
-    const ax = curr.x - prev.x;
-    const ay = curr.y - prev.y;
-    const bx = next.x - curr.x;
-    const by = next.y - curr.y;
-    return turnFromVectors(ax, ay, bx, by);
-  }
-  let midIdx = 0;
-  let bestDist = Infinity;
-  for (let i = 0; i < ortho.length; i++) {
-    const d =
-      (ortho[i].x - curr.x) * (ortho[i].x - curr.x) +
-      (ortho[i].y - curr.y) * (ortho[i].y - curr.y);
-    if (d < bestDist) {
-      bestDist = d;
-      midIdx = i;
-    }
-  }
-  if (midIdx <= 0 || midIdx >= ortho.length - 1) {
-    const ax = curr.x - prev.x;
-    const ay = curr.y - prev.y;
-    const bx = next.x - curr.x;
-    const by = next.y - curr.y;
-    return turnFromVectors(ax, ay, bx, by);
-  }
-  const inDx = ortho[midIdx].x - ortho[midIdx - 1].x;
-  const inDy = ortho[midIdx].y - ortho[midIdx - 1].y;
-  const outDx = ortho[midIdx + 1].x - ortho[midIdx].x;
-  const outDy = ortho[midIdx + 1].y - ortho[midIdx].y;
-  return turnFromVectors(inDx, inDy, outDx, outDy);
+  const incoming = snapVectorToDisplayedAxis(curr.x - prev.x, curr.y - prev.y);
+  const outgoing = snapVectorToDisplayedAxis(next.x - curr.x, next.y - curr.y);
+  return turnFromVectors(incoming.x, incoming.y, outgoing.x, outgoing.y);
 }
 
 /** Find the nearest room label to a node (for landmark text). */
@@ -635,6 +600,8 @@ function buildSteps(
   const MIN_STRAIGHT_EMIT = 80; // ~0.8 m
   // Minimum walk (units) worth appending as "and continue for about Y m" after a turn.
   const MIN_CONTINUE = 80; // ~0.8 m
+  // Keep the last doorway approach attached to the turn that leads into it.
+  const SHORT_FINAL_APPROACH = 220; // ~11 m
 
   let currentFloor = start.floor;
   let inPassThroughFloor = false;
@@ -688,9 +655,24 @@ function buildSteps(
 
     // Destination room
     if (node.type === "room" && node.id !== start.id) {
-      if (segDist >= MIN_WALK_EMIT) {
+      const lastStep = steps[steps.length - 1];
+      const canFoldIntoTurn =
+        segDist >= MIN_WALK_EMIT &&
+        segDist <= SHORT_FINAL_APPROACH &&
+        lastStep?.instruction.startsWith("Turn ") &&
+        !lastStep.instruction.includes(" and continue for about ");
+
+      if (canFoldIntoTurn) {
+        steps[steps.length - 1] = {
+          ...lastStep,
+          instruction: lastStep.instruction.replace(
+            /\.$/,
+            ` and continue for about ${roundDistanceHuman(segDist)} m.`,
+          ),
+        };
+      } else if (segDist >= MIN_WALK_EMIT) {
         steps.push({
-          instruction: `Continue straight ahead for about ${roundDistanceHuman(segDist)} m.`,
+          instruction: `Continue for about ${roundDistanceHuman(segDist)} m.`,
           floor: node.floor,
         });
       }
@@ -711,20 +693,20 @@ function buildSteps(
     if (turn === "straight") {
       if (segDist >= MIN_STRAIGHT_EMIT) {
         const lastStep = steps[steps.length - 1];
-        const lastIsStraight = lastStep?.instruction.startsWith(
-          "Continue straight ahead for about ",
-        );
+        const lastIsStraight =
+          lastStep?.instruction.startsWith("Continue straight for about ") ||
+          lastStep?.instruction.startsWith("Continue for about ");
         if (lastIsStraight) {
           steps.pop();
           const mergedUnits = lastStraightDistUnits + segDist;
           steps.push({
-            instruction: `Continue straight ahead for about ${roundDistanceHuman(mergedUnits)} m.`,
+            instruction: `Continue straight for about ${roundDistanceHuman(mergedUnits)} m.`,
             floor: node.floor,
           });
           lastStraightDistUnits = mergedUnits;
         } else {
           steps.push({
-            instruction: `Continue straight ahead for about ${roundDistanceHuman(segDist)} m.`,
+            instruction: `Continue straight for about ${roundDistanceHuman(segDist)} m.`,
             floor: node.floor,
           });
           lastStraightDistUnits = segDist;
@@ -737,20 +719,20 @@ function buildSteps(
     // Emit the walk leading up to this turn (same direction as previous step).
     if (segDist >= MIN_WALK_EMIT) {
       const lastStep = steps[steps.length - 1];
-      const lastIsStraight = lastStep?.instruction.startsWith(
-        "Continue straight ahead for about ",
-      );
+      const lastIsStraight =
+        lastStep?.instruction.startsWith("Continue straight for about ") ||
+        lastStep?.instruction.startsWith("Continue for about ");
       if (lastIsStraight) {
         steps.pop();
         const mergedUnits = lastStraightDistUnits + segDist;
         steps.push({
-          instruction: `Continue straight ahead for about ${roundDistanceHuman(mergedUnits)} m.`,
+          instruction: `Continue straight for about ${roundDistanceHuman(mergedUnits)} m.`,
           floor: node.floor,
         });
         lastStraightDistUnits = mergedUnits;
       } else {
         steps.push({
-          instruction: `Continue straight ahead for about ${roundDistanceHuman(segDist)} m.`,
+          instruction: `Continue straight for about ${roundDistanceHuman(segDist)} m.`,
           floor: node.floor,
         });
         lastStraightDistUnits = segDist;
