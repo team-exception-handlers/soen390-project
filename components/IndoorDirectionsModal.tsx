@@ -111,12 +111,16 @@ export default function IndoorDirectionsModal({
 
   const bounds =
     effectiveFloor !== null
-      ? floorBounds(effectiveFloor)
+      ? floorBounds(
+          effectiveFloor,
+        )
       : { width: 2000, height: 1500 };
 
   const graphBounds =
     effectiveFloor !== null && graphFloorBounds != null
-      ? graphFloorBounds(effectiveFloor)
+      ? graphFloorBounds(
+          effectiveFloor,
+        )
       : bounds;
 
   const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
@@ -126,7 +130,12 @@ export default function IndoorDirectionsModal({
 
   const scalePoint = useCallback(
     (x: number, y: number) => {
-      if (containerSize.width === 0 || containerSize.height === 0)
+      if (
+        containerSize.width === 0 ||
+        containerSize.height === 0 ||
+        graphBounds.width === 0 ||
+        graphBounds.height === 0
+      )
         return { sx: 0, sy: 0 };
       const xImg =
         (x * bounds.width) / graphBounds.width;

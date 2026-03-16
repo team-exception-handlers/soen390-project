@@ -126,12 +126,69 @@ const INTER_FLOOR_WEIGHT = 500;
 /** Graph edge weights are in same scale as floor plan units; convert to meters for display. */
 const UNITS_PER_METER = 20;
 
+function getFloorQuery(
+  buildingCode: string,
+  floor: number,
+): {
+  targetFloor: number;
+  matchesNode: (node: IndoorNode) => boolean;
+} {
+  if (buildingCode === "MB" && floor === -2) {
+    return {
+      targetFloor: 1,
+      matchesNode: (node) => node.buildingId === "MB-S2" && node.floor === 1,
+    };
+  }
+
+  return {
+    targetFloor: floor,
+    matchesNode: (node) =>
+      buildingIdMatches(buildingCode, node.buildingId) && node.floor === floor,
+  };
+}
+
+function filterFloorData(
+  floorData: FloorData,
+  predicate: (node: IndoorNode) => boolean,
+): FloorData {
+  const allowedNodeIds = new Set(
+    (floorData.nodes as IndoorNode[]).filter(predicate).map((node) => node.id),
+  );
+
+  return {
+    nodes: (floorData.nodes as IndoorNode[]).filter((node) =>
+      allowedNodeIds.has(node.id),
+    ),
+    edges: (floorData.edges as IndoorEdge[]).filter(
+      (edge) =>
+        allowedNodeIds.has(edge.source) && allowedNodeIds.has(edge.target),
+    ),
+  };
+}
+
 function getBuildingFloors(buildingCode: string): FloorData[] {
-  return ALL_FLOOR_DATA.filter((f) => {
+  const matchedFloors = ALL_FLOOR_DATA.filter((f) => {
     const firstNode = f.nodes[0] as IndoorNode | undefined;
     return (
       firstNode != null && buildingIdMatches(buildingCode, firstNode.buildingId)
     );
+  });
+
+  if (buildingCode !== "H") {
+    return matchedFloors;
+  }
+
+  return matchedFloors.flatMap((floorData) => {
+    if (floorData !== (hallCombined as unknown as FloorData)) {
+      return [floorData];
+    }
+
+    const filteredHallCombined = filterFloorData(
+      floorData,
+      (node) => node.floor !== 1 && node.floor !== 2,
+    );
+
+    return filteredHallCombined.nodes.length > 0 ? [filteredHallCombined] : [];
   });
 }
 
@@ -900,28 +957,32 @@ export function getFloorBounds(
     return imageBounds;
   }
 
-  const floorData = ALL_FLOOR_DATA.find((f) => {
-    const first = f.nodes[0] as IndoorNode | undefined;
-    return first != null && buildingIdMatches(buildingCode, first.buildingId);
-  });
+  let floorData: FloorData | undefined;
+
+  if (buildingCode === "H" && floor === 1) {
+    floorData = hall1 as unknown as FloorData;
+  } else if (buildingCode === "H" && floor === 2) {
+    floorData = hall2 as unknown as FloorData;
+  } else {
+    floorData = ALL_FLOOR_DATA.find((f) => {
+      const nodes = f.nodes as IndoorNode[];
+      const { matchesNode } = getFloorQuery(buildingCode, floor);
+      return nodes.some(matchesNode);
+    });
+  }
 
   if (!floorData) return { width: 2000, height: 1500 };
 
   let maxX = 0;
   let maxY = 0;
+  const { matchesNode } = getFloorQuery(buildingCode, floor);
+
   for (const n of floorData.nodes as IndoorNode[]) {
-    const buildingMatches =
-      buildingIdMatches(buildingCode, n.buildingId) ||
-      (buildingCode === "MB" && floor === -2 && n.buildingId === "MB-S2");
-    if (!buildingMatches || n.floor !== floor) continue;
+    if (!matchesNode(n)) continue;
     if (n.x > maxX) maxX = n.x;
     if (n.y > maxY) maxY = n.y;
   }
 
-  const key = `${buildingCode}-${floor}`;
-  if (key === "MB-1" || key === "MB--2" || key === "H-8" || key === "H-9") {
-    return { width: maxX + 200, height: maxY + 200 };
-  }
   return { width: maxX + 200, height: maxY + 200 };
 }
 
@@ -929,20 +990,28 @@ export function getGraphFloorBounds(
   buildingCode: string,
   floor: number,
 ): { width: number; height: number } {
-  const floorData = ALL_FLOOR_DATA.find((f) => {
-    const first = f.nodes[0] as IndoorNode | undefined;
-    return first != null && buildingIdMatches(buildingCode, first.buildingId);
-  });
+  let floorData: FloorData | undefined;
+
+  if (buildingCode === "H" && floor === 1) {
+    floorData = hall1 as unknown as FloorData;
+  } else if (buildingCode === "H" && floor === 2) {
+    floorData = hall2 as unknown as FloorData;
+  } else {
+    floorData = ALL_FLOOR_DATA.find((f) => {
+      const nodes = f.nodes as IndoorNode[];
+      const { matchesNode } = getFloorQuery(buildingCode, floor);
+      return nodes.some(matchesNode);
+    });
+  }
 
   if (!floorData) return { width: 2000, height: 1500 };
 
   let maxX = 0;
   let maxY = 0;
+  const { matchesNode } = getFloorQuery(buildingCode, floor);
+
   for (const n of floorData.nodes as IndoorNode[]) {
-    const buildingMatches =
-      buildingIdMatches(buildingCode, n.buildingId) ||
-      (buildingCode === "MB" && floor === -2 && n.buildingId === "MB-S2");
-    if (!buildingMatches || n.floor !== floor) continue;
+    if (!matchesNode(n)) continue;
     if (n.x > maxX) maxX = n.x;
     if (n.y > maxY) maxY = n.y;
   }
@@ -950,7 +1019,7 @@ export function getGraphFloorBounds(
   const key = `${buildingCode}-${floor}`;
   switch (key) {
     case "VL-1":
-      return { width: maxX + 100, height: maxY + 200 };
+      return { width: maxX + 100, height: maxY + 100 };
     case "VL-2":
       return { width: maxX + 200, height: maxY + 200 };
     case "VE-1":
@@ -965,6 +1034,8 @@ export function getGraphFloorBounds(
       return { width: maxX + 20, height: maxY + 255 };
     case "MB-1":
       return { width: maxX + 60, height: maxY + 50 };
+    case "MB--2":
+      return { width: maxX + 80, height: maxY + 50 };
     default:
       return { width: maxX + 20, height: maxY + 255 };
   }
