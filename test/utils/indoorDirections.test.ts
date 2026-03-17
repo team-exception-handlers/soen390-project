@@ -1,4 +1,8 @@
-import { findIndoorRoute } from "../../utils/indoorDirections";
+import {
+  findIndoorRoute,
+  getFloorBounds,
+  getGraphFloorBounds,
+} from "../../utils/indoorDirections";
 
 describe("indoorDirections", () => {
   test("accepts fully prefixed room labels as well as bare room numbers", () => {
@@ -111,4 +115,35 @@ describe("indoorDirections", () => {
       "Room MB-S2.235 will be straight ahead.",
     ]);
   });
+
+  test("returns static image bounds when a floor plan asset defines them", () => {
+    expect(getFloorBounds("MB", 1)).toEqual({ width: 1024, height: 1024 });
+    expect(getFloorBounds("VE", 2)).toEqual({ width: 1385, height: 650 });
+  });
+
+  test("computes fallback floor bounds from graph data when no static image size exists", () => {
+    expect(getFloorBounds("Hall", 8)).toEqual({ width: 2102, height: 2051 });
+    expect(getFloorBounds("XYZ", 99)).toEqual({ width: 2000, height: 1500 });
+  });
+
+  test.each([
+    ["H", 1, { width: 938, height: 940 }],
+    ["H", 2, { width: 931, height: 929 }],
+    ["H", 8, { width: 2102, height: 2051 }],
+    ["H", 9, { width: 2091, height: 2036 }],
+    ["MB", 1, { width: 1009, height: 1027 }],
+    ["MB", -2, { width: 1029, height: 1027 }],
+    ["VE", 1, { width: 615, height: 556 }],
+    ["VE", 2, { width: 1405, height: 646 }],
+    ["VL", 1, { width: 1044, height: 1036 }],
+    ["VL", 2, { width: 1023, height: 1041 }],
+    ["CC", 1, { width: 8240, height: 2066 }],
+    ["Hall", 8, { width: 1922, height: 2106 }],
+    ["XYZ", 99, { width: 2000, height: 1500 }],
+  ])(
+    "returns the expected graph bounds for %s floor %s",
+    (buildingCode, floor, expected) => {
+      expect(getGraphFloorBounds(buildingCode, floor)).toEqual(expected);
+    },
+  );
 });

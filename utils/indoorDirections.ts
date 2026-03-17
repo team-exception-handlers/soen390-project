@@ -1066,3 +1066,14 @@ export function getGraphFloorBounds(
       return { width: maxX + 20, height: maxY + 255 };
   }
 }
+
+export const __indoorDirectionsTestUtils = {
+  getFloorQuery,
+  buildGraph,
+  dijkstra,
+  formatFloorLabel,
+  getNearestRoomLabel,
+  getArrivalRelationFromDisplayedApproach,
+  simplifyPathForSteps,
+  buildSteps,
+};
