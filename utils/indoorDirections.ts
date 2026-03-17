@@ -495,6 +495,33 @@ function getArrivalSide(prev: IndoorNode, dest: IndoorNode): "left" | "right" {
   }
 }
 
+function getArrivalRelationFromDisplayedApproach(
+  prev: IndoorNode,
+  dest: IndoorNode,
+): "left" | "right" | "straight ahead" {
+  const dx = dest.x - prev.x;
+  const dy = dest.y - prev.y;
+  const heading = snapVectorToDisplayedAxis(dx, dy);
+
+  if (heading.x === 0 && heading.y === 0) {
+    return getArrivalSide(prev, dest);
+  }
+
+  const forward = heading.x !== 0 ? Math.abs(dx) : Math.abs(dy);
+  const lateral = heading.x !== 0 ? Math.abs(dy) : Math.abs(dx);
+  const STRAIGHT_AHEAD_RATIO = 0.25;
+  const STRAIGHT_AHEAD_MIN_FORWARD = 40;
+
+  if (
+    forward >= STRAIGHT_AHEAD_MIN_FORWARD &&
+    lateral <= forward * STRAIGHT_AHEAD_RATIO
+  ) {
+    return "straight ahead";
+  }
+
+  return getArrivalSide(prev, dest);
+}
+
 // Simplify the raw Dijkstra path into waypoints for step generation.
 function simplifyPathForSteps(
   pathNodes: IndoorNode[],
@@ -594,12 +621,11 @@ function buildSteps(
 
   if (nodes.length === 1) return steps;
 
-  // Minimum walk (units) worth emitting as a standalone "Walk about X m." step.
-  const MIN_WALK_EMIT = 80; // ~0.8 m
-  // Minimum walk (units) worth a "Continue straight for about X m." step.
-  const MIN_STRAIGHT_EMIT = 80; // ~0.8 m
-  // Minimum walk (units) worth appending as "and continue for about Y m" after a turn.
-  const MIN_CONTINUE = 80; // ~0.8 m
+  // Show walk/final-approach distances once they are at least 1 meter.
+  const MIN_WALK_EMIT = UNITS_PER_METER;
+  // Keep very short standalone straight segments suppressed to avoid noisy directions.
+  const MIN_STRAIGHT_EMIT = 80;
+  const MIN_CONTINUE = UNITS_PER_METER;
   // Keep the last doorway approach attached to the turn that leads into it.
   const SHORT_FINAL_APPROACH = 220; // ~11 m
 
@@ -608,6 +634,12 @@ function buildSteps(
   let lastEmittedDistIdx = 0;
   let lastLandmarkUsed: string | null = null;
   let lastStraightDistUnits = 0; // for merging consecutive "Continue straight" steps
+
+  const usesFinalApproachArrival =
+    (instruction: string | undefined): boolean =>
+      instruction?.startsWith("Continue straight for about ") === true ||
+      instruction?.startsWith("Continue for about ") === true ||
+      instruction?.includes(" and continue for about ") === true;
 
   // A floor is pass-through if the route exits it before reaching any room.
   const isPassThroughFloor = (fromIdx: number, floor: number): boolean => {
@@ -676,9 +708,17 @@ function buildSteps(
           floor: node.floor,
         });
       }
-      const side = getArrivalSide(prev, node);
+      const lastArrivalContextStep = steps[steps.length - 1];
+      const arrivalRelation = usesFinalApproachArrival(
+        lastArrivalContextStep?.instruction,
+      )
+        ? getArrivalRelationFromDisplayedApproach(prev, node)
+        : getArrivalSide(prev, node);
       steps.push({
-        instruction: `Room ${node.label ?? "destination"} will be on your ${side}.`,
+        instruction:
+          arrivalRelation === "straight ahead"
+            ? `Room ${node.label ?? "destination"} will be straight ahead.`
+            : `Room ${node.label ?? "destination"} will be on your ${arrivalRelation}.`,
         floor: node.floor,
       });
       lastEmittedDistIdx = i;

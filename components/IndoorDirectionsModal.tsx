@@ -202,7 +202,11 @@ export default function IndoorDirectionsModal({
               <Navigation size={18} color="#238c51" strokeWidth={2} />
               <Text style={styles.headerTitle}>Indoor Directions</Text>
             </View>
-            <Pressable style={styles.closeButton} onPress={onClose}>
+            <Pressable
+              testID="indoor-directions-close"
+              style={styles.closeButton}
+              onPress={onClose}
+            >
               <X size={20} color="#1F1F24" strokeWidth={2.5} />
             </Pressable>
           </View>
@@ -244,6 +248,7 @@ export default function IndoorDirectionsModal({
                   {uniqueFloors.map((floor) => (
                     <Pressable
                       key={floor}
+                      testID={`indoor-directions-floor-${floor}`}
                       style={[
                         styles.floorTab,
                         effectiveFloor === floor && styles.floorTabActive,
@@ -264,7 +269,11 @@ export default function IndoorDirectionsModal({
               )}
 
               {/* Floor plan with route overlay */}
-              <View style={styles.mapContainer} onLayout={onContainerLayout}>
+              <View
+                testID="indoor-directions-map"
+                style={styles.mapContainer}
+                onLayout={onContainerLayout}
+              >
                 {floorAsset ? (
                   floorAsset.kind === "image" ? (
                     <Image
@@ -338,6 +347,7 @@ export default function IndoorDirectionsModal({
 
               {/* Step-by-step instructions */}
               <Pressable
+                testID="indoor-directions-steps-toggle"
                 style={styles.stepsHeader}
                 onPress={() => setStepsExpanded((v) => !v)}
               >
