@@ -37,6 +37,78 @@ const FLOOR_PLAN_ASSETS: Record<string, FloorPlanAsset> = {
   "CC-1": { kind: "svg", component: CC1Plan },
 };
 
+const DEFAULT_FLOOR_BOUNDS = { width: 2000, height: 1500 };
+
+function formatFloorLabelForBuilding(
+  buildingCode: string,
+  floor: number | null,
+): string {
+  if (floor === null) return "";
+  if (buildingCode === "MB" && floor === -2) return "S2";
+  return String(floor);
+}
+
+function computeIsS2Route(
+  buildingCode: string,
+  route: IndoorRoute | null,
+  originRoom: string,
+  destinationRoom: string,
+): boolean {
+  return (
+    buildingCode === "MB" &&
+    route != null &&
+    (originRoom.includes("S2") || destinationRoom.includes("S2"))
+  );
+}
+
+function computeDefaultFloor(
+  route: IndoorRoute | null,
+  isS2Route: boolean,
+): number | null {
+  if (route == null) return null;
+  return isS2Route ? -2 : route.startFloor;
+}
+
+function computeUniqueFloors(
+  route: IndoorRoute | null,
+  isS2Route: boolean,
+): number[] {
+  if (route == null) return [];
+  if (isS2Route) return [-2];
+  return [...new Set(route.steps.map((s) => s.floor))].sort((a, b) => a - b);
+}
+
+function computeSegmentsOnActiveFloor(
+  route: IndoorRoute | null,
+  isS2Route: boolean,
+  effectiveFloor: number | null,
+): IndoorRoute["segments"] {
+  const segments = route?.segments ?? [];
+  if (segments.length === 0) return [];
+
+  if (isS2Route && effectiveFloor === -2) return segments;
+  if (effectiveFloor == null) return [];
+  return segments.filter((s) => s.floor === effectiveFloor);
+}
+
+function computeBounds(
+  effectiveFloor: number | null,
+  floorBounds: (floor: number) => { width: number; height: number },
+): { width: number; height: number } {
+  if (effectiveFloor === null) return DEFAULT_FLOOR_BOUNDS;
+  return floorBounds(effectiveFloor);
+}
+
+function computeGraphBounds(
+  effectiveFloor: number | null,
+  graphFloorBounds: ((floor: number) => { width: number; height: number }) | undefined,
+  bounds: { width: number; height: number },
+): { width: number; height: number } {
+  if (effectiveFloor === null) return bounds;
+  if (graphFloorBounds == null) return bounds;
+  return graphFloorBounds(effectiveFloor);
+}
+
 function getFloorAsset(
   buildingCode: string,
   floor: number,
@@ -69,39 +141,24 @@ export default function IndoorDirectionsModal({
   const [activeFloor, setActiveFloor] = useState<number | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [stepsExpanded, setStepsExpanded] = useState(true);
+  const isS2Route = computeIsS2Route(
+    buildingCode,
+    route,
+    originRoom,
+    destinationRoom,
+  );
 
-  const formatFloorLabel = (floor: number | null): string => {
-    if (floor === null) return "";
-    if (buildingCode === "MB" && floor === -2) return "S2";
-    return String(floor);
-  };
-
-  const isS2Route =
-    buildingCode === "MB" &&
-    route != null &&
-    (originRoom.includes("S2") || destinationRoom.includes("S2"));
-
-  const defaultFloor =
-    route == null
-      ? null
-      : isS2Route
-        ? -2
-        : route.startFloor;
+  const defaultFloor = computeDefaultFloor(route, isS2Route);
 
   const effectiveFloor = activeFloor ?? defaultFloor;
 
-  const uniqueFloors = route
-    ? isS2Route
-      ? [-2]
-      : [...new Set(route.steps.map((s) => s.floor))].sort((a, b) => a - b)
-    : [];
+  const uniqueFloors = computeUniqueFloors(route, isS2Route);
 
-  const segmentsOnActiveFloor =
-    route?.segments == null
-      ? []
-      : isS2Route && effectiveFloor === -2
-        ? route.segments
-        : route.segments.filter((s) => s.floor === effectiveFloor);
+  const segmentsOnActiveFloor = computeSegmentsOnActiveFloor(
+    route,
+    isS2Route,
+    effectiveFloor,
+  );
   const allPointsOnFloor = segmentsOnActiveFloor.flatMap((s) => s.points);
 
   const floorAsset =
@@ -109,19 +166,13 @@ export default function IndoorDirectionsModal({
       ? getFloorAsset(buildingCode, effectiveFloor)
       : null;
 
-  const bounds =
-    effectiveFloor !== null
-      ? floorBounds(
-          effectiveFloor,
-        )
-      : { width: 2000, height: 1500 };
+  const bounds = computeBounds(effectiveFloor, floorBounds);
 
-  const graphBounds =
-    effectiveFloor !== null && graphFloorBounds != null
-      ? graphFloorBounds(
-          effectiveFloor,
-        )
-      : bounds;
+  const graphBounds = computeGraphBounds(
+    effectiveFloor,
+    graphFloorBounds,
+    bounds,
+  );
 
   const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -261,7 +312,7 @@ export default function IndoorDirectionsModal({
                           effectiveFloor === floor && styles.floorTabTextActive,
                         ]}
                       >
-                      Floor {formatFloorLabel(floor)}
+                      Floor {formatFloorLabelForBuilding(buildingCode, floor)}
                       </Text>
                     </Pressable>
                   ))}
@@ -298,7 +349,7 @@ export default function IndoorDirectionsModal({
                   <View style={styles.noMapPlaceholder}>
                     <Text style={styles.noMapText}>
                       Floor plan not available for floor{" "}
-                      {formatFloorLabel(effectiveFloor)}
+                      {formatFloorLabelForBuilding(buildingCode, effectiveFloor)}
                     </Text>
                   </View>
                 )}
