@@ -474,25 +474,24 @@ function roundDistanceHuman(units: number): string {
 function getArrivalSide(prev: IndoorNode, dest: IndoorNode): "left" | "right" {
   const dx = dest.x - prev.x;
   const dy = dest.y - prev.y;
+
+  /**
+   * Mostly horizontal: decide based on whether we're walking east/west
+   * and whether the destination is toward the top of the screen (smaller y)
+   */
   if (Math.abs(dx) >= Math.abs(dy)) {
-    // Mostly horizontal: left = toward top of screen (smaller y) when walking east
-    return dx > 0
-      ? dest.y <= prev.y
-        ? "left"
-        : "right"
-      : dest.y <= prev.y
-        ? "right"
-        : "left";
-  } else {
-    // Mostly vertical: left = larger x (east) when walking south (dy > 0 in y-down)
-    return dy > 0
-      ? dest.x >= prev.x
-        ? "left"
-        : "right"
-      : dest.x >= prev.x
-        ? "right"
-        : "left";
+    const isEast = dx > 0;
+    const destOnTop = dest.y <= prev.y;
+    // If destination is on the "left side" relative to travel direction, destOnTop will match isEast.
+    return destOnTop === isEast ? "left" : "right";
   }
+
+  /** Mostly vertical: decide based on whether we're walking south/north and
+   whether the destination is on the eastern side (larger x).
+   */
+  const isSouth = dy > 0; // dy > 0 in y-down coordinates means "south"
+  const destOnEast = dest.x >= prev.x;
+  return destOnEast === isSouth ? "left" : "right";
 }
 
 function getArrivalRelationFromDisplayedApproach(
@@ -520,6 +519,29 @@ function getArrivalRelationFromDisplayedApproach(
   }
 
   return getArrivalSide(prev, dest);
+}
+
+function shouldKeepHallwayTurn(
+  curr: IndoorNode,
+  lastKept: IndoorNode,
+  next: IndoorNode,
+  turnThresholdRad: number,
+): boolean {
+  if (!HALLWAY_NODE_TYPES.has(curr.type)) return false;
+  if (next.floor !== curr.floor) return false;
+
+  const ax = curr.x - lastKept.x;
+  const ay = curr.y - lastKept.y;
+  const bx = next.x - curr.x;
+  const by = next.y - curr.y;
+  const lenA = Math.hypot(ax, ay);
+  const lenB = Math.hypot(bx, by);
+  if (lenA < 1e-6 || lenB < 1e-6) return false;
+
+  const sinAngle = (ax * by - ay * bx) / (lenA * lenB);
+  const cosAngle = (ax * bx + ay * by) / (lenA * lenB);
+  const angle = Math.abs(Math.atan2(Math.abs(sinAngle), cosAngle));
+  return angle > turnThresholdRad;
 }
 
 // Simplify the raw Dijkstra path into waypoints for step generation.
@@ -561,22 +583,7 @@ function simplifyPathForSteps(
       continue;
     }
 
-    if (!HALLWAY_NODE_TYPES.has(curr.type)) continue;
-    if (next.floor !== curr.floor) continue;
-
-    const ax = curr.x - lastKept.x;
-    const ay = curr.y - lastKept.y;
-    const bx = next.x - curr.x;
-    const by = next.y - curr.y;
-    const lenA = Math.hypot(ax, ay);
-    const lenB = Math.hypot(bx, by);
-    if (lenA < 1e-6 || lenB < 1e-6) continue;
-
-    const sinAngle = (ax * by - ay * bx) / (lenA * lenB);
-    const cosAngle = (ax * bx + ay * by) / (lenA * lenB);
-    const angle = Math.abs(Math.atan2(Math.abs(sinAngle), cosAngle));
-
-    if (angle > TURN_THRESHOLD_RAD) {
+    if (shouldKeepHallwayTurn(curr, lastKept, next, TURN_THRESHOLD_RAD)) {
       keepIndices.add(i);
       lastKeptIdx = i;
     }
@@ -623,7 +630,6 @@ function buildSteps(
 
   // Show walk/final-approach distances once they are at least 1 meter.
   const MIN_WALK_EMIT = UNITS_PER_METER;
-  // Keep very short standalone straight segments suppressed to avoid noisy directions.
   const MIN_STRAIGHT_EMIT = 80;
   const MIN_CONTINUE = UNITS_PER_METER;
   // Keep the last doorway approach attached to the turn that leads into it.
@@ -635,11 +641,10 @@ function buildSteps(
   let lastLandmarkUsed: string | null = null;
   let lastStraightDistUnits = 0; // for merging consecutive "Continue straight" steps
 
-  const usesFinalApproachArrival =
-    (instruction: string | undefined): boolean =>
-      instruction?.startsWith("Continue straight for about ") === true ||
-      instruction?.startsWith("Continue for about ") === true ||
-      instruction?.includes(" and continue for about ") === true;
+  const usesFinalApproachArrival = (instruction: string | undefined): boolean =>
+    instruction?.startsWith("Continue straight for about ") === true ||
+    instruction?.startsWith("Continue for about ") === true ||
+    instruction?.includes(" and continue for about ") === true;
 
   // A floor is pass-through if the route exits it before reaching any room.
   const isPassThroughFloor = (fromIdx: number, floor: number): boolean => {
@@ -822,55 +827,60 @@ function buildSteps(
   return steps;
 }
 
-export function findIndoorRoute(
+function findIndoorRouteEndpoints(
+  nodes: Map<string, IndoorNode>,
   buildingCode: string,
   startRoomLabel: string,
   endRoomLabel: string,
-): IndoorRoute | null {
-  const floors = getBuildingFloors(buildingCode);
-  if (floors.length === 0) return null;
-
-  const { nodes, adjacency } = buildGraph(floors);
+): { startNode?: IndoorNode; endNode?: IndoorNode } {
   let startNode: IndoorNode | undefined;
   let endNode: IndoorNode | undefined;
 
-  nodes.forEach((node) => {
-    if (
-      node.type === "room" &&
-      buildingIdMatches(buildingCode, node.buildingId)
-    ) {
-      if (roomLabelMatches(buildingCode, node.label, startRoomLabel))
-        startNode = node;
-      if (roomLabelMatches(buildingCode, node.label, endRoomLabel))
-        endNode = node;
+  for (const node of nodes.values()) {
+    if (node.type !== "room") continue;
+    if (!buildingIdMatches(buildingCode, node.buildingId)) continue;
+
+    if (roomLabelMatches(buildingCode, node.label, startRoomLabel)) {
+      startNode = node;
     }
-  });
-
-  if (!startNode || !endNode) return null;
-
-  if (startNode.id === endNode.id) {
-    return {
-      segments: [
-        {
-          floor: startNode.floor,
-          points: [{ x: startNode.x, y: startNode.y }],
-        },
-      ],
-      steps: [
-        {
-          instruction: `You are already at room ${startRoomLabel}`,
-          floor: startNode.floor,
-        },
-      ],
-      totalDistance: 0,
-      startFloor: startNode.floor,
-      endFloor: endNode.floor,
-    };
+    if (roomLabelMatches(buildingCode, node.label, endRoomLabel)) {
+      endNode = node;
+    }
   }
 
+  return { startNode, endNode };
+}
+
+function buildSameRoomIndoorRoute(
+  startNode: IndoorNode,
+  startRoomLabel: string,
+): IndoorRoute {
+  return {
+    segments: [
+      {
+        floor: startNode.floor,
+        points: [{ x: startNode.x, y: startNode.y }],
+      },
+    ],
+    steps: [
+      {
+        instruction: `You are already at room ${startRoomLabel}`,
+        floor: startNode.floor,
+      },
+    ],
+    totalDistance: 0,
+    startFloor: startNode.floor,
+    endFloor: startNode.floor,
+  };
+}
+
+function findBestIndoorPath(
+  nodes: Map<string, IndoorNode>,
+  adjacency: Map<string, { neighbor: string; weight: number }[]>,
+  startNode: IndoorNode,
+  endNode: IndoorNode,
+) {
   const sameFloor = startNode.floor === endNode.floor;
-  // When same floor, restrict to that floor only (no stairs/elevators). Do not restrict
-  // by buildingId so we can traverse shared connectors (e.g. doorways to MB room 1.210).
   let result = dijkstra(
     nodes,
     adjacency,
@@ -880,6 +890,7 @@ export function findIndoorRoute(
     null,
     true, // prefer route that avoids elevator/stairs
   );
+
   if (sameFloor && !result) {
     result = dijkstra(
       nodes,
@@ -888,13 +899,20 @@ export function findIndoorRoute(
       endNode.id,
       startNode.floor,
       null,
-      false, // fallback: allow path through elevator/stair if no alternative
+      false,
     );
   }
-  const graphNodes = nodes;
-  const graphAdjacency = adjacency;
-  if (!result) return null;
 
+  return result;
+}
+
+function buildIndoorRouteFromDijkstraResult(
+  result: { path: string[]; distance: number },
+  graphNodes: Map<string, IndoorNode>,
+  graphAdjacency: Map<string, { neighbor: string; weight: number }[]>,
+  startNode: IndoorNode,
+  endNode: IndoorNode,
+): IndoorRoute {
   const pathNodes = result.path
     .map((id) => graphNodes.get(id))
     .filter((n): n is IndoorNode => n !== undefined);
@@ -927,7 +945,6 @@ export function findIndoorRoute(
   }));
 
   const allFloorNodes = Array.from(graphNodes.values());
-
   const landmarkBuildingId =
     startNode.buildingId === "MB-S2" && endNode.buildingId === "MB-S2"
       ? "MB-S2"
@@ -946,6 +963,39 @@ export function findIndoorRoute(
     startFloor: startNode.floor,
     endFloor: endNode.floor,
   };
+}
+
+export function findIndoorRoute(
+  buildingCode: string,
+  startRoomLabel: string,
+  endRoomLabel: string,
+): IndoorRoute | null {
+  const floors = getBuildingFloors(buildingCode);
+  if (floors.length === 0) return null;
+
+  const { nodes, adjacency } = buildGraph(floors);
+  const { startNode, endNode } = findIndoorRouteEndpoints(
+    nodes,
+    buildingCode,
+    startRoomLabel,
+    endRoomLabel,
+  );
+
+  if (!startNode || !endNode) return null;
+  if (startNode.id === endNode.id) {
+    return buildSameRoomIndoorRoute(startNode, startRoomLabel);
+  }
+
+  const result = findBestIndoorPath(nodes, adjacency, startNode, endNode);
+  if (!result) return null;
+
+  return buildIndoorRouteFromDijkstraResult(
+    result,
+    nodes,
+    adjacency,
+    startNode,
+    endNode,
+  );
 }
 
 /**
