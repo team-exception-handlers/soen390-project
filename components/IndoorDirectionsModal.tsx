@@ -162,9 +162,7 @@ export default function IndoorDirectionsModal({
   const allPointsOnFloor = segmentsOnActiveFloor.flatMap((s) => s.points);
 
   const floorAsset =
-    effectiveFloor !== null
-      ? getFloorAsset(buildingCode, effectiveFloor)
-      : null;
+    effectiveFloor === null ? null : getFloorAsset(buildingCode, effectiveFloor);
 
   const bounds = computeBounds(effectiveFloor, floorBounds);
 
@@ -173,6 +171,39 @@ export default function IndoorDirectionsModal({
     graphFloorBounds,
     bounds,
   );
+
+  let floorPlanContent: React.ReactNode = null;
+  if (floorAsset) {
+    if (floorAsset.kind === "image") {
+      floorPlanContent = (
+        <Image
+          source={floorAsset.source}
+          style={styles.floorPlanImage}
+          resizeMode="contain"
+        />
+      );
+    } else {
+      floorPlanContent = (
+        <Svg
+          width="100%"
+          height="100%"
+          preserveAspectRatio="xMidYMid meet"
+          viewBox={`0 0 ${bounds.width} ${bounds.height}`}
+        >
+          <floorAsset.component width={bounds.width} height={bounds.height} />
+        </Svg>
+      );
+    }
+  } else {
+    floorPlanContent = (
+      <View style={styles.noMapPlaceholder}>
+        <Text style={styles.noMapText}>
+          Floor plan not available for floor{" "}
+          {formatFloorLabelForBuilding(buildingCode, effectiveFloor)}
+        </Text>
+      </View>
+    );
+  }
 
   const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -228,20 +259,16 @@ export default function IndoorDirectionsModal({
       return { sx, sy };
     }) ?? [];
   const lastSegmentPoints =
-    segmentsOnActiveFloor.length > 0
-      ? segmentsOnActiveFloor[segmentsOnActiveFloor.length - 1].points.map(
-          ({ x, y }) => {
-            const { sx, sy } = scalePoint(x, y);
-            return { sx, sy };
-          },
-        )
-      : [];
+    segmentsOnActiveFloor
+      .at(-1)
+      ?.points.map(({ x, y }) => {
+        const { sx, sy } = scalePoint(x, y);
+        return { sx, sy };
+      }) ?? [];
 
   const startPoint = firstSegmentPoints[0] ?? null;
   const endPoint =
-    lastSegmentPoints.length > 0
-      ? lastSegmentPoints[lastSegmentPoints.length - 1]
-      : null;
+    lastSegmentPoints.at(-1) ?? null;
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
@@ -325,34 +352,7 @@ export default function IndoorDirectionsModal({
                 style={styles.mapContainer}
                 onLayout={onContainerLayout}
               >
-                {floorAsset ? (
-                  floorAsset.kind === "image" ? (
-                    <Image
-                      source={floorAsset.source}
-                      style={styles.floorPlanImage}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <Svg
-                      width="100%"
-                      height="100%"
-                      preserveAspectRatio="xMidYMid meet"
-                      viewBox={`0 0 ${bounds.width} ${bounds.height}`}
-                    >
-                      <floorAsset.component
-                        width={bounds.width}
-                        height={bounds.height}
-                      />
-                    </Svg>
-                  )
-                ) : (
-                  <View style={styles.noMapPlaceholder}>
-                    <Text style={styles.noMapText}>
-                      Floor plan not available for floor{" "}
-                      {formatFloorLabelForBuilding(buildingCode, effectiveFloor)}
-                    </Text>
-                  </View>
-                )}
+                {floorPlanContent}
 
                 {/* SVG route overlay */}
                 {containerSize.width > 0 && scaledPoints.length > 0 && (
@@ -418,7 +418,10 @@ export default function IndoorDirectionsModal({
                   showsVerticalScrollIndicator={false}
                 >
                   {route.steps.map((step, i) => (
-                    <View key={i} style={styles.stepRow}>
+                    <View
+                      key={`${step.floor}-${step.instruction}`}
+                      style={styles.stepRow}
+                    >
                       <View style={styles.stepBullet}>
                         <Text style={styles.stepBulletText}>{i + 1}</Text>
                       </View>

@@ -575,8 +575,8 @@ export default function MapScreen() {
   // Compute indoor route whenever same building + both rooms are filled
   useEffect(() => {
     const isSameBuilding =
-      originBuilding &&
-      destinationBuilding &&
+      originBuilding?.code != null &&
+      destinationBuilding?.code != null &&
       originBuilding.code === destinationBuilding.code;
 
     if (!isSameBuilding || !originRoom.trim() || !destinationRoom.trim()) {

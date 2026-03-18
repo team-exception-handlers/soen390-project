@@ -308,8 +308,8 @@ export default function DirectionsPanel({
   hasIndoorRoute,
 }: DirectionsPanelProps) {
   const isSameBuilding =
-    originBuilding &&
-    destinationBuilding &&
+    originBuilding?.code != null &&
+    destinationBuilding?.code != null &&
     originBuilding.code === destinationBuilding.code;
   const showIndoorButton =
     isSameBuilding && originRoom.trim() && destinationRoom.trim();

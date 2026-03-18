@@ -305,6 +305,50 @@ function dijkstra(
   dist.set(startId, 0);
   heap.push(startId, 0);
 
+  dijkstraSearchCore({
+    nodes,
+    adjacency,
+    startId,
+    endId,
+    restrictToFloor,
+    restrictToBuildingId,
+    excludeVerticalTransit,
+    dist,
+    prev,
+    visited,
+    heap,
+  });
+
+  if ((dist.get(endId) ?? Infinity) === Infinity) return null;
+
+  const path = reconstructDijkstraPath(endId, prev);
+  return { path, distance: dist.get(endId) ?? 0 };
+}
+
+function dijkstraSearchCore({
+  nodes,
+  adjacency,
+  endId,
+  restrictToFloor,
+  restrictToBuildingId,
+  excludeVerticalTransit,
+  dist,
+  prev,
+  visited,
+  heap,
+}: {
+  nodes: Map<string, IndoorNode>;
+  adjacency: Map<string, { neighbor: string; weight: number }[]>;
+  startId: string;
+  endId: string;
+  restrictToFloor: number | null;
+  restrictToBuildingId: string | null;
+  excludeVerticalTransit: boolean;
+  dist: Map<string, number>;
+  prev: Map<string, string | null>;
+  visited: Set<string>;
+  heap: MinHeap;
+}) {
   const hasRestrictions = restrictToFloor != null || restrictToBuildingId != null;
 
   while (heap.size > 0) {
@@ -316,33 +360,27 @@ function dijkstra(
     if (current === endId) break;
 
     for (const { neighbor, weight } of adjacency.get(current) ?? []) {
-      if (visited.has(neighbor)) continue;
-
-      if (
-        hasRestrictions &&
-        !isNeighborAllowedUnderRestrictions(
-          nodes,
-          neighbor,
-          restrictToFloor,
-          restrictToBuildingId,
-          excludeVerticalTransit,
-        )
-      )
-        continue;
+      const shouldSkipNeighbor =
+        visited.has(neighbor) ||
+        (hasRestrictions &&
+          !isNeighborAllowedUnderRestrictions(
+            nodes,
+            neighbor,
+            restrictToFloor,
+            restrictToBuildingId,
+            excludeVerticalTransit,
+          ));
+      if (shouldSkipNeighbor) continue;
 
       const newDist = (dist.get(current) ?? 0) + weight;
-      if (newDist < (dist.get(neighbor) ?? Infinity)) {
+      const currentBest = dist.get(neighbor) ?? Infinity;
+      if (newDist < currentBest) {
         dist.set(neighbor, newDist);
         prev.set(neighbor, current);
         heap.push(neighbor, newDist);
       }
     }
   }
-
-  if ((dist.get(endId) ?? Infinity) === Infinity) return null;
-
-  const path = reconstructDijkstraPath(endId, prev);
-  return { path, distance: dist.get(endId) ?? 0 };
 }
 
 function isNeighborAllowedUnderRestrictions(
@@ -813,15 +851,19 @@ function emitWalkLeadingToTurnIfNeeded(
 
 function emitTurnWaypoint(
   state: BuildStepsState,
-  i: number,
-  node: IndoorNode,
-  prev: IndoorNode,
-  next: IndoorNode,
-  turn: "left" | "right",
-  segDist: number,
-  minWalkEmit: number,
-  minContinue: number,
+  params: {
+    i: number;
+    node: IndoorNode;
+    prev: IndoorNode;
+    next: IndoorNode;
+    turn: "left" | "right";
+    segDist: number;
+    minWalkEmit: number;
+    minContinue: number;
+  },
 ): void {
+  const { i, node, turn, segDist, minWalkEmit, minContinue } = params;
+
   emitWalkLeadingToTurnIfNeeded(state, i, node, segDist, minWalkEmit);
 
   state.lastEmittedDistIdx = i;
@@ -913,17 +955,16 @@ function emitRouteStepsFromSimplifiedNodes(
       continue;
     }
 
-    emitTurnWaypoint(
-      state,
+    emitTurnWaypoint(state, {
       i,
       node,
       prev,
       next,
       turn,
       segDist,
-      MIN_WALK_EMIT,
-      MIN_CONTINUE,
-    );
+      minWalkEmit: MIN_WALK_EMIT,
+      minContinue: MIN_CONTINUE,
+    });
   }
 }
 
@@ -1077,14 +1118,14 @@ function buildIndoorRouteFromDijkstraResult(
   }
 
   const segments: IndoorPathSegment[] = [];
-  let currentSegment: IndoorPathSegment | null = null;
+  let currentSegment: IndoorPathSegment | undefined = undefined;
 
   for (const node of pathNodes) {
-    if (!currentSegment || currentSegment.floor !== node.floor) {
+    if ((currentSegment as IndoorPathSegment | null | undefined)?.floor !== node.floor) {
       if (currentSegment) segments.push(currentSegment);
       currentSegment = { floor: node.floor, points: [] };
     }
-    currentSegment.points.push({ x: node.x, y: node.y });
+    currentSegment!.points.push({ x: node.x, y: node.y });
   }
   if (currentSegment) segments.push(currentSegment);
 

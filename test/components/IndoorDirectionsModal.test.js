@@ -138,8 +138,8 @@ function expand(node) {
 
   if (typeof node === "object" && node.$$typeof) {
     const { type, props } = node;
-    if (typeof type === "function") return expand(type(props || {}));
-    const nextProps = { ...(props ?? {}) };
+    if (typeof type === "function") return expand(type(props));
+    const nextProps = { ...props };
     if (nextProps.children !== undefined) nextProps.children = expand(nextProps.children);
     return { type, props: nextProps };
   }
