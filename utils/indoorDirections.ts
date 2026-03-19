@@ -205,7 +205,7 @@ function buildGraph(floors: FloorData[]): {
   const bySuffix = new Map<string, IndoorNode[]>();
   nodes.forEach((node) => {
     if (VERTICAL_NODE_TYPES.has(node.type)) {
-      const match = node.id.match(/_(stair_landing|elevator_door)_(\d+)$/);
+      const match = /_(stair_landing|elevator_door)_(\d+)$/.exec(node.id);
       if (match) {
         const key = `${match[1]}_${match[2]}`;
         const list = bySuffix.get(key) ?? [];
@@ -755,9 +755,10 @@ function foldOrEmitContinueForDestination(
   minWalkEmit: number,
   shortFinalApproach: number,
 ): boolean {
-  if (!(node.type === "room" && node.id !== state.start.id)) return false;
+  if (node.type !== "room" || node.id === state.start.id) return false;
 
-  const lastStep = state.steps[state.steps.length - 1];
+  const lastStep = state.steps.at(-1);
+  if (!lastStep) return false;
   const canFoldIntoTurn =
     segDist >= minWalkEmit &&
     segDist <= shortFinalApproach &&
@@ -765,13 +766,14 @@ function foldOrEmitContinueForDestination(
     !lastStep.instruction.includes(" and continue for about ");
 
   if (canFoldIntoTurn) {
-    state.steps[state.steps.length - 1] = {
+    state.steps.pop();
+    state.steps.push({
       ...lastStep,
       instruction: lastStep.instruction.replace(
         /\.$/,
         ` and continue for about ${roundDistanceHuman(segDist)} m.`,
       ),
-    };
+    });
   } else if (segDist >= minWalkEmit) {
     state.steps.push({
       instruction: `Continue for about ${roundDistanceHuman(segDist)} m.`,
@@ -779,7 +781,7 @@ function foldOrEmitContinueForDestination(
     });
   }
 
-  const lastArrivalContextStep = state.steps[state.steps.length - 1];
+  const lastArrivalContextStep = state.steps.at(-1);
   const arrivalRelation = usesFinalApproachArrivalInstruction(
     lastArrivalContextStep?.instruction,
   )
@@ -804,7 +806,7 @@ function emitOrMergeContinueStraight(
   node: IndoorNode,
   segDist: number,
 ): void {
-  const lastStep = state.steps[state.steps.length - 1];
+  const lastStep = state.steps.at(-1);
   const lastIsStraight =
     lastStep?.instruction.startsWith("Continue straight for about ") ||
     lastStep?.instruction.startsWith("Continue for about ");
@@ -898,7 +900,7 @@ function emitTurnWaypoint(
   state.lastLandmarkUsed = rawLandmark ?? state.lastLandmarkUsed;
 
   const continueInstruction = `Turn ${turn}${atPhrase}${continueStr}.`;
-  const lastStep = state.steps[state.steps.length - 1];
+  const lastStep = state.steps.at(-1);
   if (lastStep?.instruction === continueInstruction) return;
 
   state.steps.push({
@@ -986,7 +988,8 @@ function buildSteps(
   const endpointIds = new Set<string>();
   if (allPathNodes.length > 0) endpointIds.add(allPathNodes[0].id);
   if (allPathNodes.length > 1) {
-    endpointIds.add(allPathNodes[allPathNodes.length - 1].id);
+    const lastNode = allPathNodes.at(-1);
+    if (lastNode) endpointIds.add(lastNode.id);
   }
 
   const steps: IndoorRouteStep[] = [];

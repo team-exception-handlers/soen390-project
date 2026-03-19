@@ -300,20 +300,7 @@ export default function IndoorDirectionsModal({
             </Text>
           </View>
 
-          {!route ? (
-            <View style={styles.noPathContainer}>
-              <Text style={styles.noPathTitle}>No Indoor Path Available</Text>
-              <Text style={styles.noPathBody}>
-                There is no navigable indoor route between{" "}
-                <Text style={{ fontWeight: "700" }}>room {originRoom}</Text> and{" "}
-                <Text style={{ fontWeight: "700" }}>
-                  room {destinationRoom}
-                </Text>{" "}
-                in this building. Please verify the room numbers or use an
-                alternate route.
-              </Text>
-            </View>
-          ) : (
+          {route ? (
             <>
               {/* Floor selector tabs */}
               {uniqueFloors.length > 1 && (
@@ -431,6 +418,19 @@ export default function IndoorDirectionsModal({
                 </ScrollView>
               )}
             </>
+          ) : (
+            <View style={styles.noPathContainer}>
+              <Text style={styles.noPathTitle}>No Indoor Path Available</Text>
+              <Text style={styles.noPathBody}>
+                There is no navigable indoor route between{" "}
+                <Text style={{ fontWeight: "700" }}>room {originRoom}</Text> and{" "}
+                <Text style={{ fontWeight: "700" }}>
+                  room {destinationRoom}
+                </Text>{" "}
+                in this building. Please verify the room numbers or use an
+                alternate route.
+              </Text>
+            </View>
           )}
         </View>
       </View>

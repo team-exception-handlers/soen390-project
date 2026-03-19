@@ -574,20 +574,26 @@ export default function MapScreen() {
 
   // Compute indoor route whenever same building + both rooms are filled
   useEffect(() => {
-    const isSameBuilding =
-      originBuilding?.code != null &&
-      destinationBuilding?.code != null &&
-      originBuilding.code === destinationBuilding.code;
+    const originCode = originBuilding?.code;
+    const destinationCode = destinationBuilding?.code;
+    const trimmedOriginRoom = originRoom.trim();
+    const trimmedDestinationRoom = destinationRoom.trim();
 
-    if (!isSameBuilding || !originRoom.trim() || !destinationRoom.trim()) {
+    if (
+      originCode == null ||
+      destinationCode == null ||
+      originCode !== destinationCode ||
+      trimmedOriginRoom.length === 0 ||
+      trimmedDestinationRoom.length === 0
+    ) {
       setIndoorRoute(undefined);
       return;
     }
 
     const route = findIndoorRoute(
-      originBuilding!.code,
-      originRoom.trim(),
-      destinationRoom.trim(),
+      originCode,
+      trimmedOriginRoom,
+      trimmedDestinationRoom,
     );
     setIndoorRoute(route);
   }, [originBuilding, destinationBuilding, originRoom, destinationRoom]);
@@ -2247,7 +2253,13 @@ export default function MapScreen() {
         getRoomDetails={getRoomDetails}
         getFloorPlanAsset={getFloorPlanAsset}
         onShowIndoorDirections={() => setIndoorDirectionsModalVisible(true)}
-        hasIndoorRoute={indoorRoute !== undefined ? indoorRoute !== null : undefined}
+        hasIndoorRoute={
+          indoorRoute === null
+            ? false
+            : indoorRoute === undefined
+              ? undefined
+              : true
+        }
       />
 
       {currentBuilding &&
