@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Navigation, X } from "lucide-react-native";
+import { ChevronDown, ChevronUp, Navigation, Settings, X } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import {
   Image,
@@ -7,11 +7,13 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
 import Svg, { Circle, Polyline, type SvgProps } from "react-native-svg";
 import type { IndoorRoute } from "../utils/indoorDirections";
+import { findIndoorRoute } from "../utils/indoorDirections";
 
 import CC1Plan from "../assets/floor_plans/svg/CC1.svg";
 import H1Plan from "../assets/floor_plans/svg/H1.svg";
@@ -141,28 +143,41 @@ export default function IndoorDirectionsModal({
   const [activeFloor, setActiveFloor] = useState<number | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [stepsExpanded, setStepsExpanded] = useState(true);
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [stairsEnabled, setStairsEnabled] = useState(true);
+  const [escalatorsEnabled, setEscalatorsEnabled] = useState(true);
+  const [elevatorsEnabled, setElevatorsEnabled] = useState(true);
+
+  const noStairs = !stairsEnabled;
+  const noEscalators = !escalatorsEnabled;
+
+  const effectiveRoute = (noStairs || noEscalators)
+    ? findIndoorRoute(buildingCode, originRoom, destinationRoom, noStairs, noEscalators)
+    : route;
   const isS2Route = computeIsS2Route(
     buildingCode,
-    route,
+    effectiveRoute,
     originRoom,
     destinationRoom,
   );
 
-  const defaultFloor = computeDefaultFloor(route, isS2Route);
+  const defaultFloor = computeDefaultFloor(effectiveRoute, isS2Route);
 
   const effectiveFloor = activeFloor ?? defaultFloor;
 
-  const uniqueFloors = computeUniqueFloors(route, isS2Route);
+  const uniqueFloors = computeUniqueFloors(effectiveRoute, isS2Route);
 
   const segmentsOnActiveFloor = computeSegmentsOnActiveFloor(
-    route,
+    effectiveRoute,
     isS2Route,
     effectiveFloor,
   );
   const allPointsOnFloor = segmentsOnActiveFloor.flatMap((s) => s.points);
 
   const floorAsset =
-    effectiveFloor === null ? null : getFloorAsset(buildingCode, effectiveFloor);
+    effectiveFloor !== null
+      ? getFloorAsset(buildingCode, effectiveFloor)
+      : null;
 
   const bounds = computeBounds(effectiveFloor, floorBounds);
 
@@ -171,39 +186,6 @@ export default function IndoorDirectionsModal({
     graphFloorBounds,
     bounds,
   );
-
-  let floorPlanContent: React.ReactNode = null;
-  if (floorAsset) {
-    if (floorAsset.kind === "image") {
-      floorPlanContent = (
-        <Image
-          source={floorAsset.source}
-          style={styles.floorPlanImage}
-          resizeMode="contain"
-        />
-      );
-    } else {
-      floorPlanContent = (
-        <Svg
-          width="100%"
-          height="100%"
-          preserveAspectRatio="xMidYMid meet"
-          viewBox={`0 0 ${bounds.width} ${bounds.height}`}
-        >
-          <floorAsset.component width={bounds.width} height={bounds.height} />
-        </Svg>
-      );
-    }
-  } else {
-    floorPlanContent = (
-      <View style={styles.noMapPlaceholder}>
-        <Text style={styles.noMapText}>
-          Floor plan not available for floor{" "}
-          {formatFloorLabelForBuilding(buildingCode, effectiveFloor)}
-        </Text>
-      </View>
-    );
-  }
 
   const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -259,16 +241,20 @@ export default function IndoorDirectionsModal({
       return { sx, sy };
     }) ?? [];
   const lastSegmentPoints =
-    segmentsOnActiveFloor
-      .at(-1)
-      ?.points.map(({ x, y }) => {
-        const { sx, sy } = scalePoint(x, y);
-        return { sx, sy };
-      }) ?? [];
+    segmentsOnActiveFloor.length > 0
+      ? segmentsOnActiveFloor[segmentsOnActiveFloor.length - 1].points.map(
+        ({ x, y }) => {
+          const { sx, sy } = scalePoint(x, y);
+          return { sx, sy };
+        },
+      )
+      : [];
 
   const startPoint = firstSegmentPoints[0] ?? null;
   const endPoint =
-    lastSegmentPoints.at(-1) ?? null;
+    lastSegmentPoints.length > 0
+      ? lastSegmentPoints[lastSegmentPoints.length - 1]
+      : null;
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
@@ -280,13 +266,22 @@ export default function IndoorDirectionsModal({
               <Navigation size={18} color="#238c51" strokeWidth={2} />
               <Text style={styles.headerTitle}>Indoor Directions</Text>
             </View>
-            <Pressable
-              testID="indoor-directions-close"
-              style={styles.closeButton}
-              onPress={onClose}
-            >
-              <X size={20} color="#1F1F24" strokeWidth={2.5} />
-            </Pressable>
+            <View style={styles.headerRight}>
+              <Pressable
+                style={styles.headerIconButton}
+                onPress={() => setSettingsVisible(true)}
+                accessibilityLabel="Accessibility settings"
+              >
+                <Settings size={18} color="#1F1F24" strokeWidth={2} />
+              </Pressable>
+              <Pressable
+                testID="indoor-directions-close"
+                style={styles.closeButton}
+                onPress={onClose}
+              >
+                <X size={20} color="#1F1F24" strokeWidth={2.5} />
+              </Pressable>
+            </View>
           </View>
 
           {/* Route summary */}
@@ -300,7 +295,20 @@ export default function IndoorDirectionsModal({
             </Text>
           </View>
 
-          {route ? (
+          {!effectiveRoute ? (
+            <View style={styles.noPathContainer}>
+              <Text style={styles.noPathTitle}>No Indoor Path Available</Text>
+              <Text style={styles.noPathBody}>
+                There is no navigable indoor route between{" "}
+                <Text style={{ fontWeight: "700" }}>room {originRoom}</Text> and{" "}
+                <Text style={{ fontWeight: "700" }}>
+                  room {destinationRoom}
+                </Text>{" "}
+                in this building. Please verify the room numbers or use an
+                alternate route.
+              </Text>
+            </View>
+          ) : (
             <>
               {/* Floor selector tabs */}
               {uniqueFloors.length > 1 && (
@@ -326,7 +334,7 @@ export default function IndoorDirectionsModal({
                           effectiveFloor === floor && styles.floorTabTextActive,
                         ]}
                       >
-                      Floor {formatFloorLabelForBuilding(buildingCode, floor)}
+                        Floor {formatFloorLabelForBuilding(buildingCode, floor)}
                       </Text>
                     </Pressable>
                   ))}
@@ -339,7 +347,34 @@ export default function IndoorDirectionsModal({
                 style={styles.mapContainer}
                 onLayout={onContainerLayout}
               >
-                {floorPlanContent}
+                {floorAsset ? (
+                  floorAsset.kind === "image" ? (
+                    <Image
+                      source={floorAsset.source}
+                      style={styles.floorPlanImage}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Svg
+                      width="100%"
+                      height="100%"
+                      preserveAspectRatio="xMidYMid meet"
+                      viewBox={`0 0 ${bounds.width} ${bounds.height}`}
+                    >
+                      <floorAsset.component
+                        width={bounds.width}
+                        height={bounds.height}
+                      />
+                    </Svg>
+                  )
+                ) : (
+                  <View style={styles.noMapPlaceholder}>
+                    <Text style={styles.noMapText}>
+                      Floor plan not available for floor{" "}
+                      {formatFloorLabelForBuilding(buildingCode, effectiveFloor)}
+                    </Text>
+                  </View>
+                )}
 
                 {/* SVG route overlay */}
                 {containerSize.width > 0 && scaledPoints.length > 0 && (
@@ -404,11 +439,8 @@ export default function IndoorDirectionsModal({
                   style={styles.stepsList}
                   showsVerticalScrollIndicator={false}
                 >
-                  {route.steps.map((step, i) => (
-                    <View
-                      key={`${step.floor}-${step.instruction}`}
-                      style={styles.stepRow}
-                    >
+                  {effectiveRoute.steps.map((step, i) => (
+                    <View key={i} style={styles.stepRow}>
                       <View style={styles.stepBullet}>
                         <Text style={styles.stepBulletText}>{i + 1}</Text>
                       </View>
@@ -418,23 +450,46 @@ export default function IndoorDirectionsModal({
                 </ScrollView>
               )}
             </>
-          ) : (
-            <View style={styles.noPathContainer}>
-              <Text style={styles.noPathTitle}>No Indoor Path Available</Text>
-              <Text style={styles.noPathBody}>
-                There is no navigable indoor route between{" "}
-                <Text style={{ fontWeight: "700" }}>room {originRoom}</Text> and{" "}
-                <Text style={{ fontWeight: "700" }}>
-                  room {destinationRoom}
-                </Text>{" "}
-                in this building. Please verify the room numbers or use an
-                alternate route.
-              </Text>
-            </View>
           )}
         </View>
       </View>
+
+      {/* Accessibility Settings Modal */}
+      <Modal
+        visible={settingsVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSettingsVisible(false)}
+      >
+        <Pressable style={styles.settingsOverlay} onPress={() => setSettingsVisible(false)}>
+          <Pressable style={styles.settingsCard} onPress={() => { }}>
+            <Text style={styles.settingsTitle}>Accessibility Settings</Text>
+            <SettingsRow label="Stairs" value={stairsEnabled} onChange={setStairsEnabled} />
+            <SettingsRow label="Escalators" value={escalatorsEnabled} onChange={setEscalatorsEnabled} />
+            <SettingsRow label="Elevators" value={elevatorsEnabled} onChange={setElevatorsEnabled} />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Modal>
+  );
+}
+
+function SettingsRow({
+  label,
+  value,
+  onChange,
+}: Readonly<{ label: string; value: boolean; onChange: (v: boolean) => void }>) {
+  return (
+    <View style={styles.settingsRow}>
+      <Text style={styles.settingsRowLabel}>{label}</Text>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: "#D1D5DB", true: "#34C759" }}
+        thumbColor="#FFFFFF"
+        ios_backgroundColor="#D1D5DB"
+      />
+    </View>
   );
 }
 
@@ -627,5 +682,56 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#333",
     lineHeight: 20,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F5F5F6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  settingsOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  settingsCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    paddingHorizontal: 28,
+    paddingVertical: 28,
+    width: 300,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 12,
+  },
+  settingsTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1C1C1E",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  settingsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#E5E5EA",
+  },
+  settingsRowLabel: {
+    fontSize: 17,
+    fontWeight: "500",
+    color: "#1C1C1E",
   },
 });
