@@ -988,8 +988,8 @@
       "type": "hallway_waypoint",
       "buildingId": "VE",
       "floor": 2,
-      "x": 1252,
-      "y": 238,
+      "x": 1251,
+      "y": 237,
       "label": "",
       "accessible": true
     },
@@ -1012,6 +1012,16 @@
       "y": 216,
       "label": "",
       "accessible": true
+    },
+    {
+      "id": "VE_F2_stair_landing_1",
+      "type": "stair_landing",
+      "buildingId": "VE",
+      "floor": 2,
+      "x": 1286,
+      "y": 237,
+      "label": "",
+      "accessible": false
     }
   ],
   "edges": [
@@ -1700,6 +1710,13 @@
       "type": "room_to_door",
       "weight": 122,
       "accessible": true
+    },
+    {
+      "source": "VE_F2_hallway_waypoint_91",
+      "target": "VE_F2_stair_landing_1",
+      "type": "hallway",
+      "weight": 31,
+      "accessible": false
     }
   ]
 }
