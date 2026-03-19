@@ -15,7 +15,7 @@ function useMazeSnippet() {
     } catch {}
 
     if (!sessionId) {
-      sessionId = String(new Date().getTime());
+      sessionId = String(Date.now());
       try {
         sessionStorage.setItem("maze-us", sessionId);
       } catch {}
@@ -26,10 +26,10 @@ function useMazeSnippet() {
     script.async = true;
     document.head.appendChild(script);
 
-    (window as any).mazeUniversalSnippetApiKey = apiKey;
+    (globalThis as any).mazeUniversalSnippetApiKey = apiKey;
 
     return () => {
-      document.head.removeChild(script);
+      script.remove();
     };
   }, []);
 }
