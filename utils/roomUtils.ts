@@ -1,28 +1,47 @@
-import CC1 from "../constants/maps/indoor/CC1.json";
-import HALL1 from "../constants/maps/indoor/HALL-1.json";
-import HALL2 from "../constants/maps/indoor/HALL-2.json";
-import HALL8 from "../constants/maps/indoor/HALL-8.json";
-import HALL9 from "../constants/maps/indoor/HALL-9.json";
-import MB1 from "../constants/maps/indoor/MB-1.json";
-import MBS2 from "../constants/maps/indoor/MB-S2.json";
-import VE1 from "../constants/maps/indoor/VE-1.json";
-import VE2 from "../constants/maps/indoor/VE-2.json";
-import VL1 from "../constants/maps/indoor/VL-1.json";
-import VL2 from "../constants/maps/indoor/VL-2.json";
+import cc1 from "../constants/maps/indoor/cc1.json";
+import hall1 from "../constants/maps/indoor/hall1.json";
+import hall2 from "../constants/maps/indoor/hall2.json";
+import hallCombined from "../constants/maps/indoor/hall.json";
+import mbFloorsCombined from "../constants/maps/indoor/mb_floors_combined.json";
+import ve1 from "../constants/maps/indoor/ve1.json";
+import ve2 from "../constants/maps/indoor/ve2.json";
+import vl1 from "../constants/maps/indoor/vl1.json";
+import vl2 from "../constants/maps/indoor/vl2.json";
 import { RoomRecord } from "../types/rooms";
+
 const ALL_FILES = [
-  VL1,
-  VL2,
-  HALL8,
-  HALL9,
-  MB1,
-  MBS2,
-  CC1,
-  VE1,
-  VE2,
-  HALL1,
-  HALL2,
+  cc1,
+  hall1,
+  hall2,
+  hallCombined,
+  mbFloorsCombined,
+  ve1,
+  ve2,
+  vl1,
+  vl2,
 ];
+
+/** App building code "H" (Henry F. Hall) maps to JSON buildingId "Hall". MB includes S2 (MB-S2). */
+function buildingIdMatches(buildingCode: string, nodeBuildingId: string): boolean {
+  return (
+    nodeBuildingId === buildingCode ||
+    (buildingCode === "H" && nodeBuildingId === "Hall") ||
+    (buildingCode === "MB" && nodeBuildingId === "MB-S2")
+  );
+}
+
+/** JSON may use prefixed labels (e.g. "H-822", "VL-202-30"); app often sends "822", "202-30". Match both. */
+function roomLabelMatches(
+  buildingCode: string,
+  nodeLabel: string | undefined,
+  userLabel: string,
+): boolean {
+  if (!nodeLabel) return false;
+  if (nodeLabel === userLabel) return true;
+  const prefix = buildingCode === "H" ? "H" : buildingCode;
+  if (nodeLabel === `${prefix}-${userLabel}`) return true;
+  return false;
+}
 
 export const getRoomDetails = (
   buildingCode: string,
@@ -32,14 +51,14 @@ export const getRoomDetails = (
     const roomNode = file.nodes.find(
       (node: any) =>
         node.type === "room" &&
-        node.buildingId === buildingCode &&
-        node.label === roomNumber,
+        buildingIdMatches(buildingCode, node.buildingId) &&
+        roomLabelMatches(buildingCode, node.label, roomNumber),
     );
 
     if (roomNode) {
       return {
-        buildingCode: roomNode.buildingId,
-        roomNumber: roomNode.label,
+        buildingCode,
+        roomNumber,
         x: roomNode.x,
         y: roomNode.y,
         floor: roomNode.floor,

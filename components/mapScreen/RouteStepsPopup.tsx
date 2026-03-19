@@ -11,7 +11,7 @@ import {
   View,
   type GestureResponderHandlers,
 } from "react-native";
-import type { MapScreenStyles } from "../../app/(tabs)/mapScreen.styles";
+import type { MapScreenStyles } from "../../styles/mapScreen.styles";
 import type { BuildingRecord } from "../../constants/buildings";
 import ShuttleDirections from "../ShuttleDirections";
 import TransitLegTimeline from "../TransitLegTimeline";
@@ -95,9 +95,9 @@ function TransitItineraryCard({
                 : `${itinerary.transfers} transfer${itinerary.transfers > 1 ? "s" : ""}`}
             </Text>
             <View style={styles.itineraryLegsRow}>
-              {itinerary.legs.map((leg, legIndex) => (
+            {itinerary.legs.map((leg) => (
                 <Text
-                  key={legIndex}
+                key={`${leg.mode}-${leg.startTime}-${leg.endTime}`}
                   style={[styles.legPill, getLegColor(leg.mode, styles)]}
                 >
                   {leg.mode === "WALK" ? "Walk" : leg.route || leg.mode}
@@ -322,7 +322,7 @@ export default function RouteStepsPopup({
 
                 return (
                   <TransitItineraryCard
-                    key={index}
+                    key={`${itinerary.departureTime}-${itinerary.arrivalTime}-${itinerary.transfers}-${itinerary.distanceMeters}`}
                     itinerary={itinerary}
                     index={index}
                     isExpanded={isExpanded}
@@ -344,7 +344,7 @@ export default function RouteStepsPopup({
         ) : (
           routeInstructions.map((instruction, index) => (
             <Text
-              key={`${index}-${instruction.text}`}
+              key={`${instruction.text}-${instruction.distanceMeters}`}
               style={styles.routeStepText}
             >
               {`${index + 1}. ${instruction.text}`}

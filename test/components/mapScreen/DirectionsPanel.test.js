@@ -2,6 +2,7 @@ jest.mock("lucide-react-native", () => {
   const React = require("react");
   return {
     Map: (props) => React.createElement("MapIcon", props),
+    Navigation: (props) => React.createElement("NavigationIcon", props),
   };
 });
 
@@ -298,5 +299,106 @@ describe("components/mapScreen/DirectionsPanel", () => {
     expect(props.setRouteStarted).toHaveBeenCalledWith(true);
     expect(props.routeInstructionsDismissedRef.current).toBe(false);
     expect(props.setShowRouteInstructions).toHaveBeenCalledWith(true);
+  });
+
+  test("renders active editing field styles", () => {
+    const props = createProps({
+      editingField: "from",
+    });
+    const el = renderTree(DirectionsPanel(props));
+
+    const fromButton = findByTestID(el, "direction-from-button");
+    expect(fromButton.props.style).toContain(props.styles.directionFieldButtonActive);
+  });
+
+  test("renders cancel button when in directions mode", () => {
+    const props = createProps({
+      isDirectionsMode: true,
+    });
+    const el = renderTree(DirectionsPanel(props));
+
+    const goButton = findByTestID(el, "direction-go-button");
+    expect(goButton.props.children.props.children).toBe("Cancel");
+    goButton.props.onPress();
+    expect(props.clearDirections).toHaveBeenCalled();
+  });
+
+  test("renders indoor directions button for same building with rooms", () => {
+    const props = createProps({
+      originBuilding: originBuilding,
+      destinationBuilding: { ...originBuilding, code: "H", shortName: "Hall" }, // same building
+      originRoom: "801",
+      destinationRoom: "102",
+      onShowIndoorDirections: jest.fn(),
+      hasIndoorRoute: true,
+    });
+    const el = renderTree(DirectionsPanel(props));
+
+    const indoorButton = findByTestID(el, "indoor-directions-button");
+    expect(indoorButton).toBeTruthy();
+    expect(findText(el, "Indoor Directions")).toBeTruthy();
+
+    indoorButton.props.onPress();
+    expect(props.onShowIndoorDirections).toHaveBeenCalled();
+  });
+
+  test("renders indoor directions button with no path available", () => {
+    const props = createProps({
+      originBuilding: originBuilding,
+      destinationBuilding: { ...originBuilding, code: "H", shortName: "Hall" },
+      originRoom: "801",
+      destinationRoom: "102",
+      onShowIndoorDirections: jest.fn(),
+      hasIndoorRoute: false,
+    });
+    const el = renderTree(DirectionsPanel(props));
+
+    expect(findText(el, "No Indoor Path Available")).toBeTruthy();
+  });
+
+  test("does not render indoor button when rooms are empty", () => {
+    const props = createProps({
+      originBuilding: originBuilding,
+      destinationBuilding: { ...originBuilding, code: "H", shortName: "Hall" },
+      originRoom: "",
+      destinationRoom: "",
+    });
+    const el = renderTree(DirectionsPanel(props));
+
+    expect(findByTestID(el, "indoor-directions-button")).toBeNull();
+  });
+
+  test("does not render indoor button when destination room is empty", () => {
+    const props = createProps({
+      originBuilding: originBuilding,
+      destinationBuilding: { ...originBuilding, code: "H", shortName: "Hall" },
+      originRoom: "801",
+      destinationRoom: "",
+    });
+    const el = renderTree(DirectionsPanel(props));
+
+    expect(findByTestID(el, "indoor-directions-button")).toBeNull();
+  });
+
+  test("does not render indoor button when origin room is empty", () => {
+    const props = createProps({
+      originBuilding: originBuilding,
+      destinationBuilding: { ...originBuilding, code: "H", shortName: "Hall" },
+      originRoom: "",
+      destinationRoom: "102",
+    });
+    const el = renderTree(DirectionsPanel(props));
+
+    expect(findByTestID(el, "indoor-directions-button")).toBeNull();
+  });
+
+  test("renders active editing field styles for to", () => {
+    const props = createProps({
+      editingField: "to",
+    });
+    const el = renderTree(DirectionsPanel(props));
+
+    const toButton = findByTestID(el, "direction-to-button");
+    expect(toButton.props.style).toContain(props.styles.directionFieldButtonActive);
   });
 });
