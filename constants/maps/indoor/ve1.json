@@ -1,0 +1,121 @@
+{
+  "meta": {
+    "buildingId": "VE"
+  },
+  "nodes": [
+    {
+      "id": "VE_F1_room_67",
+      "type": "room",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 93,
+      "y": 455,
+      "label": "103",
+      "accessible": true
+    },
+    {
+      "id": "VE_F1_room_68",
+      "type": "room",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 415,
+      "y": 361,
+      "label": "101",
+      "accessible": true
+    },
+    {
+      "id": "VE_F1_doorway_60",
+      "type": "doorway",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 366,
+      "y": 360,
+      "label": "",
+      "accessible": true
+    },
+    {
+      "id": "VE_F1_doorway_61",
+      "type": "doorway",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 94,
+      "y": 414,
+      "label": "",
+      "accessible": true
+    },
+    {
+      "id": "VE_F1_hallway_waypoint_56",
+      "type": "hallway_waypoint",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 95,
+      "y": 364,
+      "label": "",
+      "accessible": true
+    },
+    {
+      "id": "VE_F1_stair_landing_1",
+      "type": "stair_landing",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 168,
+      "y": 456,
+      "label": "102",
+      "accessible": false
+    },
+    {
+      "id": "VE_F1_hallway_waypoint_59",
+      "type": "hallway_waypoint",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 167,
+      "y": 366,
+      "label": "",
+      "accessible": true
+    }
+  ],
+  "edges": [
+    {
+      "source": "VE_F1_room_67",
+      "target": "VE_F1_doorway_61",
+      "type": "room_to_door",
+      "weight": 35,
+      "accessible": true
+    },
+    {
+      "source": "VE_F1_doorway_61",
+      "target": "VE_F1_hallway_waypoint_56",
+      "type": "door_to_hallway",
+      "weight": 49,
+      "accessible": true
+    },
+    {
+      "source": "VE_F1_doorway_60",
+      "target": "VE_F1_room_68",
+      "type": "room_to_door",
+      "weight": 53,
+      "accessible": true
+    },
+    {
+      "source": "VE_F1_stair_landing_1",
+      "target": "VE_F1_hallway_waypoint_59",
+      "type": "hallway",
+      "weight": 86,
+      "accessible": true
+    },
+    {
+      "source": "VE_F1_hallway_waypoint_56",
+      "target": "VE_F1_hallway_waypoint_59",
+      "type": "hallway",
+      "weight": 72,
+      "accessible": true
+    },
+    {
+      "source": "VE_F1_hallway_waypoint_59",
+      "target": "VE_F1_doorway_60",
+      "type": "door_to_hallway",
+      "weight": 199,
+      "accessible": true
+    }
+  ]
+}

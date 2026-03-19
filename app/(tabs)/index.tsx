@@ -25,15 +25,24 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg from "react-native-svg";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import BuildingInformation from "../../components/BuildingInformation";
+import IndoorDirectionsModal from "../../components/IndoorDirectionsModal";
 import DirectionsPanel from "../../components/mapScreen/DirectionsPanel";
 import RouteStepsPopup from "../../components/mapScreen/RouteStepsPopup";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
+import { createMapScreenStyles } from "../../styles/mapScreen.styles";
 import { parseLocationParts } from "../../utils/classLocation";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
+import {
+  findIndoorRoute,
+  getFloorBounds,
+  getGraphFloorBounds,
+  type IndoorRoute,
+} from "../../utils/indoorDirections";
 import { getNearestStop, STOPS } from "../../utils/locationLogic";
 import {
   findUserBuilding,
@@ -55,7 +64,6 @@ import {
   formatTime,
   type TransitItinerary,
 } from "../../utils/transitousDirections";
-import { createMapScreenStyles } from "./mapScreen.styles";
 
 let WebView: React.ComponentType<any> | null = null;
 if (Platform.OS !== "web") {
@@ -121,14 +129,16 @@ const detectBuildingFromLocation = (
 };
 const getFloorPlanAsset = (key: string): any | null => {
   const assets: Record<string, () => any> = {
-    "H-8": () => require("../../assets/floor_plans/Hall-8.svg"),
-    "H-9": () => require("../../assets/floor_plans/Hall-9.svg"),
-    "MB-1": () => require("../../assets/floor_plans/MB-1.svg"),
-    "MB--2": () => require("../../assets/floor_plans/MB-S2.svg"),
-    "VE-1": () => require("../../assets/floor_plans/VE-1.svg"),
-    "VE-2": () => require("../../assets/floor_plans/VE-2.svg"),
-    "VL-1": () => require("../../assets/floor_plans/VL-1.svg"),
-    "VL-2": () => require("../../assets/floor_plans/VL-2.svg"),
+    "H-1": () => require("../../assets/floor_plans/png/H1.png"),
+    "H-2": () => require("../../assets/floor_plans/png/H2.png"),
+    "H-8": () => require("../../assets/floor_plans/png/hall8.png"),
+    "H-9": () => require("../../assets/floor_plans/png/hall9.png"),
+    "MB-1": () => require("../../assets/floor_plans/png/mb_1.png"),
+    "MB--2": () => require("../../assets/floor_plans/png/mb_s2.png"),
+    "VE-1": () => require("../../assets/floor_plans/png/ve1.png"),
+    "VE-2": () => require("../../assets/floor_plans/png/ve2.png"),
+    "VL-1": () => require("../../assets/floor_plans/png/vl_1.png"),
+    "VL-2": () => require("../../assets/floor_plans/png/vl_2.png"),
   };
   return assets[key] ? assets[key]() : null;
 };
@@ -185,6 +195,11 @@ export default function MapScreen() {
   const [originRoom, setOriginRoom] = useState<string>("");
   const [destinationRoom, setDestinationRoom] = useState<string>("");
   const [isDirectionsMode, setIsDirectionsMode] = useState(false);
+  const [indoorRoute, setIndoorRoute] = useState<IndoorRoute | null | undefined>(
+    undefined,
+  );
+  const [indoorDirectionsModalVisible, setIndoorDirectionsModalVisible] =
+    useState(false);
 
   const [routeMode, setRouteMode] = useState<
     RouteProfile | "transit" | "shuttle"
@@ -556,6 +571,32 @@ export default function MapScreen() {
   useEffect(() => {
     if (isSameCampus) setRouteMode("walking");
   }, [isSameCampus]);
+
+  // Compute indoor route whenever same building + both rooms are filled
+  useEffect(() => {
+    const originCode = originBuilding?.code;
+    const destinationCode = destinationBuilding?.code;
+    const trimmedOriginRoom = originRoom.trim();
+    const trimmedDestinationRoom = destinationRoom.trim();
+
+    if (
+      originCode == null ||
+      destinationCode == null ||
+      originCode !== destinationCode ||
+      trimmedOriginRoom.length === 0 ||
+      trimmedDestinationRoom.length === 0
+    ) {
+      setIndoorRoute(undefined);
+      return;
+    }
+
+    const route = findIndoorRoute(
+      originCode,
+      trimmedOriginRoom,
+      trimmedDestinationRoom,
+    );
+    setIndoorRoute(route);
+  }, [originBuilding, destinationBuilding, originRoom, destinationRoom]);
 
   useEffect(() => {
     if (!destinationBuilding || !actualOriginPoint) {
@@ -2150,6 +2191,8 @@ export default function MapScreen() {
     );
 
   const searchInputRef = useRef<TextInput>(null);
+  const hasIndoorRoute =
+    indoorRoute === undefined ? undefined : indoorRoute !== null;
 
   return (
     <View style={styles.container}>
@@ -2211,6 +2254,8 @@ export default function MapScreen() {
         setFloorPlanModalVisible={setFloorPlanModalVisible}
         getRoomDetails={getRoomDetails}
         getFloorPlanAsset={getFloorPlanAsset}
+        onShowIndoorDirections={() => setIndoorDirectionsModalVisible(true)}
+        hasIndoorRoute={hasIndoorRoute}
       />
 
       {currentBuilding &&
@@ -2377,15 +2422,58 @@ export default function MapScreen() {
             </Pressable>
 
             {activeFloorPlan && (
-              <Image
-                source={activeFloorPlan}
-                style={styles.floorPlanImage}
-                resizeMode="contain"
-              />
+              typeof activeFloorPlan === "number" ? (
+                <Image
+                  source={activeFloorPlan}
+                  style={styles.floorPlanImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                (() => {
+                  const FloorPlanComponent =
+                    activeFloorPlan as React.ComponentType<{
+                      width?: string | number;
+                      height?: string | number;
+                    }>;
+                  return (
+                    <Svg
+                      width="100%"
+                      height="100%"
+                      viewBox="0 0 1024 1024"
+                      preserveAspectRatio="xMidYMid meet"
+                    >
+                      <FloorPlanComponent width={1024} height={1024} />
+                    </Svg>
+                  );
+                })()
+              )
             )}
           </View>
         </View>
       </Modal>
+
+      <IndoorDirectionsModal
+        visible={indoorDirectionsModalVisible}
+        onClose={() => setIndoorDirectionsModalVisible(false)}
+        route={indoorRoute ?? null}
+        buildingCode={
+          originBuilding?.code ?? destinationBuilding?.code ?? ""
+        }
+        originRoom={originRoom}
+        destinationRoom={destinationRoom}
+        floorBounds={(floor) =>
+          getFloorBounds(
+            originBuilding?.code ?? destinationBuilding?.code ?? "",
+            floor,
+          )
+        }
+        graphFloorBounds={(floor) =>
+          getGraphFloorBounds(
+            originBuilding?.code ?? destinationBuilding?.code ?? "",
+            floor,
+          )
+        }
+      />
     </View>
   );
 }

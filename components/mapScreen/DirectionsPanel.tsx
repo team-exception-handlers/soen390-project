@@ -1,4 +1,4 @@
-import { Map } from "lucide-react-native";
+import { Map, Navigation } from "lucide-react-native";
 import {
   type Dispatch,
   type MutableRefObject,
@@ -6,7 +6,7 @@ import {
   type SetStateAction,
 } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import type { MapScreenStyles } from "../../app/(tabs)/mapScreen.styles";
+import type { MapScreenStyles } from "../../styles/mapScreen.styles";
 import type { BuildingRecord } from "../../constants/buildings";
 import { RoomRecord } from "../../types/rooms";
 import type { RouteProfile } from "../../utils/osrmDirections";
@@ -66,7 +66,8 @@ function RoomInputGroup({
         accessibilityLabel="View Floor Plan"
         onPress={() => {
           if (floorKey) {
-            setActiveFloorPlan(getFloorPlanAsset(floorKey));
+            const asset = getFloorPlanAsset(floorKey);
+            setActiveFloorPlan(asset);
             setFloorPlanModalVisible(true);
           }
         }}
@@ -273,6 +274,8 @@ type DirectionsPanelProps = Readonly<{
     roomNumber: string,
   ) => RoomRecord | undefined;
   getFloorPlanAsset: GetFloorPlanAsset;
+  onShowIndoorDirections?: () => void;
+  hasIndoorRoute?: boolean;
 }>;
 
 export default function DirectionsPanel({
@@ -301,7 +304,16 @@ export default function DirectionsPanel({
   setFloorPlanModalVisible,
   getRoomDetails,
   getFloorPlanAsset,
+  onShowIndoorDirections,
+  hasIndoorRoute,
 }: DirectionsPanelProps) {
+  const isSameBuilding =
+    originBuilding?.code != null &&
+    destinationBuilding?.code != null &&
+    originBuilding.code === destinationBuilding.code;
+  const showIndoorButton =
+    isSameBuilding && originRoom.trim() && destinationRoom.trim();
+
   return (
     <View style={styles.directionsPanel} testID="directions-panel">
       <View style={styles.directionFieldRow}>
@@ -396,6 +408,21 @@ export default function DirectionsPanel({
           </Text>
         </Pressable>
       </View>
+
+      {showIndoorButton && (
+        <Pressable
+          testID="indoor-directions-button"
+          style={styles.indoorRouteButton}
+          onPress={onShowIndoorDirections}
+        >
+          <Navigation size={14} color="#FFFFFF" strokeWidth={2.5} />
+          <Text style={styles.indoorRouteButtonText}>
+            {hasIndoorRoute === false
+              ? "No Indoor Path Available"
+              : "Indoor Directions"}
+          </Text>
+        </Pressable>
+      )}
 
       <TransportModeSelector
         isDirectionsMode={isDirectionsMode}
