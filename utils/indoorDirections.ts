@@ -577,8 +577,9 @@ function getArrivalRelationFromDisplayedApproach(
     return getArrivalSide(prev, dest);
   }
 
-  const forward = heading.x !== 0 ? Math.abs(dx) : Math.abs(dy);
-  const lateral = heading.x !== 0 ? Math.abs(dy) : Math.abs(dx);
+  const isVerticalHeading = heading.x === 0;
+  const forward = isVerticalHeading ? Math.abs(dy) : Math.abs(dx);
+  const lateral = isVerticalHeading ? Math.abs(dx) : Math.abs(dy);
   const STRAIGHT_AHEAD_RATIO = 0.25;
   const STRAIGHT_AHEAD_MIN_FORWARD = 40;
 
@@ -895,7 +896,8 @@ function emitTurnWaypoint(
         state.landmarkBuildingId,
       );
 
-  const landmark = rawLandmark !== state.lastLandmarkUsed ? rawLandmark : null;
+  const landmark =
+    rawLandmark === state.lastLandmarkUsed ? null : rawLandmark;
   const atPhrase = landmark ? ` at room ${landmark}` : "";
   state.lastLandmarkUsed = rawLandmark ?? state.lastLandmarkUsed;
 

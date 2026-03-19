@@ -2191,6 +2191,8 @@ export default function MapScreen() {
     );
 
   const searchInputRef = useRef<TextInput>(null);
+  const hasIndoorRoute =
+    indoorRoute === undefined ? undefined : indoorRoute !== null;
 
   return (
     <View style={styles.container}>
@@ -2253,13 +2255,7 @@ export default function MapScreen() {
         getRoomDetails={getRoomDetails}
         getFloorPlanAsset={getFloorPlanAsset}
         onShowIndoorDirections={() => setIndoorDirectionsModalVisible(true)}
-        hasIndoorRoute={
-          indoorRoute === null
-            ? false
-            : indoorRoute === undefined
-              ? undefined
-              : true
-        }
+        hasIndoorRoute={hasIndoorRoute}
       />
 
       {currentBuilding &&
