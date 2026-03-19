@@ -962,6 +962,96 @@
       "y": 382,
       "label": "",
       "accessible": true
+    },
+    {
+      "id": "Hall_F2_escalator_landing_1",
+      "type": "escalator_landing",
+      "buildingId": "Hall",
+      "floor": 2,
+      "x": 689,
+      "y": 715,
+      "label": "",
+      "accessible": true
+    },
+    {
+      "id": "Hall_F2_stair_landing_1",
+      "type": "stair_landing",
+      "buildingId": "Hall",
+      "floor": 2,
+      "x": 736,
+      "y": 715,
+      "label": "",
+      "accessible": false
+    },
+    {
+      "id": "Hall_F2_escalator_landing_2",
+      "type": "escalator_landing",
+      "buildingId": "Hall",
+      "floor": 2,
+      "x": 549,
+      "y": 716,
+      "label": "",
+      "accessible": false
+    },
+    {
+      "id": "Hall_F2_stair_landing_2",
+      "type": "stair_landing",
+      "buildingId": "Hall",
+      "floor": 2,
+      "x": 500,
+      "y": 716,
+      "label": "",
+      "accessible": false
+    },
+    {
+      "id": "Hall_F2_elevator_landing",
+      "type": "elevator_door",
+      "buildingId": "Hall",
+      "floor": 2,
+      "x": 616,
+      "y": 715,
+      "label": "",
+      "accessible": true
+    },
+    {
+      "id": "Hall_F2_hallway",
+      "type": "hallway_waypoint",
+      "buildingId": "Hall",
+      "floor": 2,
+      "x": 615,
+      "y": 675,
+      "label": "",
+      "accessible": true
+    },
+    {
+      "id": "Hall_F2_hallway2",
+      "type": "hallway_waypoint",
+      "buildingId": "Hall",
+      "floor": 2,
+      "x": 613,
+      "y": 513,
+      "label": "",
+      "accessible": true
+    },
+    {
+      "id": "Hall_F2_escalator_landing_3",
+      "type": "escalator_landing",
+      "buildingId": "Hall",
+      "floor": 2,
+      "x": 526,
+      "y": 485,
+      "label": "",
+      "accessible": false
+    },
+    {
+      "id": "Hall_F2_escalator_landing_4",
+      "type": "escalator_landing",
+      "buildingId": "Hall",
+      "floor": 2,
+      "x": 495,
+      "y": 629,
+      "label": "",
+      "accessible": false
     }
   ],
   "edges": [
@@ -1712,6 +1802,83 @@
       "target": "Hall_F1_hallway_waypoint_193",
       "type": "hallway",
       "weight": 96,
+      "accessible": true
+    },
+    {
+      "source": "Hall_F1_hallway_waypoint_190",
+      "target": "Hall_F2_stair_landing_2",
+      "type": "hallway",
+      "weight": 43,
+      "accessible": false
+    },
+    {
+      "source": "Hall_F1_hallway_waypoint_190",
+      "target": "Hall_F2_escalator_landing_2",
+      "type": "hallway",
+      "weight": 59,
+      "accessible": true
+    },
+    {
+      "source": "Hall_F2_hallway",
+      "target": "Hall_F2_elevator_landing",
+      "type": "hallway",
+      "weight": 40,
+      "accessible": true
+    },
+    {
+      "source": "Hall_F1_hallway_waypoint_190",
+      "target": "Hall_F2_hallway",
+      "type": "hallway",
+      "weight": 108,
+      "accessible": true
+    },
+    {
+      "source": "Hall_F2_escalator_landing_1",
+      "target": "Hall_F2_hallway",
+      "type": "hallway",
+      "weight": 84,
+      "accessible": true
+    },
+    {
+      "source": "Hall_F2_stair_landing_1",
+      "target": "Hall_F2_hallway",
+      "type": "hallway",
+      "weight": 127,
+      "accessible": true
+    },
+    {
+      "source": "Hall_F2_stair_landing_1",
+      "target": "Hall_F1_hallway_waypoint_189",
+      "type": "hallway",
+      "weight": 186,
+      "accessible": true
+    },
+    {
+      "source": "Hall_F2_hallway",
+      "target": "Hall_F2_hallway2",
+      "type": "hallway",
+      "weight": 162,
+      "accessible": true
+    },
+    {
+      "source": "Hall_F2_hallway2",
+      "target": "Hall_F1_hallway_waypoint_187",
+      "type": "hallway",
+      "weight": 129,
+      "accessible": true
+    },
+    {
+      "source": "Hall_F1_hallway_waypoint_187",
+      "target": "Hall_F2_escalator_landing_3",
+      "type": "hallway",
+      "weight": 88,
+      "accessible": true
+    },
+    {
+      "source": "Hall_F2_escalator_landing_4",
+      "target": "Hall_F1_hallway_waypoint_190",
+      "type": "hallway",
+      "weight": 47,
       "accessible": true
     }
   ]
