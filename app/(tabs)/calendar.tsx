@@ -47,6 +47,7 @@ export default function CalendarScreen() {
    */
   const isExpoGo =
     Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+  const isE2EMode = process.env.EXPO_PUBLIC_ENABLE_E2E_HOOKS === "1";
 
   const [calendars, setCalendars] = useState<GoogleCalendar[]>([]);
   const [selectedCalendarId, setSelectedCalendarId] =
@@ -64,7 +65,7 @@ export default function CalendarScreen() {
     if (Platform.OS === "web") {
       return AuthSession.makeRedirectUri();
     }
-    if (isExpoGo) {
+    if (isExpoGo || isE2EMode) {
       const owner = Constants.expoConfig?.owner ?? "anonymous";
       const slug = Constants.expoConfig?.slug ?? "concordia-class-finder";
       const projectNameForProxy = owner
@@ -74,7 +75,7 @@ export default function CalendarScreen() {
     }
 
     return AuthSession.makeRedirectUri({ scheme: "concordiaclassfinder" });
-  }, [isExpoGo]);
+  }, [isE2EMode, isExpoGo]);
 
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
@@ -94,7 +95,7 @@ export default function CalendarScreen() {
     if (!request) return;
 
     // Expo Go must bootstrap auth through the Expo proxy `/start` endpoint so auth.expo.io can map the OAuth callback back to this session.
-    if (isExpoGo && Platform.OS !== "web") {
+    if ((isExpoGo || isE2EMode) && Platform.OS !== "web") {
       if (!discovery) {
         setError("Google sign-in is not ready yet. Please try again.");
         return;
@@ -148,7 +149,7 @@ export default function CalendarScreen() {
     }
 
     await promptAsync();
-  }, [request, isExpoGo, discovery, redirectUri, promptAsync]);
+  }, [request, isExpoGo, isE2EMode, discovery, redirectUri, promptAsync]);
 
   // Handle OAuth response (non-Expo-Go path)
   useEffect(() => {
