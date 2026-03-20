@@ -17,6 +17,7 @@ export interface IndoorNode {
   y: number;
   label?: string;
   accessible: boolean;
+  direction?: "up" | "down" | "both";
 }
 
 export interface IndoorEdge {
@@ -202,12 +203,26 @@ function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false)
       if (!adjacency.has(n.id)) adjacency.set(n.id, []);
     }
     for (const e of floor.edges as IndoorEdge[]) {
-      if (e.type === "stair") {
+      if (e.type === "stair" || e.type === "escalator") {
         const srcNode = allNodes.get(e.source);
         const tgtNode = allNodes.get(e.target);
-        const isEscalatorEdge = srcNode?.type === "escalator_landing" || tgtNode?.type === "escalator_landing";
+        const isEscalatorEdge = e.type === "escalator" || srcNode?.type === "escalator_landing" || tgtNode?.type === "escalator_landing";
         if (isEscalatorEdge && noEscalators) continue;
         if (!isEscalatorEdge && noStairs) continue;
+        if (isEscalatorEdge && !noEscalators) {
+          const direction = srcNode?.direction ?? tgtNode?.direction;
+          if (direction === "up" || direction === "down") {
+            // Determine the lower and upper floor nodes regardless of JSON edge direction
+            const lowerNode = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? srcNode : tgtNode;
+            const upperNode = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? tgtNode : srcNode;
+            const fromId = direction === "up" ? lowerNode!.id : upperNode!.id;
+            const toId = direction === "up" ? upperNode!.id : lowerNode!.id;
+            if (!adjacency.has(fromId)) adjacency.set(fromId, []);
+            if (!adjacency.has(toId)) adjacency.set(toId, []);
+            adjacency.get(fromId)!.push({ neighbor: toId, weight: e.weight });
+            continue;
+          }
+        }
       }
       if (!adjacency.has(e.source)) adjacency.set(e.source, []);
       if (!adjacency.has(e.target)) adjacency.set(e.target, []);
@@ -238,6 +253,8 @@ function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false)
       const b = connectedNodes[i + 1];
       if (noStairs && a.type === "stair_landing") continue;
       if (noEscalators && a.type === "escalator_landing") continue;
+      // Skip auto-connection for directional escalators — their edges are explicitly in the JSON
+      if (a.type === "escalator_landing" && (a.direction === "up" || a.direction === "down")) continue;
       adjacency.get(a.id)!.push({ neighbor: b.id, weight: INTER_FLOOR_WEIGHT });
       adjacency.get(b.id)!.push({ neighbor: a.id, weight: INTER_FLOOR_WEIGHT });
     }
