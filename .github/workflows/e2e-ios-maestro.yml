@@ -182,6 +182,8 @@ jobs:
             ios-dd-${{ runner.os }}-
 
       - name: Build iOS app for Simulator
+        env:
+          EXPO_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_CLIENT_ID }}
         run: |
           export EXPO_PUBLIC_ENABLE_E2E_HOOKS=1
           DD="$GITHUB_WORKSPACE/build/ios/DerivedData"
@@ -374,9 +376,10 @@ jobs:
       - name: Require Google E2E secrets
         env:
           GOOGLE_E2E_EMAIL: ${{ secrets.GOOGLE_E2E_EMAIL }}
+          GOOGLE_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_CLIENT_ID }}
         run: |
-          if [ -z "$GOOGLE_E2E_EMAIL" ]; then
-            echo "::error::Set repository secrets GOOGLE_E2E_EMAIL and GOOGLE_E2E_PASSWORD (required — Google Calendar flows run in the default Maestro suite)"
+          if [ -z "$GOOGLE_E2E_EMAIL" ] || [ -z "${GOOGLE_CLIENT_ID:-}" ]; then
+            echo "::error::Set repository secrets GOOGLE_E2E_EMAIL, GOOGLE_E2E_PASSWORD, and EXPO_PUBLIC_GOOGLE_CLIENT_ID (required — Google Calendar OAuth)"
             exit 1
           fi
 
