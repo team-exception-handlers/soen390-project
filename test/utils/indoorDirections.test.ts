@@ -8,7 +8,6 @@ describe("indoorDirections", () => {
   test("accepts fully prefixed room labels as well as bare room numbers", () => {
     const bareRoute = findIndoorRoute("H", "867", "929");
     const prefixedRoute = findIndoorRoute("H", "H-867", "H-929");
-
     expect(prefixedRoute).toEqual(bareRoute);
   });
 
@@ -69,7 +68,6 @@ describe("indoorDirections", () => {
 
   test("returns a no-movement route when the start and destination room are the same", () => {
     const route = findIndoorRoute("MB", "1.210", "1.210");
-
     expect(route).toEqual({
       segments: [{ floor: 1, points: [{ x: 617, y: 333 }] }],
       steps: [{ instruction: "You are already at room 1.210", floor: 1 }],
@@ -91,7 +89,6 @@ describe("indoorDirections", () => {
 
   test("adds stair instructions and per-floor segments for Hall routes that change floors", () => {
     const route = findIndoorRoute("H", "867", "929");
-
     expect(route).not.toBeNull();
     expect(route?.startFloor).toBe(8);
     expect(route?.endFloor).toBe(9);
@@ -103,7 +100,6 @@ describe("indoorDirections", () => {
 
   test("matches S2 room labels to MB-S2 nodes without leaking MB floor-1 room names", () => {
     const route = findIndoorRoute("MB", "S2.210", "S2.235");
-
     expect(route).not.toBeNull();
     expect(route?.steps.map((step) => step.instruction)).toEqual([
       "Start at room MB-S2.210.",
@@ -146,4 +142,69 @@ describe("indoorDirections", () => {
       expect(getGraphFloorBounds(buildingCode, floor)).toEqual(expected);
     },
   );
+
+  test("noStairs: cross-floor Hall route avoids stairs and uses escalator instead", () => {
+    const route = findIndoorRoute("H", "110", "260", true, false);
+    expect(route).not.toBeNull();
+    const instructions = route!.steps.map((s) => s.instruction);
+    expect(instructions.some((s) => s.includes("stairs"))).toBe(false);
+    expect(route!.endFloor).toBe(2);
+  });
+
+  test("noEscalators: cross-floor Hall route avoids escalators and uses stairs instead", () => {
+    const route = findIndoorRoute("H", "110", "260", false, true);
+    expect(route).not.toBeNull();
+    const instructions = route!.steps.map((s) => s.instruction);
+    expect(instructions.some((s) => s.includes("escalator"))).toBe(false);
+    expect(route!.endFloor).toBe(2);
+  });
+
+  test("directional escalator: up escalator is used when going from floor 1 to floor 2", () => {
+    const route = findIndoorRoute("H", "110", "260", false, false);
+    expect(route).not.toBeNull();
+    expect(route!.startFloor).toBe(1);
+    expect(route!.endFloor).toBe(2);
+  });
+
+  test("directional escalator: down escalator is used when going from floor 2 to floor 1", () => {
+    const route = findIndoorRoute("H", "260", "110", false, false);
+    expect(route).not.toBeNull();
+    expect(route!.startFloor).toBe(2);
+    expect(route!.endFloor).toBe(1);
+  });
+
+  test("floor change step says 'escalator' when route passes through escalator_landing nodes", () => {
+    const route = findIndoorRoute("H", "110", "260", true, false);
+    expect(route).not.toBeNull();
+    const instructions = route!.steps.map((s) => s.instruction);
+    expect(instructions.some((s) => s.includes("escalator"))).toBe(true);
+  });
+
+  test("falls back to allowing vertical transit nodes when same-floor route requires them", () => {
+    const route = findIndoorRoute("H", "109-1", "127");
+    expect(route).not.toBeNull();
+    expect(route!.startFloor).toBe(route!.endFloor);
+  });
+
+  test("returns null when both stairs and escalators are disabled and no elevator path exists for same building", () => {
+    const route = findIndoorRoute("H", "110", "260", true, true);
+    if (route !== null) {
+      const instructions = route.steps.map((s) => s.instruction);
+      expect(instructions.some((s) => s.includes("stairs"))).toBe(false);
+      expect(instructions.some((s) => s.includes("escalator"))).toBe(false);
+      expect(instructions.some((s) => s.includes("elevator"))).toBe(true);
+    }
+  });
+
+  test("noStairs does not affect same-floor routes", () => {
+    const normal = findIndoorRoute("H", "919", "931");
+    const noStairs = findIndoorRoute("H", "919", "931", true, false);
+    expect(noStairs).toEqual(normal);
+  });
+
+  test("noEscalators does not affect same-floor routes", () => {
+    const normal = findIndoorRoute("H", "919", "931");
+    const noEscalators = findIndoorRoute("H", "919", "931", false, true);
+    expect(noEscalators).toEqual(normal);
+  });
 });
