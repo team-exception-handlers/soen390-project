@@ -19,3 +19,6 @@ appId: com.anonymous.concordiaclassfinder
     file: us2.5b-transport-modes-cross-campus.yml
 - runFlow:
     file: us2.6-concordia-shuttle.yml
+    file: us3.1-google-calendar-connection.yml
+- runFlow:
+    file: us3.2-3.4-calendar-after-signin.yml

@@ -371,7 +371,19 @@ jobs:
             install_with_timeout "$DEVICE_UDID" "$APP_PATH" 180
           fi
 
+      - name: Require Google E2E secrets
+        env:
+          GOOGLE_E2E_EMAIL: ${{ secrets.GOOGLE_E2E_EMAIL }}
+        run: |
+          if [ -z "$GOOGLE_E2E_EMAIL" ]; then
+            echo "::error::Set repository secrets GOOGLE_E2E_EMAIL and GOOGLE_E2E_PASSWORD (required — Google Calendar flows run in the default Maestro suite)"
+            exit 1
+          fi
+
       - name: Run Maestro CI flows
+        env:
+          MAESTRO_GOOGLE_E2E_EMAIL: ${{ secrets.GOOGLE_E2E_EMAIL }}
+          MAESTRO_GOOGLE_E2E_PASSWORD: ${{ secrets.GOOGLE_E2E_PASSWORD }}
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
           export MAESTRO_DRIVER_STARTUP_TIMEOUT=600000

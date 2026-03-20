@@ -52,3 +52,4 @@ jobs:
   e2e-maestro:
     name: Maestro E2E (iOS)
     uses: ./.github/workflows/e2e-ios-maestro.yml
+    secrets: inherit

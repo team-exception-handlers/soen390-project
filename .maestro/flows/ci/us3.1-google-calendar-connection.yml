@@ -1,0 +1,88 @@
+# US-3.1: Connect to Google Calendar (CI — launch app, Calendar tab, OAuth, “Upcoming Events”).
+
+appId: com.anonymous.concordiaclassfinder
+
+---
+- runFlow:
+    file: _launch-app.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+
+- extendedWaitUntil:
+    visible:
+      id: "tab-calendar"
+    timeout: 20000
+- tapOn:
+    id: "tab-calendar"
+
+- runFlow:
+    when:
+      visible:
+        text: "Sign in with Google"
+    commands:
+      - tapOn:
+          text: "Sign in with Google"
+
+      - extendedWaitUntil:
+          visible:
+            text: "Continue"
+          timeout: 30000
+      - tapOn:
+          text: "Continue"
+
+      - runFlow:
+          when:
+            visible:
+              text: "Yes"
+          commands:
+            - tapOn:
+                text: "Yes"
+
+      - runFlow:
+          when:
+            visible:
+              text: "Email or phone"
+          commands:
+            - tapOn:
+                text: "Email or phone"
+            - inputText: ${MAESTRO_GOOGLE_E2E_EMAIL}
+            - tapOn:
+                text: "Next"
+
+      - runFlow:
+          when:
+            visible:
+              text: "Enter your password"
+          commands:
+            - tapOn:
+                text: "Enter your password"
+            - inputText: ${MAESTRO_GOOGLE_E2E_PASSWORD}
+            - tapOn:
+                text: "Next"
+
+      - runFlow:
+          when:
+            visible:
+              text: ".*@.*\\..*"
+          commands:
+            - tapOn:
+                text: ".*@.*\\..*"
+
+      - runFlow:
+          when:
+            visible:
+              text: "Password"
+          commands:
+            - tapOn:
+                text: "Password"
+            - inputText: ${MAESTRO_GOOGLE_E2E_PASSWORD}
+            - tapOn:
+                text: "Next"
+
+- extendedWaitUntil:
+    visible:
+      text: "Upcoming Events"
+    timeout: 120000
