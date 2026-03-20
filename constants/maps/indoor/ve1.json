@@ -123,6 +123,13 @@
       "type": "stair",
       "weight": 0,
       "accessible": false
+    },
+    {
+      "source": "VE_F2_stair_landing_1",
+      "target": "VE_F1_stair_landing_1",
+      "type": "stair",
+      "weight": 0,
+      "accessible": false
     }
   ]
 }
