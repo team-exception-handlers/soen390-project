@@ -309,7 +309,7 @@ export default function MapScreen() {
   const postToWebIframe = useCallback(
     (message: unknown) => {
       if (!isWebPlatform || !webFrameTargetOrigin) return;
-      webIframeRef.current?.contentWindow?.postMessage(message, "*");
+      webIframeRef.current?.contentWindow?.postMessage(message, webFrameTargetOrigin);
     },
     [isWebPlatform, webFrameTargetOrigin],
   );
