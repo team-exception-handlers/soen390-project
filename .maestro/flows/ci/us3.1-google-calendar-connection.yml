@@ -32,16 +32,9 @@ appId: com.anonymous.concordiaclassfinder
           timeout: 30000
       - tapOn:
           text: "Continue"
-
-      # Wait for the Google sign-in page to fully load before checking any conditions
       - extendedWaitUntil:
-          anyOf:
-            - visible:
-                text: "Email or phone"
-            - visible:
-                text: ".*@.*\\..*"
-            - visible:
-                text: "Yes"
+          visible:
+            text: "(Email or phone|Yes|.*@.*\\..*)"
           timeout: 30000
 
       - runFlow:
