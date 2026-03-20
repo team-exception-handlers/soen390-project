@@ -47,6 +47,7 @@ import { getNearestStop, STOPS } from "../../utils/locationLogic";
 import {
   findUserBuilding,
   hasLocationPermission,
+  getInitialLocationFix,
   requestLocationPermission,
   startWatchingLocation,
 } from "../../utils/locationUtils";
@@ -472,12 +473,14 @@ export default function MapScreen() {
       }
 
       try {
-        const initialLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
-        handleLocationUpdate(initialLocation);
-      } catch (error) {
-        console.error("Error getting initial location:", error);
+        const initialLocation = await getInitialLocationFix();
+        if (initialLocation) {
+          handleLocationUpdate(initialLocation);
+        } else {
+          setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
+        }
+      } catch {
+        // If a location fix isn't available, fall back to a default origin building.
         setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
       }
 
