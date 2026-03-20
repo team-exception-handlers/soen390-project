@@ -41,6 +41,7 @@ appId: com.anonymous.concordiaclassfinder
             - tapOn:
                 text: "Yes"
 
+      # Scenario 1: fresh sign-in — email field is shown first
       - runFlow:
           when:
             visible:
@@ -51,18 +52,18 @@ appId: com.anonymous.concordiaclassfinder
             - inputText: ${MAESTRO_GOOGLE_E2E_EMAIL}
             - tapOn:
                 text: "Next"
-
-      - runFlow:
-          when:
-            visible:
-              text: "Enter your password"
-          commands:
+            # Wait for Google to transition to the password page before checking
+            - extendedWaitUntil:
+                visible:
+                  text: "Enter your password"
+                timeout: 20000
             - tapOn:
                 text: "Enter your password"
             - inputText: ${MAESTRO_GOOGLE_E2E_PASSWORD}
             - tapOn:
                 text: "Next"
 
+      # Scenario 2: account picker — a saved account email is shown; tap it then enter password
       - runFlow:
           when:
             visible:
@@ -70,12 +71,11 @@ appId: com.anonymous.concordiaclassfinder
           commands:
             - tapOn:
                 text: ".*@.*\\..*"
-
-      - runFlow:
-          when:
-            visible:
-              text: "Password"
-          commands:
+            # Wait for Google to transition to the password page before checking
+            - extendedWaitUntil:
+                visible:
+                  text: "Password"
+                timeout: 20000
             - tapOn:
                 text: "Password"
             - inputText: ${MAESTRO_GOOGLE_E2E_PASSWORD}
