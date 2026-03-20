@@ -2509,6 +2509,27 @@
       "type": "stair",
       "weight": 0,
       "accessible": false
+    },
+    {
+      "source": "VL_F2_stair_landing_1",
+      "target": "VL_F1_stair_landing_1",
+      "type": "stair",
+      "weight": 0,
+      "accessible": false
+    },
+    {
+      "source": "VL_F2_stair_landing_2",
+      "target": "VL_F1_stair_landing_2",
+      "type": "stair",
+      "weight": 0,
+      "accessible": false
+    },
+    {
+      "source": "VL_F2_stair_landing_3",
+      "target": "VL_F1_stair_landing_3",
+      "type": "stair",
+      "weight": 0,
+      "accessible": false
     }
   ]
 }
