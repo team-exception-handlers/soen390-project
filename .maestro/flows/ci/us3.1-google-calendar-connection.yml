@@ -33,6 +33,17 @@ appId: com.anonymous.concordiaclassfinder
       - tapOn:
           text: "Continue"
 
+      # Wait for the Google sign-in page to fully load before checking any conditions
+      - extendedWaitUntil:
+          anyOf:
+            - visible:
+                text: "Email or phone"
+            - visible:
+                text: ".*@.*\\..*"
+            - visible:
+                text: "Yes"
+          timeout: 30000
+
       - runFlow:
           when:
             visible:
@@ -49,7 +60,12 @@ appId: com.anonymous.concordiaclassfinder
           commands:
             - tapOn:
                 text: "Email or phone"
+            # Wait for the WebView input to be fully ready before typing
+            - wait:
+                milliseconds: 1000
             - inputText: ${MAESTRO_GOOGLE_E2E_EMAIL}
+            - tapOn:
+                point: "50%,50%"
             - tapOn:
                 text: "Next"
             # Wait for Google to transition to the password page before checking
@@ -59,7 +75,11 @@ appId: com.anonymous.concordiaclassfinder
                 timeout: 20000
             - tapOn:
                 text: "Enter your password"
+            - wait:
+                milliseconds: 1000
             - inputText: ${MAESTRO_GOOGLE_E2E_PASSWORD}
+            - tapOn:
+                point: "50%,50%"
             - tapOn:
                 text: "Next"
 
@@ -78,7 +98,11 @@ appId: com.anonymous.concordiaclassfinder
                 timeout: 20000
             - tapOn:
                 text: "Password"
+            - wait:
+                milliseconds: 1000
             - inputText: ${MAESTRO_GOOGLE_E2E_PASSWORD}
+            - tapOn:
+                point: "50%,50%"
             - tapOn:
                 text: "Next"
 
