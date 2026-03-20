@@ -199,6 +199,9 @@ jobs:
               ONLY_ACTIVE_ARCH=YES \
               COMPILER_INDEX_STORE_ENABLE=NO \
               CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_ENTITLEMENTS="" \
               -parallelizeTargets \
               build 2>&1 | tee "$GITHUB_WORKSPACE/build/xcodebuild.log" | tail -100
           else
@@ -210,6 +213,9 @@ jobs:
               ONLY_ACTIVE_ARCH=YES \
               COMPILER_INDEX_STORE_ENABLE=NO \
               CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_ENTITLEMENTS="" \
               -parallelizeTargets \
               build 2>&1 | tee "$GITHUB_WORKSPACE/build/xcodebuild.log" | tail -100
           fi
