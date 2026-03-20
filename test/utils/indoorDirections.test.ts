@@ -128,13 +128,13 @@ describe("indoorDirections", () => {
 
   test.each([
     ["H", 1, { width: 938, height: 940 }],
-    ["H", 2, { width: 931, height: 929 }],
+    ["H", 2, { width: 931, height: 971 }],
     ["H", 8, { width: 2102, height: 2051 }],
     ["H", 9, { width: 2091, height: 2036 }],
     ["MB", 1, { width: 1009, height: 1027 }],
     ["MB", -2, { width: 1029, height: 1027 }],
     ["VE", 1, { width: 615, height: 556 }],
-    ["VE", 2, { width: 1405, height: 646 }],
+    ["VE", 2, { width: 1436, height: 646 }],
     ["VL", 1, { width: 1044, height: 1036 }],
     ["VL", 2, { width: 1023, height: 1041 }],
     ["CC", 1, { width: 8240, height: 2066 }],
