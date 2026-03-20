@@ -309,10 +309,7 @@ export default function MapScreen() {
   const postToWebIframe = useCallback(
     (message: unknown) => {
       if (!isWebPlatform || !webFrameTargetOrigin) return;
-      webIframeRef.current?.contentWindow?.postMessage(
-        message,
-        webFrameTargetOrigin,
-      );
+      webIframeRef.current?.contentWindow?.postMessage(message, "*");
     },
     [isWebPlatform, webFrameTargetOrigin],
   );
@@ -351,7 +348,6 @@ export default function MapScreen() {
     if (!isWebPlatform || !webFrameTargetOrigin) return;
 
     const handler = (event: MessageEvent) => {
-      if (event.origin !== webFrameTargetOrigin) return;
       if (event.source !== webIframeRef.current?.contentWindow) return;
 
       try {
@@ -1875,6 +1871,18 @@ export default function MapScreen() {
 
   const shouldUseWebFallback = Platform.OS === "web" || !MapViewComponent;
 
+  const mapBlobUrl = useMemo(() => {
+    if (Platform.OS !== "web" || !mapHTML) return null;
+    const blob = new Blob([mapHTML], { type: "text/html" });
+    return URL.createObjectURL(blob);
+  }, [mapHTML]);
+
+  useEffect(() => {
+    return () => {
+      if (mapBlobUrl) URL.revokeObjectURL(mapBlobUrl);
+    };
+  }, [mapBlobUrl]);
+
   useEffect(() => {
     if (Platform.OS !== "web") {
       setWebMapReady(false);
@@ -1886,8 +1894,9 @@ export default function MapScreen() {
       return (
         <iframe
           ref={webIframeRef}
-          srcDoc={mapHTML}
+          src={mapBlobUrl ?? "about:blank"}
           style={{ ...(StyleSheet.flatten(styles.map) as object), border: 0 }}
+          allow="geolocation"
           allowFullScreen
           title="Concordia map"
           onLoad={() =>
