@@ -132,7 +132,7 @@ const detectBuildingFromLocation = (
 
   return { code: null, campus: null };
 };
-const getFloorPlanAsset = (key: string): any | null => {
+const getFloorPlanAsset = (key: string): any => {
   const assets: Record<string, () => any> = {
     "H-1": () => require("../../assets/floor_plans/png/H1.png"),
     "H-2": () => require("../../assets/floor_plans/png/H2.png"),
@@ -213,9 +213,9 @@ export default function MapScreen() {
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
-  const [, setRouteDurationMinutes] = useState<number | null>(null);
-  const [, setRouteDistanceMeters] = useState<number | null>(null);
-  const [, setRouteLoading] = useState(false);
+  const [routeDurationMinutes, setRouteDurationMinutes] = useState<number | null>(null);
+  const [routeDistanceMeters, setRouteDistanceMeters] = useState<number | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
   const [routeInstructions, setRouteInstructions] = useState<
     RouteInstruction[]
   >([]);
@@ -299,8 +299,8 @@ export default function MapScreen() {
 
   const isWebPlatform = Platform.OS === "web";
   const webFrameTargetOrigin =
-    isWebPlatform && typeof window !== "undefined"
-      ? window.location.origin
+    isWebPlatform && typeof globalThis.window !== "undefined"
+      ? globalThis.window.location.origin
       : null;
   const serializedWebFrameTargetOrigin = JSON.stringify(
     webFrameTargetOrigin ?? "*",

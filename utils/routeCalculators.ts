@@ -166,8 +166,10 @@ export async function calculateShuttleRouteHelper(
 
     result.transitItineraries = [transitItin];
   } else {
-    instructions.push({ text: `Arrive at ${nearest.stop} shuttle stop.`, distanceMeters: 0 });
-    instructions.push({ text: `Take the shuttle to ${nearest.destination} campus.`, distanceMeters: drive.distanceMeters });
+    instructions.push(
+      { text: `Arrive at ${nearest.stop} shuttle stop.`, distanceMeters: 0 },
+      { text: `Take the shuttle to ${nearest.destination} campus.`, distanceMeters: drive.distanceMeters }
+    );
   }
 
   if (walkFrom.instructions) instructions.push(...walkFrom.instructions);
