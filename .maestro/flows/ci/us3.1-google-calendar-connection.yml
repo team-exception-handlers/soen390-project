@@ -44,12 +44,27 @@ appId: com.anonymous.concordiaclassfinder
                 text: "Yes"
             - waitForAnimationToEnd:
                 timeout: 5000
-
+      - extendedWaitUntil:
+          visible:
+            text: "Forgot email"
+          timeout: 60000
+      - tapOn:
+          text: "Email or phone"
+      - waitForAnimationToEnd:
+          timeout: 1000
       - inputText: ${MAESTRO_GOOGLE_E2E_EMAIL}
       - pressKey: enter
 
       - waitForAnimationToEnd:
-          timeout: 8000
+          timeout: 10000
+      - extendedWaitUntil:
+          visible:
+            text: "Forgot password"
+          timeout: 30000
+      - tapOn:
+          text: "Enter your password"
+      - waitForAnimationToEnd:
+          timeout: 1000
       - inputText: ${MAESTRO_GOOGLE_E2E_PASSWORD}
       - pressKey: enter
 
