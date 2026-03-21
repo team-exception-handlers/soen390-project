@@ -25,6 +25,33 @@ export const emptyRouteResult = (): RouteLoaderResult => ({
   shuttleWalkFromCoords: [],
 });
 
+function calculateValidDeparture(
+  selectedShuttleDeparture: string | null,
+  shuttleInfo: any,
+  mockedNow: Date,
+  arrivalAtStopDate: Date
+): Date | undefined {
+  if (selectedShuttleDeparture) {
+    const [h, m] = selectedShuttleDeparture.split(":").map(Number);
+    const validDeparture = new Date(mockedNow);
+    validDeparture.setHours(h, m, 0, 0);
+    if (validDeparture < mockedNow && h < 5) {
+      validDeparture.setDate(validDeparture.getDate() + 1);
+    }
+    return validDeparture;
+  }
+  
+  const activeDepartures = shuttleInfo.nextThreeDepartures.map((t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    const d = new Date(mockedNow);
+    d.setHours(h, m, 0, 0);
+    if (d < mockedNow && h < 5) d.setDate(d.getDate() + 1);
+    return d;
+  });
+  
+  return activeDepartures.find((d: Date) => d >= arrivalAtStopDate) || activeDepartures[0];
+}
+
 export async function calculateShuttleRouteHelper(
   actualOriginPoint: any,
   destinationBuilding: any,
@@ -58,26 +85,12 @@ export async function calculateShuttleRouteHelper(
   const arrivalAtStopDate = new Date(mockedNow);
   arrivalAtStopDate.setMinutes(arrivalAtStopDate.getMinutes() + walkToMinutes);
 
-  let validDeparture: Date | undefined;
-
-  if (selectedShuttleDeparture) {
-    const [h, m] = selectedShuttleDeparture.split(":").map(Number);
-    validDeparture = new Date(mockedNow);
-    validDeparture.setHours(h, m, 0, 0);
-    if (validDeparture < mockedNow && h < 5)
-      validDeparture.setDate(validDeparture.getDate() + 1);
-  } else {
-    const activeDepartures = shuttleInfo.nextThreeDepartures.map((t: string) => {
-      const [h, m] = t.split(":").map(Number);
-      const d = new Date(mockedNow);
-      d.setHours(h, m, 0, 0);
-      if (d < mockedNow && h < 5) d.setDate(d.getDate() + 1);
-      return d;
-    });
-    validDeparture =
-      activeDepartures.find((d: Date) => d >= arrivalAtStopDate) ||
-      activeDepartures[0];
-  }
+  const validDeparture = calculateValidDeparture(
+    selectedShuttleDeparture,
+    shuttleInfo,
+    mockedNow,
+    arrivalAtStopDate
+  );
 
   let waitMinutes = 0;
   if (validDeparture) {
