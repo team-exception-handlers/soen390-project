@@ -150,9 +150,17 @@ export default function IndoorDirectionsModal({
 
   const noStairs = !stairsEnabled;
   const noEscalators = !escalatorsEnabled;
+  const noElevators = !elevatorsEnabled;
 
-  const effectiveRoute = (noStairs || noEscalators)
-    ? findIndoorRoute(buildingCode, originRoom, destinationRoom, noStairs, noEscalators)
+  const effectiveRoute = (noStairs || noEscalators || noElevators)
+    ? findIndoorRoute(
+      buildingCode,
+      originRoom,
+      destinationRoom,
+      noStairs,
+      noEscalators,
+      noElevators,
+    )
     : route;
   const isS2Route = computeIsS2Route(
     buildingCode,

@@ -182,7 +182,12 @@ function getBuildingFloors(buildingCode: string): FloorData[] {
   });
 }
 
-function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false): {
+function buildGraph(
+  floors: FloorData[],
+  noStairs = false,
+  noEscalators = false,
+  noElevators = false,
+): {
   nodes: Map<string, IndoorNode>;
   adjacency: Map<string, { neighbor: string; weight: number }[]>;
 } {
@@ -203,6 +208,8 @@ function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false)
       if (!adjacency.has(n.id)) adjacency.set(n.id, []);
     }
     for (const e of floor.edges as IndoorEdge[]) {
+      if (e.type === "elevator" && noElevators) continue;
+
       if (e.type === "stair" || e.type === "escalator") {
         const srcNode = allNodes.get(e.source);
         const tgtNode = allNodes.get(e.target);
@@ -253,6 +260,7 @@ function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false)
       const b = connectedNodes[i + 1];
       if (noStairs && a.type === "stair_landing") continue;
       if (noEscalators && a.type === "escalator_landing") continue;
+      if (noElevators && a.type === "elevator_door") continue;
       // Skip auto-connection for directional escalators — their edges are explicitly in the JSON
       if (a.type === "escalator_landing" && (a.direction === "up" || a.direction === "down")) continue;
       adjacency.get(a.id)!.push({ neighbor: b.id, weight: INTER_FLOOR_WEIGHT });
@@ -1156,11 +1164,17 @@ export function findIndoorRoute(
   endRoomLabel: string,
   noStairs = false,
   noEscalators = false,
+  noElevators = false,
 ): IndoorRoute | null {
   const floors = getBuildingFloors(buildingCode);
   if (floors.length === 0) return null;
 
-  const { nodes, adjacency } = buildGraph(floors, noStairs, noEscalators);
+  const { nodes, adjacency } = buildGraph(
+    floors,
+    noStairs,
+    noEscalators,
+    noElevators,
+  );
   const { startNode, endNode } = findIndoorRouteEndpoints(
     nodes,
     buildingCode,
