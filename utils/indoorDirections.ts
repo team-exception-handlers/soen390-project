@@ -17,6 +17,7 @@ export interface IndoorNode {
   y: number;
   label?: string;
   accessible: boolean;
+  direction?: "up" | "down" | "both";
 }
 
 export interface IndoorEdge {
@@ -109,7 +110,7 @@ function roomLabelMatches(
   return false;
 }
 
-const VERTICAL_NODE_TYPES = new Set(["stair_landing", "elevator_door"]);
+const VERTICAL_NODE_TYPES = new Set(["stair_landing", "escalator_landing", "elevator_door"]);
 const INTER_FLOOR_WEIGHT = 500;
 
 /** Graph edge weights are in same scale as floor plan units; convert to meters for display. */
@@ -181,12 +182,20 @@ function getBuildingFloors(buildingCode: string): FloorData[] {
   });
 }
 
-function buildGraph(floors: FloorData[]): {
+function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false): {
   nodes: Map<string, IndoorNode>;
   adjacency: Map<string, { neighbor: string; weight: number }[]>;
 } {
   const nodes = new Map<string, IndoorNode>();
   const adjacency = new Map<string, { neighbor: string; weight: number }[]>();
+
+  // Build a full node lookup across all floors for cross-floor edge type checks
+  const allNodes = new Map<string, IndoorNode>();
+  for (const floor of floors) {
+    for (const n of floor.nodes as IndoorNode[]) {
+      allNodes.set(n.id, n);
+    }
+  }
 
   for (const floor of floors) {
     for (const n of floor.nodes as IndoorNode[]) {
@@ -194,6 +203,27 @@ function buildGraph(floors: FloorData[]): {
       if (!adjacency.has(n.id)) adjacency.set(n.id, []);
     }
     for (const e of floor.edges as IndoorEdge[]) {
+      if (e.type === "stair" || e.type === "escalator") {
+        const srcNode = allNodes.get(e.source);
+        const tgtNode = allNodes.get(e.target);
+        const isEscalatorEdge = e.type === "escalator" || srcNode?.type === "escalator_landing" || tgtNode?.type === "escalator_landing";
+        if (isEscalatorEdge && noEscalators) continue;
+        if (!isEscalatorEdge && noStairs) continue;
+        if (isEscalatorEdge && !noEscalators) {
+          const direction = srcNode?.direction ?? tgtNode?.direction;
+          if (direction === "up" || direction === "down") {
+            // Determine the lower and upper floor nodes regardless of JSON edge direction
+            const lowerNode = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? srcNode : tgtNode;
+            const upperNode = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? tgtNode : srcNode;
+            const fromId = direction === "up" ? lowerNode!.id : upperNode!.id;
+            const toId = direction === "up" ? upperNode!.id : lowerNode!.id;
+            if (!adjacency.has(fromId)) adjacency.set(fromId, []);
+            if (!adjacency.has(toId)) adjacency.set(toId, []);
+            adjacency.get(fromId)!.push({ neighbor: toId, weight: e.weight });
+            continue;
+          }
+        }
+      }
       if (!adjacency.has(e.source)) adjacency.set(e.source, []);
       if (!adjacency.has(e.target)) adjacency.set(e.target, []);
       adjacency.get(e.source)!.push({ neighbor: e.target, weight: e.weight });
@@ -205,7 +235,7 @@ function buildGraph(floors: FloorData[]): {
   const bySuffix = new Map<string, IndoorNode[]>();
   nodes.forEach((node) => {
     if (VERTICAL_NODE_TYPES.has(node.type)) {
-      const match = /_(stair_landing|elevator_door)_(\d+)$/.exec(node.id);
+      const match = node.id.match(/_(stair_landing|escalator_landing|elevator_door)_(\d+)$/);
       if (match) {
         const key = `${match[1]}_${match[2]}`;
         const list = bySuffix.get(key) ?? [];
@@ -221,6 +251,10 @@ function buildGraph(floors: FloorData[]): {
     for (let i = 0; i < connectedNodes.length - 1; i++) {
       const a = connectedNodes[i];
       const b = connectedNodes[i + 1];
+      if (noStairs && a.type === "stair_landing") continue;
+      if (noEscalators && a.type === "escalator_landing") continue;
+      // Skip auto-connection for directional escalators — their edges are explicitly in the JSON
+      if (a.type === "escalator_landing" && (a.direction === "up" || a.direction === "down")) continue;
       adjacency.get(a.id)!.push({ neighbor: b.id, weight: INTER_FLOOR_WEIGHT });
       adjacency.get(b.id)!.push({ neighbor: a.id, weight: INTER_FLOOR_WEIGHT });
     }
@@ -305,50 +339,6 @@ function dijkstra(
   dist.set(startId, 0);
   heap.push(startId, 0);
 
-  dijkstraSearchCore({
-    nodes,
-    adjacency,
-    startId,
-    endId,
-    restrictToFloor,
-    restrictToBuildingId,
-    excludeVerticalTransit,
-    dist,
-    prev,
-    visited,
-    heap,
-  });
-
-  if ((dist.get(endId) ?? Infinity) === Infinity) return null;
-
-  const path = reconstructDijkstraPath(endId, prev);
-  return { path, distance: dist.get(endId) ?? 0 };
-}
-
-function dijkstraSearchCore({
-  nodes,
-  adjacency,
-  endId,
-  restrictToFloor,
-  restrictToBuildingId,
-  excludeVerticalTransit,
-  dist,
-  prev,
-  visited,
-  heap,
-}: {
-  nodes: Map<string, IndoorNode>;
-  adjacency: Map<string, { neighbor: string; weight: number }[]>;
-  startId: string;
-  endId: string;
-  restrictToFloor: number | null;
-  restrictToBuildingId: string | null;
-  excludeVerticalTransit: boolean;
-  dist: Map<string, number>;
-  prev: Map<string, string | null>;
-  visited: Set<string>;
-  heap: MinHeap;
-}) {
   const hasRestrictions = restrictToFloor != null || restrictToBuildingId != null;
 
   while (heap.size > 0) {
@@ -360,27 +350,33 @@ function dijkstraSearchCore({
     if (current === endId) break;
 
     for (const { neighbor, weight } of adjacency.get(current) ?? []) {
-      const shouldSkipNeighbor =
-        visited.has(neighbor) ||
-        (hasRestrictions &&
-          !isNeighborAllowedUnderRestrictions(
-            nodes,
-            neighbor,
-            restrictToFloor,
-            restrictToBuildingId,
-            excludeVerticalTransit,
-          ));
-      if (shouldSkipNeighbor) continue;
+      if (visited.has(neighbor)) continue;
+
+      if (
+        hasRestrictions &&
+        !isNeighborAllowedUnderRestrictions(
+          nodes,
+          neighbor,
+          restrictToFloor,
+          restrictToBuildingId,
+          excludeVerticalTransit,
+        )
+      )
+        continue;
 
       const newDist = (dist.get(current) ?? 0) + weight;
-      const currentBest = dist.get(neighbor) ?? Infinity;
-      if (newDist < currentBest) {
+      if (newDist < (dist.get(neighbor) ?? Infinity)) {
         dist.set(neighbor, newDist);
         prev.set(neighbor, current);
         heap.push(neighbor, newDist);
       }
     }
   }
+
+  if ((dist.get(endId) ?? Infinity) === Infinity) return null;
+
+  const path = reconstructDijkstraPath(endId, prev);
+  return { path, distance: dist.get(endId) ?? 0 };
 }
 
 function isNeighborAllowedUnderRestrictions(
@@ -577,9 +573,8 @@ function getArrivalRelationFromDisplayedApproach(
     return getArrivalSide(prev, dest);
   }
 
-  const isVerticalHeading = heading.x === 0;
-  const forward = isVerticalHeading ? Math.abs(dy) : Math.abs(dx);
-  const lateral = isVerticalHeading ? Math.abs(dx) : Math.abs(dy);
+  const forward = heading.x !== 0 ? Math.abs(dx) : Math.abs(dy);
+  const lateral = heading.x !== 0 ? Math.abs(dy) : Math.abs(dx);
   const STRAIGHT_AHEAD_RATIO = 0.25;
   const STRAIGHT_AHEAD_MIN_FORWARD = 40;
 
@@ -732,7 +727,9 @@ function emitFloorChangeStep(
   const via =
     prev.type === "elevator_door" || node.type === "elevator_door"
       ? "elevator"
-      : "stairs";
+      : prev.type === "escalator_landing" || node.type === "escalator_landing"
+        ? "escalator"
+        : "stairs";
   const walkPart =
     segDist >= minWalkEmit ? `Walk about ${roundDistanceHuman(segDist)} m, then ` : "";
 
@@ -756,10 +753,9 @@ function foldOrEmitContinueForDestination(
   minWalkEmit: number,
   shortFinalApproach: number,
 ): boolean {
-  if (node.type !== "room" || node.id === state.start.id) return false;
+  if (!(node.type === "room" && node.id !== state.start.id)) return false;
 
-  const lastStep = state.steps.at(-1);
-  if (!lastStep) return false;
+  const lastStep = state.steps[state.steps.length - 1];
   const canFoldIntoTurn =
     segDist >= minWalkEmit &&
     segDist <= shortFinalApproach &&
@@ -767,14 +763,13 @@ function foldOrEmitContinueForDestination(
     !lastStep.instruction.includes(" and continue for about ");
 
   if (canFoldIntoTurn) {
-    state.steps.pop();
-    state.steps.push({
+    state.steps[state.steps.length - 1] = {
       ...lastStep,
       instruction: lastStep.instruction.replace(
         /\.$/,
         ` and continue for about ${roundDistanceHuman(segDist)} m.`,
       ),
-    });
+    };
   } else if (segDist >= minWalkEmit) {
     state.steps.push({
       instruction: `Continue for about ${roundDistanceHuman(segDist)} m.`,
@@ -782,7 +777,7 @@ function foldOrEmitContinueForDestination(
     });
   }
 
-  const lastArrivalContextStep = state.steps.at(-1);
+  const lastArrivalContextStep = state.steps[state.steps.length - 1];
   const arrivalRelation = usesFinalApproachArrivalInstruction(
     lastArrivalContextStep?.instruction,
   )
@@ -807,7 +802,7 @@ function emitOrMergeContinueStraight(
   node: IndoorNode,
   segDist: number,
 ): void {
-  const lastStep = state.steps.at(-1);
+  const lastStep = state.steps[state.steps.length - 1];
   const lastIsStraight =
     lastStep?.instruction.startsWith("Continue straight for about ") ||
     lastStep?.instruction.startsWith("Continue for about ");
@@ -854,19 +849,15 @@ function emitWalkLeadingToTurnIfNeeded(
 
 function emitTurnWaypoint(
   state: BuildStepsState,
-  params: {
-    i: number;
-    node: IndoorNode;
-    prev: IndoorNode;
-    next: IndoorNode;
-    turn: "left" | "right";
-    segDist: number;
-    minWalkEmit: number;
-    minContinue: number;
-  },
+  i: number,
+  node: IndoorNode,
+  prev: IndoorNode,
+  next: IndoorNode,
+  turn: "left" | "right",
+  segDist: number,
+  minWalkEmit: number,
+  minContinue: number,
 ): void {
-  const { i, node, turn, segDist, minWalkEmit, minContinue } = params;
-
   emitWalkLeadingToTurnIfNeeded(state, i, node, segDist, minWalkEmit);
 
   state.lastEmittedDistIdx = i;
@@ -889,20 +880,19 @@ function emitTurnWaypoint(
   const rawLandmark = nextIsDestination
     ? null
     : getNearestRoomLabel(
-        node,
-        state.allFloorNodes,
-        state.endpointIds,
-        LANDMARK_RADIUS_UNITS,
-        state.landmarkBuildingId,
-      );
+      node,
+      state.allFloorNodes,
+      state.endpointIds,
+      LANDMARK_RADIUS_UNITS,
+      state.landmarkBuildingId,
+    );
 
-  const landmark =
-    rawLandmark === state.lastLandmarkUsed ? null : rawLandmark;
+  const landmark = rawLandmark !== state.lastLandmarkUsed ? rawLandmark : null;
   const atPhrase = landmark ? ` at room ${landmark}` : "";
   state.lastLandmarkUsed = rawLandmark ?? state.lastLandmarkUsed;
 
   const continueInstruction = `Turn ${turn}${atPhrase}${continueStr}.`;
-  const lastStep = state.steps.at(-1);
+  const lastStep = state.steps[state.steps.length - 1];
   if (lastStep?.instruction === continueInstruction) return;
 
   state.steps.push({
@@ -959,16 +949,17 @@ function emitRouteStepsFromSimplifiedNodes(
       continue;
     }
 
-    emitTurnWaypoint(state, {
+    emitTurnWaypoint(
+      state,
       i,
       node,
       prev,
       next,
       turn,
       segDist,
-      minWalkEmit: MIN_WALK_EMIT,
-      minContinue: MIN_CONTINUE,
-    });
+      MIN_WALK_EMIT,
+      MIN_CONTINUE,
+    );
   }
 }
 
@@ -990,8 +981,7 @@ function buildSteps(
   const endpointIds = new Set<string>();
   if (allPathNodes.length > 0) endpointIds.add(allPathNodes[0].id);
   if (allPathNodes.length > 1) {
-    const lastNode = allPathNodes.at(-1);
-    if (lastNode) endpointIds.add(lastNode.id);
+    endpointIds.add(allPathNodes[allPathNodes.length - 1].id);
   }
 
   const steps: IndoorRouteStep[] = [];
@@ -1123,14 +1113,14 @@ function buildIndoorRouteFromDijkstraResult(
   }
 
   const segments: IndoorPathSegment[] = [];
-  let currentSegment: IndoorPathSegment | undefined = undefined;
+  let currentSegment: IndoorPathSegment | null = null;
 
   for (const node of pathNodes) {
-    if ((currentSegment as IndoorPathSegment | null | undefined)?.floor !== node.floor) {
+    if (!currentSegment || currentSegment.floor !== node.floor) {
       if (currentSegment) segments.push(currentSegment);
       currentSegment = { floor: node.floor, points: [] };
     }
-    currentSegment!.points.push({ x: node.x, y: node.y });
+    currentSegment.points.push({ x: node.x, y: node.y });
   }
   if (currentSegment) segments.push(currentSegment);
 
@@ -1164,11 +1154,13 @@ export function findIndoorRoute(
   buildingCode: string,
   startRoomLabel: string,
   endRoomLabel: string,
+  noStairs = false,
+  noEscalators = false,
 ): IndoorRoute | null {
   const floors = getBuildingFloors(buildingCode);
   if (floors.length === 0) return null;
 
-  const { nodes, adjacency } = buildGraph(floors);
+  const { nodes, adjacency } = buildGraph(floors, noStairs, noEscalators);
   const { startNode, endNode } = findIndoorRouteEndpoints(
     nodes,
     buildingCode,

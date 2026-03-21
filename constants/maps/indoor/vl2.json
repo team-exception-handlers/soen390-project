@@ -308,8 +308,8 @@
       "type": "hallway_waypoint",
       "buildingId": "VL",
       "floor": 2,
-      "x": 615,
-      "y": 226,
+      "x": 612,
+      "y": 229,
       "label": "",
       "accessible": true
     },
@@ -412,6 +412,46 @@
       "y": 740,
       "label": "",
       "accessible": true
+    },
+    {
+      "id": "VL_F2_stair_landing_1",
+      "type": "stair_landing",
+      "buildingId": "VL",
+      "floor": 2,
+      "x": 753,
+      "y": 792,
+      "label": "",
+      "accessible": false
+    },
+    {
+      "id": "VL_F2_stair_landing_2",
+      "type": "stair_landing",
+      "buildingId": "VL",
+      "floor": 2,
+      "x": 244,
+      "y": 490,
+      "label": "",
+      "accessible": false
+    },
+    {
+      "id": "VL_F2_hallway_waypoint",
+      "type": "hallway_waypoint",
+      "buildingId": "VL",
+      "floor": 2,
+      "x": 332,
+      "y": 521,
+      "label": "",
+      "accessible": true
+    },
+    {
+      "id": "VL_F2_stair_landing_3",
+      "type": "stair_landing",
+      "buildingId": "VL",
+      "floor": 2,
+      "x": 588,
+      "y": 245,
+      "label": "",
+      "accessible": false
     }
   ],
   "edges": [
@@ -750,6 +790,34 @@
       "type": "hallway",
       "weight": 287,
       "accessible": true
+    },
+    {
+      "source": "VL_F2_hallway_waypoint_52",
+      "target": "VL_F2_stair_landing_1",
+      "type": "hallway",
+      "weight": 54,
+      "accessible": false
+    },
+    {
+      "source": "VL_F2_hallway_waypoint",
+      "target": "VL_F2_stair_landing_2",
+      "type": "hallway",
+      "weight": 93,
+      "accessible": false
+    },
+    {
+      "source": "VL_F2_hallway_waypoint_42",
+      "target": "VL_F2_stair_landing_3",
+      "type": "hallway",
+      "weight": 29,
+      "accessible": false
+    },
+    {
+      "source": "VL_F2_hallway_waypoint_43",
+      "target": "VL_F2_stair_landing_3",
+      "type": "hallway",
+      "weight": 54,
+      "accessible": false
     }
   ]
 }

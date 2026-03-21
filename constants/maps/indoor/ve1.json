@@ -101,7 +101,7 @@
       "target": "VE_F1_hallway_waypoint_59",
       "type": "hallway",
       "weight": 86,
-      "accessible": true
+      "accessible": false
     },
     {
       "source": "VE_F1_hallway_waypoint_56",
@@ -116,6 +116,20 @@
       "type": "door_to_hallway",
       "weight": 199,
       "accessible": true
+    },
+    {
+      "source": "VE_F1_stair_landing_1",
+      "target": "VE_F2_stair_landing_1",
+      "type": "stair",
+      "weight": 0,
+      "accessible": false
+    },
+    {
+      "source": "VE_F2_stair_landing_1",
+      "target": "VE_F1_stair_landing_1",
+      "type": "stair",
+      "weight": 0,
+      "accessible": false
     }
   ]
 }
