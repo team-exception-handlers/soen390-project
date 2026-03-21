@@ -1128,7 +1128,8 @@ function buildIndoorRouteFromDijkstraResult(
   let currentSegment: IndoorPathSegment | null = null;
 
   for (const node of pathNodes) {
-    if (currentSegment?.floor !== node.floor) {
+    const seg = currentSegment as any;
+    if (seg?.floor !== node.floor) {
       if (currentSegment) segments.push(currentSegment);
       currentSegment = { floor: node.floor, points: [] };
     }
