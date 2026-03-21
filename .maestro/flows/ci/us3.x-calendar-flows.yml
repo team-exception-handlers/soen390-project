@@ -58,6 +58,8 @@ appId: com.anonymous.concordiaclassfinder
       - waitForAnimationToEnd:
           timeout: 2000
       - inputText: ${MAESTRO_GOOGLE_E2E_EMAIL}
+      - waitForAnimationToEnd:
+          timeout: 3500
       - pressKey: enter
       - waitForAnimationToEnd:
           timeout: 20000
@@ -66,6 +68,8 @@ appId: com.anonymous.concordiaclassfinder
       - waitForAnimationToEnd:
           timeout: 2000
       - inputText: ${MAESTRO_GOOGLE_E2E_PASSWORD}
+      - waitForAnimationToEnd:
+          timeout: 3500
       - pressKey: enter
 
 - extendedWaitUntil:
