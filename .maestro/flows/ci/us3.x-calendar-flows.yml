@@ -63,10 +63,6 @@ appId: com.anonymous.concordiaclassfinder
       - pressKey: enter
       - waitForAnimationToEnd:
           timeout: 20000
-      - tapOn:
-          point: "50%, 46%"
-      - waitForAnimationToEnd:
-          timeout: 2000
       - inputText: ${MAESTRO_GOOGLE_E2E_PASSWORD}
       - waitForAnimationToEnd:
           timeout: 3500
