@@ -30,6 +30,10 @@ import AppHeader, { Campus } from "../../components/AppHeader";
 import BuildingInformation from "../../components/BuildingInformation";
 import IndoorDirectionsModal from "../../components/IndoorDirectionsModal";
 import DirectionsPanel from "../../components/mapScreen/DirectionsPanel";
+import {
+  EMPTY_NATIVE_MAP_COMPONENTS,
+  loadNativeMapComponents,
+} from "../../components/mapScreen/nativeMapComponents";
 import RouteStepsPopup from "../../components/mapScreen/RouteStepsPopup";
 import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
@@ -338,11 +342,19 @@ export default function MapScreen() {
     [isWebPlatform, insets.top, insets.bottom],
   );
 
-  let MapViewComponent: React.ComponentType<any> | null = null;
-  let MapMarkerComponent: React.ComponentType<any> | null = null;
-  let MapCalloutComponent: React.ComponentType<any> | null = null;
-  let MapPolygonComponent: React.ComponentType<any> | null = null;
-  let MapPolylineComponent: React.ElementType | null = null;
+  const {
+    MapViewComponent,
+    MapMarkerComponent,
+    MapCalloutComponent,
+    MapPolygonComponent,
+    MapPolylineComponent,
+  } = useMemo(() => {
+    if (isWebPlatform || isExpoGo) {
+      return EMPTY_NATIVE_MAP_COMPONENTS;
+    }
+
+    return loadNativeMapComponents();
+  }, [isExpoGo, isWebPlatform]);
 
   useEffect(() => {
     if (!isWebPlatform || !webFrameTargetOrigin) return;
@@ -368,24 +380,6 @@ export default function MapScreen() {
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, [isWebPlatform, webFrameTargetOrigin]);
-
-  if (Platform.OS !== "web" && !isExpoGo) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const maps = require("react-native-maps");
-      MapViewComponent = maps.default;
-      MapMarkerComponent = maps.Marker;
-      MapCalloutComponent = maps.Callout;
-      MapPolygonComponent = maps.Polygon;
-      MapPolylineComponent = maps.Polyline;
-    } catch {
-      MapViewComponent = null;
-      MapMarkerComponent = null;
-      MapCalloutComponent = null;
-      MapPolygonComponent = null;
-      MapPolylineComponent = null;
-    }
-  }
 
   const applyDetectedLocationState = useCallback(
     (
@@ -1873,18 +1867,6 @@ export default function MapScreen() {
 
   const shouldUseWebFallback = Platform.OS === "web" || !MapViewComponent;
 
-  const mapBlobUrl = useMemo(() => {
-    if (Platform.OS !== "web" || !mapHTML) return null;
-    const blob = new Blob([mapHTML], { type: "text/html" });
-    return URL.createObjectURL(blob);
-  }, [mapHTML]);
-
-  useEffect(() => {
-    return () => {
-      if (mapBlobUrl) URL.revokeObjectURL(mapBlobUrl);
-    };
-  }, [mapBlobUrl]);
-
   useEffect(() => {
     if (Platform.OS !== "web") {
       setWebMapReady(false);
@@ -1896,10 +1878,11 @@ export default function MapScreen() {
       return (
         <iframe
           ref={webIframeRef}
-          src={mapBlobUrl ?? "about:blank"}
+          srcDoc={mapHTML ?? ""}
           style={{ ...(StyleSheet.flatten(styles.map) as object), border: 0 }}
           allow="geolocation"
           allowFullScreen
+          referrerPolicy="origin"
           title="Concordia map"
           onLoad={() =>
             postToWebIframe({
