@@ -1,4 +1,4 @@
-# US-3.1: Connect to Google Calendar (CI — launch app, Calendar tab, OAuth, “Upcoming Events”).
+# US-3.1: Google Calendar OAuth + US-3.2 (multi-calendar) + US-3.4 (directions from calendar).
 
 appId: com.anonymous.concordiaclassfinder
 
@@ -36,8 +36,13 @@ appId: com.anonymous.concordiaclassfinder
           visible:
             text: "Cancel"
           timeout: 60000
-      - waitForAnimationToEnd:
-          timeout: 15000
+      - runFlow:
+          when:
+            visible:
+              text: "Go Now"
+          commands:
+            - tapOn:
+                text: "Go Now"
 
       - runFlow:
           when:
@@ -46,8 +51,8 @@ appId: com.anonymous.concordiaclassfinder
           commands:
             - tapOn:
                 text: "Yes"
-            - waitForAnimationToEnd:
-                timeout: 5000
+      - waitForAnimationToEnd:
+          timeout: 45000
       - tapOn:
           point: "50%, 42%"
       - waitForAnimationToEnd:
@@ -67,3 +72,40 @@ appId: com.anonymous.concordiaclassfinder
     visible:
       text: "Upcoming Events"
     timeout: 120000
+
+# --- US-3.2: toggle secondary calendar ---
+- extendedWaitUntil:
+    visible:
+      text: "Primary Calendar"
+    timeout: 30000
+
+- tapOn:
+    text: "Holidays in Canada"
+
+- extendedWaitUntil:
+    visible:
+      text: "Holidays in Canada"
+    timeout: 30000
+
+- tapOn:
+    text: "Primary Calendar"
+
+- extendedWaitUntil:
+    visible:
+      text: "Primary Calendar"
+    timeout: 30000
+
+- assertVisible: "Primary Calendar"
+
+# --- US-3.4: directions from calendar ---
+- extendedWaitUntil:
+    visible:
+      text: "Directions"
+    timeout: 30000
+- tapOn:
+    text: "Directions"
+
+- extendedWaitUntil:
+    visible:
+      id: "route-steps-popup"
+    timeout: 45000

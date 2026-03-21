@@ -20,6 +20,4 @@ appId: com.anonymous.concordiaclassfinder
 - runFlow:
     file: us2.6-concordia-shuttle.yml
 - runFlow:
-    file: us3.1-google-calendar-connection.yml
-- runFlow:
-    file: us3.2-3.4-calendar-after-signin.yml
+    file: us3.x-calendar-flows.yml
