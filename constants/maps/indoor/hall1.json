@@ -2478,6 +2478,13 @@
       "accessible": true
     },
     {
+      "source": "Hall_F1_hallway_waypoint_124",
+      "target": "Hall_F1_hallway",
+      "type": "hallway",
+      "weight": 188,
+      "accessible": true
+    },
+    {
       "source": "Hall_F1_hallway2",
       "target": "Hall_F1_escalator_landing_1",
       "type": "hallway",

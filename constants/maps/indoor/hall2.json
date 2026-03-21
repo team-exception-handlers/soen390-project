@@ -1826,6 +1826,13 @@
       "accessible": true
     },
     {
+      "source": "Hall_F2_hallway",
+      "target": "Hall_F1_hallway_waypoint_189",
+      "type": "hallway",
+      "weight": 310,
+      "accessible": true
+    },
+    {
       "source": "Hall_F1_hallway_waypoint_190",
       "target": "Hall_F2_hallway",
       "type": "hallway",
