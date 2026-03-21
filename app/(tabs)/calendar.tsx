@@ -35,6 +35,51 @@ import {
 
 WebBrowser.maybeCompleteAuthSession();
 
+const E2E_MOCK_TOKEN = "e2e-google-calendar-token";
+
+function buildE2ECalendarFixtures(): {
+  calendars: GoogleCalendar[];
+  eventsByCalendarId: Record<string, CalendarEvent[]>;
+} {
+  const now = Date.now();
+  const inHours = (hoursFromNow: number) =>
+    new Date(now + hoursFromNow * 60 * 60 * 1000).toISOString();
+
+  return {
+    calendars: [
+      { id: "primary", summary: "Primary Calendar", primary: true },
+      { id: "holidays-canada", summary: "Holidays in Canada" },
+    ],
+    eventsByCalendarId: {
+      primary: [
+        {
+          id: "e2e-next-class",
+          summary: "Concordia - SOEN 390 Tutorial",
+          description: "CI fixture event for Maestro.",
+          location: "SP-110",
+          start: { dateTime: inHours(2) },
+          end: { dateTime: inHours(3) },
+        },
+        {
+          id: "e2e-later-class",
+          summary: "Concordia - COMP 352 Lecture",
+          location: "H-937",
+          start: { dateTime: inHours(26) },
+          end: { dateTime: inHours(27.5) },
+        },
+      ],
+      "holidays-canada": [
+        {
+          id: "e2e-holiday",
+          summary: "Canada Day",
+          start: { dateTime: inHours(48) },
+          end: { dateTime: inHours(49) },
+        },
+      ],
+    },
+  };
+}
+
 export default function CalendarScreen() {
   const [directionsMessage, setDirectionsMessage] = useState<string | null>(
     null,
@@ -57,6 +102,7 @@ export default function CalendarScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const e2eFixtures = useMemo(() => buildE2ECalendarFixtures(), []);
 
   // Build the auth request
   const discovery = AuthSession.useAutoDiscovery("https://accounts.google.com");
@@ -170,6 +216,11 @@ export default function CalendarScreen() {
   }, [response]);
 
   useEffect(() => {
+    if (isE2EMode) {
+      setAccessToken(E2E_MOCK_TOKEN);
+      return;
+    }
+
     const restoreToken = async () => {
       const saved = await getToken();
       if (saved) {
@@ -192,6 +243,18 @@ export default function CalendarScreen() {
   // Load calendars (once token is available)
   const loadCalendars = useCallback(
     async (token: string) => {
+      if (isE2EMode && token === E2E_MOCK_TOKEN) {
+        setError(null);
+        setCalendars(e2eFixtures.calendars);
+        const primary =
+          e2eFixtures.calendars.find((calendar) => calendar.primary) ??
+          e2eFixtures.calendars[0];
+        if (primary) {
+          setSelectedCalendarId(primary.id);
+        }
+        return;
+      }
+
       try {
         setError(null);
 
@@ -236,12 +299,22 @@ export default function CalendarScreen() {
         setError("Failed to load your calendars.");
       }
     },
-    [handleTokenExpired],
+    [e2eFixtures.calendars, handleTokenExpired, isE2EMode],
   );
 
   // Load events
   const loadEvents = useCallback(
     async (token: string, isRefresh: boolean) => {
+      if (isE2EMode && token === E2E_MOCK_TOKEN) {
+        if (isRefresh) setRefreshing(true);
+        else setLoading(true);
+        setError(null);
+        setEvents(e2eFixtures.eventsByCalendarId[selectedCalendarId] ?? []);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
       setError(null);
@@ -289,7 +362,7 @@ export default function CalendarScreen() {
         setRefreshing(false);
       }
     },
-    [selectedCalendarId, handleTokenExpired],
+    [e2eFixtures.eventsByCalendarId, handleTokenExpired, isE2EMode, selectedCalendarId],
   );
 
   // Fetch calendars whenever we have a token
