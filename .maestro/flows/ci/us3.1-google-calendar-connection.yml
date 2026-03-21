@@ -32,13 +32,8 @@ appId: com.anonymous.concordiaclassfinder
           timeout: 30000
       - tapOn:
           text: "Continue"
-
-      - extendedWaitUntil:
-          visible:
-            text: "accounts.google.com"
-          timeout: 30000
       - waitForAnimationToEnd:
-          timeout: 4000
+          timeout: 35000
 
       - runFlow:
           when:
@@ -48,61 +43,30 @@ appId: com.anonymous.concordiaclassfinder
             - tapOn:
                 text: "Yes"
             - waitForAnimationToEnd:
-                timeout: 4000
+                timeout: 5000
 
-      # Scenario 1: fresh sign-in — email field is shown first
-      - runFlow:
-          when:
-            visible:
-              text: "Email or phone"
-          commands:
-            - tapOn:
-                text: "Email or phone"
-            # Wait for the WebView input to be fully ready before typing
-            - waitForAnimationToEnd:
-                timeout: 2000
-            - inputText: ${MAESTRO_GOOGLE_E2E_EMAIL}
-            - tapOn:
-                point: "50%, 25%"
-            - tapOn:
-                text: "Next"
-            # Wait for Google to transition to the password page before checking
-            - extendedWaitUntil:
-                visible:
-                  text: "Enter your password"
-                timeout: 20000
-            - tapOn:
-                text: "Enter your password"
-            - waitForAnimationToEnd:
-                timeout: 2000
-            - inputText: ${MAESTRO_GOOGLE_E2E_PASSWORD}
-            - tapOn:
-                point: "50%, 25%"
-            - tapOn:
-                text: "Next"
-
-      # Scenario 2: account picker — a saved account email is shown; tap it then enter password
-      - runFlow:
-          when:
-            visible:
-              text: ".*@.*\\..*"
-          commands:
-            - tapOn:
-                text: ".*@.*\\..*"
-            # Wait for Google to transition to the password page before checking
-            - extendedWaitUntil:
-                visible:
-                  text: "Password"
-                timeout: 20000
-            - tapOn:
-                text: "Password"
-            - waitForAnimationToEnd:
-                timeout: 2000
-            - inputText: ${MAESTRO_GOOGLE_E2E_PASSWORD}
-            - tapOn:
-                point: "50%, 25%"
-            - tapOn:
-                text: "Next"
+      - tapOn:
+          point: "50%, 43%"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - inputText: ${MAESTRO_GOOGLE_E2E_EMAIL}
+      - tapOn:
+          point: "50%, 25%"
+      - tapOn:
+          text: "Next"
+      - extendedWaitUntil:
+          visible:
+            text: "Enter your password"
+          timeout: 30000
+      - tapOn:
+          text: "Enter your password"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - inputText: ${MAESTRO_GOOGLE_E2E_PASSWORD}
+      - tapOn:
+          point: "50%, 25%"
+      - tapOn:
+          text: "Next"
 
 - extendedWaitUntil:
     visible:
