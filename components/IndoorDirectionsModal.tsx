@@ -256,6 +256,40 @@ export default function IndoorDirectionsModal({
       ? lastSegmentPoints[lastSegmentPoints.length - 1]
       : null;
 
+  let floorPlanContent = null;
+  if (!floorAsset) {
+    floorPlanContent = (
+      <View style={styles.noMapPlaceholder}>
+        <Text style={styles.noMapText}>
+          Floor plan not available for floor{" "}
+          {formatFloorLabelForBuilding(buildingCode, effectiveFloor)}
+        </Text>
+      </View>
+    );
+  } else if (floorAsset.kind === "image") {
+    floorPlanContent = (
+      <Image
+        source={floorAsset.source}
+        style={styles.floorPlanImage}
+        resizeMode="contain"
+      />
+    );
+  } else {
+    floorPlanContent = (
+      <Svg
+        width="100%"
+        height="100%"
+        preserveAspectRatio="xMidYMid meet"
+        viewBox={`0 0 ${bounds.width} ${bounds.height}`}
+      >
+        <floorAsset.component
+          width={bounds.width}
+          height={bounds.height}
+        />
+      </Svg>
+    );
+  }
+
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
       <View style={styles.overlay}>
@@ -347,34 +381,7 @@ export default function IndoorDirectionsModal({
                 style={styles.mapContainer}
                 onLayout={onContainerLayout}
               >
-                {floorAsset ? (
-                  floorAsset.kind === "image" ? (
-                    <Image
-                      source={floorAsset.source}
-                      style={styles.floorPlanImage}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <Svg
-                      width="100%"
-                      height="100%"
-                      preserveAspectRatio="xMidYMid meet"
-                      viewBox={`0 0 ${bounds.width} ${bounds.height}`}
-                    >
-                      <floorAsset.component
-                        width={bounds.width}
-                        height={bounds.height}
-                      />
-                    </Svg>
-                  )
-                ) : (
-                  <View style={styles.noMapPlaceholder}>
-                    <Text style={styles.noMapText}>
-                      Floor plan not available for floor{" "}
-                      {formatFloorLabelForBuilding(buildingCode, effectiveFloor)}
-                    </Text>
-                  </View>
-                )}
+                {floorPlanContent}
 
                 {/* SVG route overlay */}
                 {containerSize.width > 0 && scaledPoints.length > 0 && (
@@ -440,7 +447,7 @@ export default function IndoorDirectionsModal({
                   showsVerticalScrollIndicator={false}
                 >
                   {effectiveRoute.steps.map((step, i) => (
-                    <View key={i} style={styles.stepRow}>
+                    <View key={`${i}-${step.instruction}`} style={styles.stepRow}>
                       <View style={styles.stepBullet}>
                         <Text style={styles.stepBulletText}>{i + 1}</Text>
                       </View>

@@ -724,12 +724,14 @@ function emitFloorChangeStep(
   }
 
   state.inPassThroughFloor = false;
-  const via =
-    prev.type === "elevator_door" || node.type === "elevator_door"
-      ? "elevator"
-      : prev.type === "escalator_landing" || node.type === "escalator_landing"
-        ? "escalator"
-        : "stairs";
+  
+  let via = "stairs";
+  if (prev.type === "elevator_door" || node.type === "elevator_door") {
+    via = "elevator";
+  } else if (prev.type === "escalator_landing" || node.type === "escalator_landing") {
+    via = "escalator";
+  }
+
   const walkPart =
     segDist >= minWalkEmit ? `Walk about ${roundDistanceHuman(segDist)} m, then ` : "";
 
@@ -847,17 +849,27 @@ function emitWalkLeadingToTurnIfNeeded(
   emitOrMergeContinueStraight(state, node, segDist);
 }
 
-function emitTurnWaypoint(
-  state: BuildStepsState,
-  i: number,
-  node: IndoorNode,
-  prev: IndoorNode,
-  next: IndoorNode,
-  turn: "left" | "right",
-  segDist: number,
-  minWalkEmit: number,
-  minContinue: number,
-): void {
+function emitTurnWaypoint({
+  state,
+  i,
+  node,
+  prev,
+  next,
+  turn,
+  segDist,
+  minWalkEmit,
+  minContinue,
+}: {
+  state: BuildStepsState;
+  i: number;
+  node: IndoorNode;
+  prev: IndoorNode;
+  next: IndoorNode;
+  turn: "left" | "right";
+  segDist: number;
+  minWalkEmit: number;
+  minContinue: number;
+}): void {
   emitWalkLeadingToTurnIfNeeded(state, i, node, segDist, minWalkEmit);
 
   state.lastEmittedDistIdx = i;
@@ -949,7 +961,7 @@ function emitRouteStepsFromSimplifiedNodes(
       continue;
     }
 
-    emitTurnWaypoint(
+    emitTurnWaypoint({
       state,
       i,
       node,
@@ -957,9 +969,9 @@ function emitRouteStepsFromSimplifiedNodes(
       next,
       turn,
       segDist,
-      MIN_WALK_EMIT,
-      MIN_CONTINUE,
-    );
+      minWalkEmit: MIN_WALK_EMIT,
+      minContinue: MIN_CONTINUE,
+    });
   }
 }
 
@@ -1116,11 +1128,11 @@ function buildIndoorRouteFromDijkstraResult(
   let currentSegment: IndoorPathSegment | null = null;
 
   for (const node of pathNodes) {
-    if (!currentSegment || currentSegment.floor !== node.floor) {
+    if (currentSegment?.floor !== node.floor) {
       if (currentSegment) segments.push(currentSegment);
       currentSegment = { floor: node.floor, points: [] };
     }
-    currentSegment.points.push({ x: node.x, y: node.y });
+    currentSegment!.points.push({ x: node.x, y: node.y });
   }
   if (currentSegment) segments.push(currentSegment);
 

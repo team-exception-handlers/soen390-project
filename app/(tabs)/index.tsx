@@ -228,7 +228,7 @@ export default function MapScreen() {
   >([]);
   const [selectedItineraryIndex, setSelectedItineraryIndex] = useState(0);
 
-  const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<
+  const [selectedShuttleDeparture] = useState<
     string | null
   >(null);
   const [shuttleWalkToCoords, setShuttleWalkToCoords] = useState<
@@ -949,8 +949,8 @@ export default function MapScreen() {
           const mm = validDeparture.getMinutes().toString().padStart(2, "0");
           const arrivalTimeString = calculateArrivalTime(`${hh}:${mm}`);
 
-          const arrH = parseInt(arrivalTimeString.split(":")[0]);
-          const arrM = parseInt(arrivalTimeString.split(":")[1]);
+          const arrH = Number.parseInt(arrivalTimeString.split(":")[0]);
+          const arrM = Number.parseInt(arrivalTimeString.split(":")[1]);
           const arrivalDate = new Date(validDeparture);
           arrivalDate.setHours(arrH, arrM, 0, 0);
           if (arrivalDate < validDeparture)
@@ -1153,7 +1153,6 @@ export default function MapScreen() {
         setExpandedIntermediateStops(new Set());
         setRouteStarted(false);
         routeInstructionsDismissedRef.current = false;
-      } finally {
       }
     };
 

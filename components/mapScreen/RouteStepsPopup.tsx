@@ -63,6 +63,11 @@ function TransitItineraryCard({
   expandedIntermediateStops,
   setExpandedIntermediateStops,
 }: TransitItineraryCardProps) {
+  let transfersText = "Direct";
+  if (itinerary.transfers > 0) {
+    transfersText = `${itinerary.transfers} transfer${itinerary.transfers > 1 ? "s" : ""}`;
+  }
+
   return (
     <View style={{ marginBottom: 12 }}>
       <Pressable
@@ -90,9 +95,7 @@ function TransitItineraryCard({
               {Math.round(itinerary.durationSeconds / 60)} min
             </Text>
             <Text style={styles.itineraryTransfers}>
-              {itinerary.transfers === 0
-                ? "Direct"
-                : `${itinerary.transfers} transfer${itinerary.transfers > 1 ? "s" : ""}`}
+              {transfersText}
             </Text>
             <View style={styles.itineraryLegsRow}>
             {itinerary.legs.map((leg) => (
@@ -212,6 +215,128 @@ export default function RouteStepsPopup({
     routeMode === "transit" && transitItineraries.length > 0;
   const showTransitJourneyDetails = hasTransitItineraries && routeStarted;
 
+  let content = null;
+
+  if (routeMode === "shuttle") {
+    if (!routeStarted) {
+      content = (
+        <ShuttleDirections
+          origin={actualOriginPoint}
+          destination={destinationBuilding}
+          routeStarted={routeStarted}
+          routeInstructions={routeInstructions}
+          onDepartureSelect={(time) => {
+            if (
+              setSelectedShuttleDeparture &&
+              selectedShuttleDeparture !== time
+            ) {
+              setSelectedShuttleDeparture(time);
+            }
+          }}
+        />
+      );
+    } else {
+      content = (
+        <>
+          <Text
+            style={{
+              fontSize: 17,
+              fontWeight: "700",
+              marginBottom: 20,
+              color: "#1C1C1E",
+            }}
+          >
+            Journey Details
+          </Text>
+          {transitItineraries[0] ? (
+            <TransitLegTimeline
+              itinerary={transitItineraries[0]}
+              styles={styles}
+              formatTime={formatTime}
+              alwaysShowIntermediateStops
+              stopKeyPrefix="shuttle-journey"
+            />
+          ) : (
+            <Text
+              style={{
+                fontSize: 15,
+                color: "#666",
+                marginTop: 10,
+                textAlign: "center",
+              }}
+            >
+              No shuttles at this time.
+            </Text>
+          )}
+        </>
+      );
+    }
+  } else if (hasTransitItineraries) {
+    if (showTransitJourneyDetails) {
+      content = (
+        <>
+          <Text
+            style={{
+              fontSize: 17,
+              fontWeight: "700",
+              marginBottom: 20,
+              color: "#1C1C1E",
+            }}
+          >
+            Journey Details
+          </Text>
+
+          {transitItineraries[selectedItineraryIndex] && (
+            <TransitLegTimeline
+              itinerary={transitItineraries[selectedItineraryIndex]}
+              styles={styles}
+              formatTime={formatTime}
+              alwaysShowIntermediateStops
+              stopKeyPrefix={`journey-${selectedItineraryIndex}`}
+            />
+          )}
+        </>
+      );
+    } else {
+      content = (
+        <>
+          {transitItineraries.map((itinerary, index) => {
+            const isExpanded = expandedItineraries.includes(index);
+            const isSelected = index === selectedItineraryIndex;
+
+            return (
+              <TransitItineraryCard
+                key={`${itinerary.departureTime}-${itinerary.arrivalTime}-${itinerary.transfers}-${itinerary.distanceMeters}`}
+                itinerary={itinerary}
+                index={index}
+                isExpanded={isExpanded}
+                isSelected={isSelected}
+                setSelectedItineraryIndex={setSelectedItineraryIndex}
+                setRouteDurationMinutes={setRouteDurationMinutes}
+                setRouteDistanceMeters={setRouteDistanceMeters}
+                setRouteInstructions={setRouteInstructions}
+                setExpandedItineraries={setExpandedItineraries}
+                formatTime={formatTime}
+                styles={styles}
+                expandedIntermediateStops={expandedIntermediateStops}
+                setExpandedIntermediateStops={setExpandedIntermediateStops}
+              />
+            );
+          })}
+        </>
+      );
+    }
+  } else {
+    content = routeInstructions.map((instruction, index) => (
+      <Text
+        key={`${instruction.text}-${instruction.distanceMeters}`}
+        style={styles.routeStepText}
+      >
+        {`${index + 1}. ${instruction.text}`}
+      </Text>
+    ));
+  }
+
   return (
     <View style={styles.routeStepsPopup} testID="route-steps-popup">
       <Pressable
@@ -240,117 +365,7 @@ export default function RouteStepsPopup({
         contentContainerStyle={styles.routeStepsListContent}
         showsVerticalScrollIndicator={false}
       >
-        {routeMode === "shuttle" ? (
-          !routeStarted ? (
-            <ShuttleDirections
-              origin={actualOriginPoint}
-              destination={destinationBuilding}
-              routeStarted={routeStarted}
-              routeInstructions={routeInstructions}
-              onDepartureSelect={(time) => {
-                if (
-                  setSelectedShuttleDeparture &&
-                  selectedShuttleDeparture !== time
-                ) {
-                  setSelectedShuttleDeparture(time);
-                }
-              }}
-            />
-          ) : (
-            <>
-              <Text
-                style={{
-                  fontSize: 17,
-                  fontWeight: "700",
-                  marginBottom: 20,
-                  color: "#1C1C1E",
-                }}
-              >
-                Journey Details
-              </Text>
-              {transitItineraries[0] ? (
-                <TransitLegTimeline
-                  itinerary={transitItineraries[0]}
-                  styles={styles}
-                  formatTime={formatTime}
-                  alwaysShowIntermediateStops
-                  stopKeyPrefix="shuttle-journey"
-                />
-              ) : (
-                <Text
-                  style={{
-                    fontSize: 15,
-                    color: "#666",
-                    marginTop: 10,
-                    textAlign: "center",
-                  }}
-                >
-                  No shuttles at this time.
-                </Text>
-              )}
-            </>
-          )
-        ) : hasTransitItineraries ? (
-          showTransitJourneyDetails ? (
-            <>
-              <Text
-                style={{
-                  fontSize: 17,
-                  fontWeight: "700",
-                  marginBottom: 20,
-                  color: "#1C1C1E",
-                }}
-              >
-                Journey Details
-              </Text>
-
-              {transitItineraries[selectedItineraryIndex] && (
-                <TransitLegTimeline
-                  itinerary={transitItineraries[selectedItineraryIndex]}
-                  styles={styles}
-                  formatTime={formatTime}
-                  alwaysShowIntermediateStops
-                  stopKeyPrefix={`journey-${selectedItineraryIndex}`}
-                />
-              )}
-            </>
-          ) : (
-            <>
-              {transitItineraries.map((itinerary, index) => {
-                const isExpanded = expandedItineraries.includes(index);
-                const isSelected = index === selectedItineraryIndex;
-
-                return (
-                  <TransitItineraryCard
-                    key={`${itinerary.departureTime}-${itinerary.arrivalTime}-${itinerary.transfers}-${itinerary.distanceMeters}`}
-                    itinerary={itinerary}
-                    index={index}
-                    isExpanded={isExpanded}
-                    isSelected={isSelected}
-                    setSelectedItineraryIndex={setSelectedItineraryIndex}
-                    setRouteDurationMinutes={setRouteDurationMinutes}
-                    setRouteDistanceMeters={setRouteDistanceMeters}
-                    setRouteInstructions={setRouteInstructions}
-                    setExpandedItineraries={setExpandedItineraries}
-                    formatTime={formatTime}
-                    styles={styles}
-                    expandedIntermediateStops={expandedIntermediateStops}
-                    setExpandedIntermediateStops={setExpandedIntermediateStops}
-                  />
-                );
-              })}
-            </>
-          )
-        ) : (
-          routeInstructions.map((instruction, index) => (
-            <Text
-              key={`${instruction.text}-${instruction.distanceMeters}`}
-              style={styles.routeStepText}
-            >
-              {`${index + 1}. ${instruction.text}`}
-            </Text>
-          ))
-        )}
+        {content}
       </ScrollView>
     </View>
   );
