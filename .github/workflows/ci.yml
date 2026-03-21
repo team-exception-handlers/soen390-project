@@ -52,4 +52,7 @@ jobs:
   e2e-maestro:
     name: Maestro E2E (iOS)
     uses: ./.github/workflows/e2e-ios-maestro.yml
-    secrets: inherit
+    secrets:
+      EXPO_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_CLIENT_ID }}
+      GOOGLE_E2E_EMAIL: ${{ secrets.GOOGLE_E2E_EMAIL }}
+      GOOGLE_E2E_PASSWORD: ${{ secrets.GOOGLE_E2E_PASSWORD }}

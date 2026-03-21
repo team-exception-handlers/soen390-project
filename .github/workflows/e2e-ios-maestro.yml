@@ -4,6 +4,13 @@ name: E2E iOS (Maestro)
 
 on:
   workflow_call:
+    secrets:
+      EXPO_PUBLIC_GOOGLE_CLIENT_ID:
+        required: true
+      GOOGLE_E2E_EMAIL:
+        required: true
+      GOOGLE_E2E_PASSWORD:
+        required: true
   workflow_dispatch:
 
 concurrency:
