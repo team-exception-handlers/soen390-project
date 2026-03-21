@@ -32,10 +32,13 @@ appId: com.anonymous.concordiaclassfinder
           timeout: 30000
       - tapOn:
           text: "Continue"
+
       - extendedWaitUntil:
           visible:
-            text: "(Email or phone|Yes|.*@.*\\..*)"
+            text: "accounts.google.com"
           timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 4000
 
       - runFlow:
           when:
@@ -44,6 +47,8 @@ appId: com.anonymous.concordiaclassfinder
           commands:
             - tapOn:
                 text: "Yes"
+            - waitForAnimationToEnd:
+                timeout: 4000
 
       # Scenario 1: fresh sign-in — email field is shown first
       - runFlow:
