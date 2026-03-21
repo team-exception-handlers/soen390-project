@@ -1418,8 +1418,7 @@ export default function MapScreen() {
       <!DOCTYPE html>
       <html>
       <head>
-          <base href="${isWebPlatform && typeof window !== "undefined" ? window.location.origin : ""}/">
-          <meta name="referrer" content="origin">
+          <meta name="referrer" content="no-referrer">
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
           <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
           <style>
@@ -1865,6 +1864,17 @@ export default function MapScreen() {
 
   const webViewSource = useMemo(() => ({ html: mapHTML }), [mapHTML]);
 
+  const mapBlobUrl = useMemo(() => {
+    if (!isWebPlatform || !mapHTML) return null;
+    return URL.createObjectURL(new Blob([mapHTML], { type: "text/html" }));
+  }, [isWebPlatform, mapHTML]);
+
+  useEffect(() => {
+    return () => {
+      if (mapBlobUrl) URL.revokeObjectURL(mapBlobUrl);
+    };
+  }, [mapBlobUrl]);
+
   const shouldUseWebFallback = Platform.OS === "web" || !MapViewComponent;
 
   useEffect(() => {
@@ -1878,11 +1888,10 @@ export default function MapScreen() {
       return (
         <iframe
           ref={webIframeRef}
-          srcDoc={mapHTML ?? ""}
+          src={mapBlobUrl ?? "about:blank"}
           style={{ ...(StyleSheet.flatten(styles.map) as object), border: 0 }}
           allow="geolocation"
           allowFullScreen
-          referrerPolicy="origin"
           title="Concordia map"
           onLoad={() =>
             postToWebIframe({
