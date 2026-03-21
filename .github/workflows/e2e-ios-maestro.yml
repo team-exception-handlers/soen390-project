@@ -462,6 +462,10 @@ jobs:
           for dir in .maestro/tests .maestro/.maestro; do
             [ -d "$dir" ] && cp -r "$dir" maestro-e2e-logs/ 2>/dev/null || true
           done
+          # Capture iOS crash logs so app crashes can be diagnosed
+          mkdir -p maestro-e2e-logs/crash-reports
+          cp ~/Library/Logs/DiagnosticReports/*.crash maestro-e2e-logs/crash-reports/ 2>/dev/null || true
+          cp ~/Library/Logs/DiagnosticReports/*.ips   maestro-e2e-logs/crash-reports/ 2>/dev/null || true
           echo "Contents for artifact:"
           find maestro-e2e-logs -type f 2>/dev/null || true
 

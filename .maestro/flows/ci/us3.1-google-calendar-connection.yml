@@ -32,8 +32,12 @@ appId: com.anonymous.concordiaclassfinder
           timeout: 30000
       - tapOn:
           text: "Continue"
+      - extendedWaitUntil:
+          visible:
+            text: "Cancel"
+          timeout: 60000
       - waitForAnimationToEnd:
-          timeout: 30000
+          timeout: 15000
 
       - runFlow:
           when:
