@@ -4,6 +4,9 @@ name: E2E iOS (Maestro)
 
 on:
   workflow_call:
+    secrets:
+      EXPO_PUBLIC_GOOGLE_CLIENT_ID:
+        required: true
   workflow_dispatch:
 
 concurrency:
@@ -182,6 +185,8 @@ jobs:
             ios-dd-${{ runner.os }}-
 
       - name: Build iOS app for Simulator
+        env:
+          EXPO_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_CLIENT_ID }}
         run: |
           export EXPO_PUBLIC_ENABLE_E2E_HOOKS=1
           DD="$GITHUB_WORKSPACE/build/ios/DerivedData"
@@ -199,6 +204,9 @@ jobs:
               ONLY_ACTIVE_ARCH=YES \
               COMPILER_INDEX_STORE_ENABLE=NO \
               CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_ENTITLEMENTS="" \
               -parallelizeTargets \
               build 2>&1 | tee "$GITHUB_WORKSPACE/build/xcodebuild.log" | tail -100
           else
@@ -210,6 +218,9 @@ jobs:
               ONLY_ACTIVE_ARCH=YES \
               COMPILER_INDEX_STORE_ENABLE=NO \
               CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_ENTITLEMENTS="" \
               -parallelizeTargets \
               build 2>&1 | tee "$GITHUB_WORKSPACE/build/xcodebuild.log" | tail -100
           fi
@@ -365,6 +376,15 @@ jobs:
             install_with_timeout "$DEVICE_UDID" "$APP_PATH" 180
           fi
 
+      - name: Require Google Calendar client id
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_CLIENT_ID }}
+        run: |
+          if [ -z "${GOOGLE_CLIENT_ID:-}" ]; then
+            echo "::error::Set repository secret EXPO_PUBLIC_GOOGLE_CLIENT_ID"
+            exit 1
+          fi
+
       - name: Run Maestro CI flows
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
@@ -440,8 +460,6 @@ jobs:
           for dir in .maestro/tests .maestro/.maestro; do
             [ -d "$dir" ] && cp -r "$dir" maestro-e2e-logs/ 2>/dev/null || true
           done
-          echo "Contents for artifact:"
-          find maestro-e2e-logs -type f 2>/dev/null || true
 
       - name: Upload Maestro artifacts on failure
         if: failure()

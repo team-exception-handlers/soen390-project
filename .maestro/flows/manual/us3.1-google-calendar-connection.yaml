@@ -1,0 +1,59 @@
+# US-3.1: Connect to Google Calendar
+
+appId: host.exp.Exponent
+
+---
+- runFlow:
+    file: _launch-expo-go.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+
+- extendedWaitUntil:
+    visible:
+      id: "tab-calendar"
+    timeout: 20000
+- tapOn:
+    id: "tab-calendar"
+
+# Only run OAuth if we are not already signed in.
+- runFlow:
+    when:
+      visible:
+        text: "Sign in with Google"
+    commands:
+      # Start Google sign-in
+      - tapOn:
+          text: "Sign in with Google"
+
+      # iOS SSO permission sheet appears before auth.expo.io opens.
+      - extendedWaitUntil:
+          visible:
+            text: "Continue"
+          timeout: 30000
+      - tapOn:
+          text: "Continue"
+
+      # Expo proxy consent page asks to trust expo-auth-session
+      - runFlow:
+          when:
+            visible:
+              text: "Yes"
+          commands:
+            - tapOn:
+                text: "Yes"
+
+      - runFlow:
+          when:
+            visible:
+              text: ".*@.*\\..*"
+          commands:
+            - tapOn:
+                text: ".*@.*\\..*"
+
+- extendedWaitUntil:
+    visible:
+      text: "Upcoming Events"
+    timeout: 120000

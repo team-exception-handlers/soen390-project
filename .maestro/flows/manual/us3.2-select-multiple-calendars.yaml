@@ -1,0 +1,30 @@
+# US-3.2: Select among multiple calendars (assume the calendar includes my courses)
+
+appId: host.exp.Exponent
+
+---
+- runFlow:
+    file: us3.1-google-calendar-connection.yaml
+
+- extendedWaitUntil:
+    visible:
+      text: "Primary Calendar"
+    timeout: 30000
+
+- tapOn:
+    text: "Holidays in Canada"
+
+- extendedWaitUntil:
+    visible:
+      text: "Holidays in Canada"
+    timeout: 30000
+
+- tapOn:
+    text: "Primary Calendar"
+
+- extendedWaitUntil:
+    visible:
+      text: "Primary Calendar"
+    timeout: 30000
+
+- assertVisible: "Primary Calendar"

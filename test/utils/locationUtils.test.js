@@ -1,8 +1,10 @@
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: jest.fn(),
   getForegroundPermissionsAsync: jest.fn(),
+  getLastKnownPositionAsync: jest.fn(),
+  getCurrentPositionAsync: jest.fn(),
   watchPositionAsync: jest.fn(),
-  Accuracy: { High: 'high' },
+  Accuracy: { High: 'high', Balanced: 'balanced', Lowest: 'lowest' },
 }));
 
 describe('utils/locationUtils', () => {
@@ -67,7 +69,7 @@ describe('utils/locationUtils', () => {
   });
 
   test('startWatchingLocation returns null on watchPositionAsync error', async () => {
-    jest.spyOn(console, 'error').mockImplementation(jest.fn());
+    jest.spyOn(console, 'warn').mockImplementation(jest.fn());
     const Location = require('expo-location');
     Location.getForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
     Location.watchPositionAsync.mockRejectedValue(new Error('boom'));
@@ -75,6 +77,40 @@ describe('utils/locationUtils', () => {
     const { startWatchingLocation } = require('../../utils/locationUtils.ts');
     const sub = await startWatchingLocation(() => {});
     expect(sub).toBeNull();
+  });
+
+  test('getInitialLocationFix returns last known when present', async () => {
+    const Location = require('expo-location');
+    const fix = { coords: { latitude: 1, longitude: 2 } };
+    Location.getLastKnownPositionAsync.mockResolvedValue(fix);
+
+    const { getInitialLocationFix } = require('../../utils/locationUtils.ts');
+    await expect(getInitialLocationFix()).resolves.toBe(fix);
+    expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();
+  });
+
+  test('getInitialLocationFix falls back to getCurrentPositionAsync', async () => {
+    const Location = require('expo-location');
+    Location.getLastKnownPositionAsync.mockResolvedValue(null);
+    const fix = { coords: { latitude: 3, longitude: 4 } };
+    Location.getCurrentPositionAsync.mockResolvedValue(fix);
+
+    const { getInitialLocationFix } = require('../../utils/locationUtils.ts');
+    await expect(getInitialLocationFix()).resolves.toBe(fix);
+  });
+
+  test('getInitialLocationFix retries with lower accuracy then returns null', async () => {
+    jest.useFakeTimers();
+    const Location = require('expo-location');
+    Location.getLastKnownPositionAsync.mockResolvedValue(null);
+    Location.getCurrentPositionAsync.mockRejectedValue(new Error('no fix'));
+
+    const { getInitialLocationFix } = require('../../utils/locationUtils.ts');
+    const promise = getInitialLocationFix();
+    await jest.runAllTimersAsync();
+    await expect(promise).resolves.toBeNull();
+    expect(Location.getCurrentPositionAsync).toHaveBeenCalledTimes(2);
+    jest.useRealTimers();
   });
 
   test('isPointInPolygon detects inside and outside points', () => {
