@@ -1381,4 +1381,9 @@ export const __indoorDirectionsTestUtils = {
   getArrivalRelationFromDisplayedApproach,
   simplifyPathForSteps,
   buildSteps,
+  addBidirectionalEdge,
+  isEscalatorEdge,
+  resolveDirectionalEscalator,
+  processEdge,
+  connectVerticalNodesBySuffix,
 };
