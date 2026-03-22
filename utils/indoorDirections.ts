@@ -18,6 +18,7 @@ export interface IndoorNode {
   label?: string;
   accessible: boolean;
   direction?: "up" | "down" | "both";
+  floors?: number[];
 }
 
 export interface IndoorEdge {
@@ -182,12 +183,7 @@ function getBuildingFloors(buildingCode: string): FloorData[] {
   });
 }
 
-function buildGraph(
-  floors: FloorData[],
-  noStairs = false,
-  noEscalators = false,
-  noElevators = false,
-): {
+function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false, noElevators = false): {
   nodes: Map<string, IndoorNode>;
   adjacency: Map<string, { neighbor: string; weight: number }[]>;
 } {
@@ -208,14 +204,14 @@ function buildGraph(
       if (!adjacency.has(n.id)) adjacency.set(n.id, []);
     }
     for (const e of floor.edges as IndoorEdge[]) {
-      if (e.type === "elevator" && noElevators) continue;
-
-      if (e.type === "stair" || e.type === "escalator") {
+      if (e.type === "stair" || e.type === "escalator" || e.type === "elevator") {
         const srcNode = allNodes.get(e.source);
         const tgtNode = allNodes.get(e.target);
         const isEscalatorEdge = e.type === "escalator" || srcNode?.type === "escalator_landing" || tgtNode?.type === "escalator_landing";
+        const isElevatorEdge = e.type === "elevator" || srcNode?.type === "elevator_door" || tgtNode?.type === "elevator_door";
+        if (isElevatorEdge && noElevators) continue;
         if (isEscalatorEdge && noEscalators) continue;
-        if (!isEscalatorEdge && noStairs) continue;
+        if (!isEscalatorEdge && !isElevatorEdge && noStairs) continue;
         if (isEscalatorEdge && !noEscalators) {
           const direction = srcNode?.direction ?? tgtNode?.direction;
           if (direction === "up" || direction === "down") {
@@ -261,6 +257,9 @@ function buildGraph(
       if (noStairs && a.type === "stair_landing") continue;
       if (noEscalators && a.type === "escalator_landing") continue;
       if (noElevators && a.type === "elevator_door") continue;
+      // If either node has a floors restriction, only connect if both floors are allowed
+      const allowedFloors = a.floors ?? b.floors;
+      if (allowedFloors && (!allowedFloors.includes(a.floor) || !allowedFloors.includes(b.floor))) continue;
       // Skip auto-connection for directional escalators — their edges are explicitly in the JSON
       if (a.type === "escalator_landing" && (a.direction === "up" || a.direction === "down")) continue;
       adjacency.get(a.id)!.push({ neighbor: b.id, weight: INTER_FLOOR_WEIGHT });
@@ -706,9 +705,22 @@ function isPassThroughFloorForSteps(
   fromIdx: number,
   floor: number,
 ): boolean {
+  let sawFirstVertical = false;
+  let sawNonVerticalAfterFirst = false;
+
   for (let j = fromIdx; j < nodes.length; j++) {
-    if (nodes[j].floor !== floor) return true;
+    if (nodes[j].floor !== floor) {
+      // Leaving the floor — pass-through only if we never walked between two vertical nodes
+      return !(sawFirstVertical && sawNonVerticalAfterFirst);
+    }
     if (nodes[j].type === "room" && nodes[j].id !== start.id) return false;
+
+    if (VERTICAL_NODE_TYPES.has(nodes[j].type)) {
+      if (sawFirstVertical && sawNonVerticalAfterFirst) return false;
+      sawFirstVertical = true;
+    } else if (sawFirstVertical) {
+      sawNonVerticalAfterFirst = true;
+    }
   }
   return false;
 }
@@ -1132,10 +1144,7 @@ function buildIndoorRouteFromDijkstraResult(
   }
   if (currentSegment) segments.push(currentSegment);
 
-  const orthogonalSegments = segments.map((seg) => ({
-    floor: seg.floor,
-    points: orthogonalizeSegmentPoints(seg.points),
-  }));
+  const orthogonalSegments = segments;
 
   const allFloorNodes = Array.from(graphNodes.values());
   const landmarkBuildingId =
@@ -1169,12 +1178,7 @@ export function findIndoorRoute(
   const floors = getBuildingFloors(buildingCode);
   if (floors.length === 0) return null;
 
-  const { nodes, adjacency } = buildGraph(
-    floors,
-    noStairs,
-    noEscalators,
-    noElevators,
-  );
+  const { nodes, adjacency } = buildGraph(floors, noStairs, noEscalators, noElevators);
   const { startNode, endNode } = findIndoorRouteEndpoints(
     nodes,
     buildingCode,
@@ -1327,4 +1331,5 @@ export const __indoorDirectionsTestUtils = {
   getArrivalRelationFromDisplayedApproach,
   simplifyPathForSteps,
   buildSteps,
+  findBestIndoorPath,
 };
