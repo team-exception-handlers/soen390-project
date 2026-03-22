@@ -6,6 +6,7 @@ import {
     saveToken,
 } from "@/utils/googleCalendarAuth";
 import * as AuthSession from "expo-auth-session";
+import type { AuthDiscoveryDocument, AuthRequest } from "expo-auth-session";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -80,6 +81,71 @@ function buildE2ECalendarFixtures(): {
   };
 }
 
+async function persistGoogleTokenFromProxySuccessUrl(
+  request: AuthRequest,
+  resultUrl: string,
+  setError: (message: string | null) => void,
+  setAccessToken: (token: string) => void,
+): Promise<void> {
+  const parsed = request.parseReturnUrl(resultUrl);
+  if (parsed.type !== "success") {
+    setError("Google sign-in failed. Please try again.");
+    return;
+  }
+
+  const token = parsed.params.access_token;
+  if (!token) {
+    setError("Google sign-in failed. No access token received.");
+    return;
+  }
+
+  const expiresIn = parsed.params.expires_in
+    ? Number(parsed.params.expires_in)
+    : undefined;
+
+  setAccessToken(token);
+  await saveToken(token, expiresIn);
+}
+
+async function signInWithExpoAuthProxy(
+  request: AuthRequest,
+  discovery: AuthDiscoveryDocument,
+  redirectUri: string,
+  setError: (message: string | null) => void,
+  setAccessToken: (token: string) => void,
+): Promise<void> {
+  try {
+    setError(null);
+    const returnUrl = AuthSession.getDefaultReturnUrl();
+    const authUrl = await request.makeAuthUrlAsync(discovery);
+    const startUrl = `${redirectUri}/start?${new URLSearchParams({
+      authUrl,
+      returnUrl,
+    }).toString()}`;
+
+    const browserResult = await WebBrowser.openAuthSessionAsync(
+      startUrl,
+      returnUrl,
+    );
+
+    if (browserResult.type === "success") {
+      await persistGoogleTokenFromProxySuccessUrl(
+        request,
+        browserResult.url,
+        setError,
+        setAccessToken,
+      );
+      return;
+    }
+
+    if (browserResult.type !== "cancel") {
+      setError("Google sign-in failed. Please try again.");
+    }
+  } catch {
+    setError("Google sign-in failed. Please try again.");
+  }
+}
+
 export default function CalendarScreen() {
   const [directionsMessage, setDirectionsMessage] = useState<string | null>(
     null,
@@ -141,57 +207,20 @@ export default function CalendarScreen() {
     if (!request) return;
 
     // Expo Go must bootstrap auth through the Expo proxy `/start` endpoint so auth.expo.io can map the OAuth callback back to this session.
-    if ((isExpoGo || isE2EMode) && Platform.OS !== "web") {
+    const useExpoProxy = (isExpoGo || isE2EMode) && Platform.OS !== "web";
+    if (useExpoProxy) {
       if (!discovery) {
         setError("Google sign-in is not ready yet. Please try again.");
         return;
       }
-
-      try {
-        setError(null);
-        const returnUrl = AuthSession.getDefaultReturnUrl();
-        const authUrl = await request.makeAuthUrlAsync(discovery);
-        const startUrl = `${redirectUri}/start?${new URLSearchParams({
-          authUrl,
-          returnUrl,
-        }).toString()}`;
-
-        const browserResult = await WebBrowser.openAuthSessionAsync(
-          startUrl,
-          returnUrl,
-        );
-
-        if (browserResult.type === "success") {
-          const parsed = request.parseReturnUrl(browserResult.url);
-          if (parsed.type !== "success") {
-            setError("Google sign-in failed. Please try again.");
-            return;
-          }
-
-          const token = parsed.params.access_token;
-
-          if (!token) {
-            setError("Google sign-in failed. No access token received.");
-            return;
-          }
-
-          const expiresIn = parsed.params.expires_in
-            ? Number(parsed.params.expires_in)
-            : undefined;
-
-          setAccessToken(token);
-          await saveToken(token, expiresIn);
-          return;
-        }
-
-        if (browserResult.type !== "cancel") {
-          setError("Google sign-in failed. Please try again.");
-        }
-        return;
-      } catch {
-        setError("Google sign-in failed. Please try again.");
-        return;
-      }
+      await signInWithExpoAuthProxy(
+        request,
+        discovery,
+        redirectUri,
+        setError,
+        setAccessToken,
+      );
+      return;
     }
 
     await promptAsync();
