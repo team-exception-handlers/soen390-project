@@ -225,8 +225,14 @@ function processEdge(
   allNodes: Map<string, IndoorNode>,
   adjacency: Map<string, { neighbor: string; weight: number }[]>,
   noStairs: boolean,
-  noEscalators: boolean
+  noEscalators: boolean,
+  noElevators: boolean
 ): void {
+  if (e.type === "elevator") {
+    if (!noElevators) addBidirectionalEdge(adjacency, e.source, e.target, e.weight);
+    return;
+  }
+
   if (e.type !== "stair" && e.type !== "escalator") {
     addBidirectionalEdge(adjacency, e.source, e.target, e.weight);
     return;
@@ -246,7 +252,8 @@ function connectVerticalNodesBySuffix(
   nodes: Map<string, IndoorNode>,
   adjacency: Map<string, { neighbor: string; weight: number }[]>,
   noStairs: boolean,
-  noEscalators: boolean
+  noEscalators: boolean,
+  noElevators: boolean
 ): void {
   const bySuffix = new Map<string, IndoorNode[]>();
 
@@ -270,6 +277,7 @@ function connectVerticalNodesBySuffix(
 
       if (noStairs && a.type === "stair_landing") continue;
       if (noEscalators && a.type === "escalator_landing") continue;
+      if (noElevators && a.type === "elevator_door") continue;
       if (a.type === "escalator_landing" && (a.direction === "up" || a.direction === "down")) continue;
 
       addBidirectionalEdge(adjacency, a.id, b.id, INTER_FLOOR_WEIGHT);
@@ -280,7 +288,8 @@ function connectVerticalNodesBySuffix(
 function buildGraph(
   floors: FloorData[],
   noStairs = false,
-  noEscalators = false
+  noEscalators = false,
+  noElevators = false,
 ): { nodes: Map<string, IndoorNode>; adjacency: Map<string, { neighbor: string; weight: number }[]> } {
   const nodes    = new Map<string, IndoorNode>();
   const adjacency = new Map<string, { neighbor: string; weight: number }[]>();
@@ -300,11 +309,11 @@ function buildGraph(
     for (const e of floor.edges as IndoorEdge[]) {
       if (!adjacency.has(e.source)) adjacency.set(e.source, []);
       if (!adjacency.has(e.target)) adjacency.set(e.target, []);
-      processEdge(e, allNodes, adjacency, noStairs, noEscalators);
+      processEdge(e, allNodes, adjacency, noStairs, noEscalators, noElevators);
     }
   }
 
-  connectVerticalNodesBySuffix(nodes, adjacency, noStairs, noEscalators);
+  connectVerticalNodesBySuffix(nodes, adjacency, noStairs, noEscalators, noElevators);
 
   return { nodes, adjacency };
 }
