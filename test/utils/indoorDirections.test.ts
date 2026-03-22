@@ -189,14 +189,13 @@ describe("indoorDirections", () => {
     expect(route!.startFloor).toBe(route!.endFloor);
   });
 
-  test("returns null when both stairs and escalators are disabled and no elevator path exists for same building", () => {
+  test("uses the Hall elevator when both stairs and escalators are disabled", () => {
     const route = findIndoorRoute("H", "110", "260", true, true);
-    if (route !== null) {
-      const instructions = route.steps.map((s) => s.instruction);
-      expect(instructions.some((s) => s.includes("stairs"))).toBe(false);
-      expect(instructions.some((s) => s.includes("escalator"))).toBe(false);
-      expect(instructions.some((s) => s.includes("elevator"))).toBe(true);
-    }
+    expect(route).not.toBeNull();
+    const instructions = route!.steps.map((s) => s.instruction);
+    expect(instructions.some((s) => s.includes("stairs"))).toBe(false);
+    expect(instructions.some((s) => s.includes("escalator"))).toBe(false);
+    expect(instructions.some((s) => s.includes("elevator"))).toBe(true);
   });
 
   test("noStairs does not affect same-floor routes", () => {
@@ -232,11 +231,14 @@ describe("indoorDirections", () => {
     expect(floorChangeSteps.length).toBeGreaterThan(0);
   });
 
+  test("returns null when stairs, escalators, and elevators are all disabled", () => {
+    expect(findIndoorRoute("H", "110", "260", true, true, true)).toBeNull();
+  });
+
   test("elevator is used when noStairs and noEscalators are both true", () => {
     const route = findIndoorRoute("H", "110", "260", true, true);
-    if (route !== null) {
-      expect(route.steps.some((s) => s.instruction.includes("elevator"))).toBe(true);
-    }
+    expect(route).not.toBeNull();
+    expect(route!.steps.some((s) => s.instruction.includes("elevator"))).toBe(true);
   });
 
   test("cross-floor route going down produces a valid path", () => {
@@ -366,6 +368,27 @@ describe("indoorDirections", () => {
 
     const esc1Neighbors = adjacency.get("esc_1") ?? [];
     expect(esc1Neighbors.some((e) => e.neighbor === "esc_2")).toBe(false);
+  });
+
+  test("buildGraph with noElevators excludes elevator inter-floor edges", () => {
+    const { adjacency } = buildGraph([
+      {
+        nodes: [
+          { id: "room_a", type: "room", buildingId: "T", floor: 1, x: 0, y: 0, label: "A", accessible: true },
+          { id: "elevator_1", type: "elevator_door", buildingId: "T", floor: 1, x: 10, y: 0, label: "", accessible: true },
+          { id: "elevator_2", type: "elevator_door", buildingId: "T", floor: 2, x: 10, y: 0, label: "", accessible: true },
+          { id: "room_b", type: "room", buildingId: "T", floor: 2, x: 20, y: 0, label: "B", accessible: true },
+        ],
+        edges: [
+          { source: "room_a", target: "elevator_1", type: "hallway", weight: 10, accessible: true },
+          { source: "elevator_1", target: "elevator_2", type: "elevator", weight: 0, accessible: true },
+          { source: "elevator_2", target: "room_b", type: "hallway", weight: 10, accessible: true },
+        ],
+      },
+    ], false, false, true);
+
+    const elevator1Neighbors = adjacency.get("elevator_1") ?? [];
+    expect(elevator1Neighbors.some((e) => e.neighbor === "elevator_2")).toBe(false);
   });
 
   test("buildGraph direction=up adds edge only from lower to upper floor", () => {

@@ -1224,11 +1224,17 @@ export function findIndoorRoute(
   endRoomLabel: string,
   noStairs = false,
   noEscalators = false,
+  noElevators = false,
 ): IndoorRoute | null {
   const floors = getBuildingFloors(buildingCode);
   if (floors.length === 0) return null;
 
-  const { nodes, adjacency } = buildGraph(floors, noStairs, noEscalators);
+  const { nodes, adjacency } = buildGraph(
+    floors,
+    noStairs,
+    noEscalators,
+    noElevators,
+  );
   const { startNode, endNode } = findIndoorRouteEndpoints(
     nodes,
     buildingCode,
