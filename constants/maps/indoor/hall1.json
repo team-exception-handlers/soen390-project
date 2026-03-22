@@ -1121,7 +1121,8 @@
       "x": 397,
       "y": 473,
       "label": "114",
-      "accessible": true
+      "accessible": true,
+      "category": "male_washroom"
     },
     {
       "id": "Hall_F1_hallway_waypoint_140",
@@ -1291,7 +1292,8 @@
       "x": 397,
       "y": 575,
       "label": "112",
-      "accessible": true
+      "accessible": true,
+      "category":"female_washroom"
     },
     {
       "id": "Hall_F1_hallway_waypoint_148",
