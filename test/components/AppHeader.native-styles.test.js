@@ -5,15 +5,19 @@
 
 jest.mock("expo-linear-gradient", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
   const LinearGradient = ({ children, ...rest }) =>
     React.createElement("LinearGradient", rest, children);
+  LinearGradient.propTypes = { children: PropTypes.node };
   return { LinearGradient };
 });
 
 jest.mock("expo-blur", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
   const BlurView = ({ children, ...rest }) =>
     React.createElement("BlurView", rest, children);
+  BlurView.propTypes = { children: PropTypes.node };
   return { BlurView };
 });
 
@@ -23,12 +27,16 @@ jest.mock("react-native-safe-area-context", () => ({
 
 jest.mock("react-native", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
   const Pressable = ({ children, ...rest }) =>
     React.createElement("Pressable", rest, children);
   const Text = ({ children, ...rest }) =>
     React.createElement("Text", rest, children);
   const View = ({ children, ...rest }) =>
     React.createElement("View", rest, children);
+  Pressable.propTypes = { children: PropTypes.node };
+  Text.propTypes = { children: PropTypes.node };
+  View.propTypes = { children: PropTypes.node };
   return {
     Platform: { OS: "ios" },
     Pressable,
