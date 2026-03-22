@@ -212,19 +212,18 @@ function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false,
         if (isElevatorEdge && noElevators) continue;
         if (isEscalatorEdge && noEscalators) continue;
         if (!isEscalatorEdge && !isElevatorEdge && noStairs) continue;
-        if (isEscalatorEdge && !noEscalators) {
-          const direction = srcNode?.direction ?? tgtNode?.direction;
-          if (direction === "up" || direction === "down") {
-            // Determine the lower and upper floor nodes regardless of JSON edge direction
-            const lowerNode = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? srcNode : tgtNode;
-            const upperNode = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? tgtNode : srcNode;
-            const fromId = direction === "up" ? lowerNode!.id : upperNode!.id;
-            const toId = direction === "up" ? upperNode!.id : lowerNode!.id;
-            if (!adjacency.has(fromId)) adjacency.set(fromId, []);
-            if (!adjacency.has(toId)) adjacency.set(toId, []);
-            adjacency.get(fromId)!.push({ neighbor: toId, weight: e.weight });
-            continue;
-          }
+
+        // Enforce directionality for any vertical edge where either endpoint has a direction
+        const direction = srcNode?.direction ?? tgtNode?.direction;
+        if (direction === "up" || direction === "down") {
+          const lowerNode = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? srcNode : tgtNode;
+          const upperNode = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? tgtNode : srcNode;
+          const fromId = direction === "up" ? lowerNode!.id : upperNode!.id;
+          const toId = direction === "up" ? upperNode!.id : lowerNode!.id;
+          if (!adjacency.has(fromId)) adjacency.set(fromId, []);
+          if (!adjacency.has(toId)) adjacency.set(toId, []);
+          adjacency.get(fromId)!.push({ neighbor: toId, weight: e.weight });
+          continue;
         }
       }
       if (!adjacency.has(e.source)) adjacency.set(e.source, []);
@@ -260,8 +259,8 @@ function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false,
       // If either node has a floors restriction, only connect if both floors are allowed
       const allowedFloors = a.floors ?? b.floors;
       if (allowedFloors && (!allowedFloors.includes(a.floor) || !allowedFloors.includes(b.floor))) continue;
-      // Skip auto-connection for directional escalators — their edges are explicitly in the JSON
-      if (a.type === "escalator_landing" && (a.direction === "up" || a.direction === "down")) continue;
+      // Skip auto-connection for directional escalators or stairs — their edges are explicitly in the JSON
+      if ((a.direction === "up" || a.direction === "down")) continue;
       adjacency.get(a.id)!.push({ neighbor: b.id, weight: INTER_FLOOR_WEIGHT });
       adjacency.get(b.id)!.push({ neighbor: a.id, weight: INTER_FLOOR_WEIGHT });
     }

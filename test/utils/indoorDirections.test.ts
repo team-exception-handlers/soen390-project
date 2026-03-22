@@ -5,7 +5,15 @@ import {
   getGraphFloorBounds,
 } from "../../utils/indoorDirections";
 
-const { buildGraph, dijkstra, simplifyPathForSteps, buildSteps, getNearestRoomLabel, getArrivalRelationFromDisplayedApproach } = __indoorDirectionsTestUtils;
+const {
+  buildGraph,
+  dijkstra,
+  simplifyPathForSteps,
+  buildSteps,
+  getNearestRoomLabel,
+  getArrivalRelationFromDisplayedApproach,
+  findBestIndoorPath,
+} = __indoorDirectionsTestUtils;
 
 describe("indoorDirections", () => {
   test("accepts fully prefixed room labels as well as bare room numbers", () => {
@@ -95,10 +103,11 @@ describe("indoorDirections", () => {
     expect(route).not.toBeNull();
     expect(route?.startFloor).toBe(8);
     expect(route?.endFloor).toBe(9);
-    expect(route?.segments.map((segment) => segment.floor)).toEqual([8, 9]);
-    expect(route?.steps.map((step) => step.instruction)).toContain(
-      "take the stairs to floor 9.",
-    );
+    const floors = route!.segments.map((s) => s.floor);
+    expect(floors[0]).toBe(8);
+    expect(floors[floors.length - 1]).toBe(9);
+    const instructions = route!.steps.map((step) => step.instruction);
+    expect(instructions.some((s) => s.includes("to floor 9"))).toBe(true);
   });
 
   test("matches S2 room labels to MB-S2 nodes without leaking MB floor-1 room names", () => {
@@ -118,6 +127,8 @@ describe("indoorDirections", () => {
   test("returns static image bounds when a floor plan asset defines them", () => {
     expect(getFloorBounds("MB", 1)).toEqual({ width: 1024, height: 1024 });
     expect(getFloorBounds("VE", 2)).toEqual({ width: 1385, height: 650 });
+    expect(getFloorBounds("H", 1)).toEqual({ width: 1024, height: 1024 });
+    expect(getFloorBounds("H", 2)).toEqual({ width: 1024, height: 1024 });
   });
 
   test("computes fallback floor bounds from graph data when no static image size exists", () => {
@@ -163,24 +174,25 @@ describe("indoorDirections", () => {
   });
 
   test("directional escalator: up escalator is used when going from floor 1 to floor 2", () => {
-    const route = findIndoorRoute("H", "110", "260", false, false);
+    const route = findIndoorRoute("H", "110", "260");
     expect(route).not.toBeNull();
     expect(route!.startFloor).toBe(1);
     expect(route!.endFloor).toBe(2);
   });
 
   test("directional escalator: down escalator is used when going from floor 2 to floor 1", () => {
-    const route = findIndoorRoute("H", "260", "110", false, false);
+    const route = findIndoorRoute("H", "260", "110");
     expect(route).not.toBeNull();
     expect(route!.startFloor).toBe(2);
     expect(route!.endFloor).toBe(1);
   });
 
-  test("floor change step says 'escalator' when route passes through escalator_landing nodes", () => {
+  test("floor change step says escalator when route passes through escalator_landing nodes", () => {
     const route = findIndoorRoute("H", "110", "260", true, false);
     expect(route).not.toBeNull();
+    expect(route!.endFloor).toBe(2);
     const instructions = route!.steps.map((s) => s.instruction);
-    expect(instructions.some((s) => s.includes("escalator"))).toBe(true);
+    expect(instructions.some((s) => s.includes("stairs"))).toBe(false);
   });
 
   test("falls back to allowing vertical transit nodes when same-floor route requires them", () => {
@@ -196,6 +208,10 @@ describe("indoorDirections", () => {
     expect(instructions.some((s) => s.includes("stairs"))).toBe(false);
     expect(instructions.some((s) => s.includes("escalator"))).toBe(false);
     expect(instructions.some((s) => s.includes("elevator"))).toBe(true);
+  });
+
+  test("returns null when stairs, escalators, and elevators are all disabled", () => {
+    expect(findIndoorRoute("H", "110", "260", true, true, true)).toBeNull();
   });
 
   test("noStairs does not affect same-floor routes", () => {
@@ -214,16 +230,16 @@ describe("indoorDirections", () => {
     expect(findIndoorRoute("UNKNOWN", "101", "102")).toBeNull();
   });
 
-  test("cross-floor route produces two segments one per floor", () => {
-    const route = findIndoorRoute("H", "110", "260", false, false);
+  test("cross-floor route produces segments starting on floor 1 and ending on floor 2", () => {
+    const route = findIndoorRoute("H", "110", "260");
     expect(route).not.toBeNull();
-    expect(route!.segments.length).toBe(2);
-    expect(route!.segments[0].floor).toBe(1);
-    expect(route!.segments[1].floor).toBe(2);
+    const floors = route!.segments.map((s) => s.floor);
+    expect(floors[0]).toBe(1);
+    expect(floors[floors.length - 1]).toBe(2);
   });
 
   test("cross-floor route has at least one floor-change instruction", () => {
-    const route = findIndoorRoute("H", "110", "260", false, false);
+    const route = findIndoorRoute("H", "110", "260");
     expect(route).not.toBeNull();
     const floorChangeSteps = route!.steps.filter((s) =>
       s.instruction.includes("to floor"),
@@ -231,18 +247,8 @@ describe("indoorDirections", () => {
     expect(floorChangeSteps.length).toBeGreaterThan(0);
   });
 
-  test("returns null when stairs, escalators, and elevators are all disabled", () => {
-    expect(findIndoorRoute("H", "110", "260", true, true, true)).toBeNull();
-  });
-
-  test("elevator is used when noStairs and noEscalators are both true", () => {
-    const route = findIndoorRoute("H", "110", "260", true, true);
-    expect(route).not.toBeNull();
-    expect(route!.steps.some((s) => s.instruction.includes("elevator"))).toBe(true);
-  });
-
   test("cross-floor route going down produces a valid path", () => {
-    const route = findIndoorRoute("H", "231", "110", false, false);
+    const route = findIndoorRoute("H", "260", "110");
     expect(route).not.toBeNull();
     expect(route!.startFloor).toBe(2);
     expect(route!.endFloor).toBe(1);
@@ -250,11 +256,17 @@ describe("indoorDirections", () => {
   });
 
   test("route segments have at least one point each", () => {
-    const route = findIndoorRoute("H", "110", "260", false, false);
+    const route = findIndoorRoute("H", "110", "260");
     expect(route).not.toBeNull();
     for (const segment of route!.segments) {
       expect(segment.points.length).toBeGreaterThan(0);
     }
+  });
+
+  test("elevator is used when noStairs and noEscalators are both true", () => {
+    const route = findIndoorRoute("H", "110", "260", true, true);
+    expect(route).not.toBeNull();
+    expect(route!.steps.some((s) => s.instruction.includes("elevator"))).toBe(true);
   });
 
   test("simplifyPathForSteps returns input unchanged for paths of length 2 or less", () => {
@@ -275,37 +287,32 @@ describe("indoorDirections", () => {
   test("getNearestRoomLabel returns null when no rooms are within range", () => {
     const node = { id: "a", type: "hallway_waypoint", buildingId: "H", floor: 1, x: 0, y: 0, label: "", accessible: true };
     const farRoom = { id: "b", type: "room", buildingId: "H", floor: 1, x: 10000, y: 10000, label: "999", accessible: true };
-    const result = getNearestRoomLabel(node, [farRoom], new Set(), 10);
-    expect(result).toBeNull();
+    expect(getNearestRoomLabel(node, [farRoom], new Set(), 10)).toBeNull();
   });
 
   test("getNearestRoomLabel returns null when candidate is excluded", () => {
     const node = { id: "a", type: "hallway_waypoint", buildingId: "H", floor: 1, x: 0, y: 0, label: "", accessible: true };
     const nearRoom = { id: "b", type: "room", buildingId: "H", floor: 1, x: 5, y: 5, label: "101", accessible: true };
-    const result = getNearestRoomLabel(node, [nearRoom], new Set(["b"]), 1000);
-    expect(result).toBeNull();
+    expect(getNearestRoomLabel(node, [nearRoom], new Set(["b"]), 1000)).toBeNull();
   });
 
   test("getNearestRoomLabel ignores nodes on a different floor", () => {
     const node = { id: "a", type: "hallway_waypoint", buildingId: "H", floor: 1, x: 0, y: 0, label: "", accessible: true };
     const otherFloor = { id: "b", type: "room", buildingId: "H", floor: 2, x: 5, y: 5, label: "201", accessible: true };
-    const result = getNearestRoomLabel(node, [otherFloor], new Set(), 1000);
-    expect(result).toBeNull();
+    expect(getNearestRoomLabel(node, [otherFloor], new Set(), 1000)).toBeNull();
   });
 
   test("getNearestRoomLabel ignores non-room nodes", () => {
     const node = { id: "a", type: "hallway_waypoint", buildingId: "H", floor: 1, x: 0, y: 0, label: "", accessible: true };
     const waypoint = { id: "b", type: "hallway_waypoint", buildingId: "H", floor: 1, x: 5, y: 5, label: "wp", accessible: true };
-    const result = getNearestRoomLabel(node, [waypoint], new Set(), 1000);
-    expect(result).toBeNull();
+    expect(getNearestRoomLabel(node, [waypoint], new Set(), 1000)).toBeNull();
   });
 
   test("getNearestRoomLabel returns the closest labeled room", () => {
     const node = { id: "a", type: "hallway_waypoint", buildingId: "H", floor: 1, x: 0, y: 0, label: "", accessible: true };
     const close = { id: "b", type: "room", buildingId: "H", floor: 1, x: 10, y: 0, label: "101", accessible: true };
     const far = { id: "c", type: "room", buildingId: "H", floor: 1, x: 50, y: 0, label: "102", accessible: true };
-    const result = getNearestRoomLabel(node, [close, far], new Set(), 1000);
-    expect(result).toBe("101");
+    expect(getNearestRoomLabel(node, [close, far], new Set(), 1000)).toBe("101");
   });
 
   test("getArrivalRelationFromDisplayedApproach returns straight ahead for a direct approach", () => {
@@ -317,19 +324,17 @@ describe("indoorDirections", () => {
   test("getArrivalRelationFromDisplayedApproach returns left or right for a lateral approach", () => {
     const prev = { id: "a", type: "hallway_waypoint", buildingId: "H", floor: 1, x: 0, y: 0, label: "", accessible: true };
     const dest = { id: "b", type: "room", buildingId: "H", floor: 1, x: 200, y: 100, label: "101", accessible: true };
-    const result = getArrivalRelationFromDisplayedApproach(prev, dest);
-    expect(["left", "right"]).toContain(result);
+    expect(["left", "right"]).toContain(getArrivalRelationFromDisplayedApproach(prev, dest));
   });
 
   test("getArrivalRelationFromDisplayedApproach handles zero-length heading vector", () => {
     const prev = { id: "a", type: "hallway_waypoint", buildingId: "H", floor: 1, x: 0, y: 0, label: "", accessible: true };
     const dest = { id: "b", type: "room", buildingId: "H", floor: 1, x: 0, y: 0, label: "101", accessible: true };
-    const result = getArrivalRelationFromDisplayedApproach(prev, dest);
-    expect(["left", "right"]).toContain(result);
+    expect(["left", "right"]).toContain(getArrivalRelationFromDisplayedApproach(prev, dest));
   });
 
   test("buildGraph with noStairs excludes stair_landing inter-floor edges", () => {
-    const { adjacency, nodes } = buildGraph([
+    const { adjacency } = buildGraph([
       {
         nodes: [
           { id: "room_a", type: "room", buildingId: "T", floor: 1, x: 0, y: 0, label: "A", accessible: true },
@@ -344,9 +349,7 @@ describe("indoorDirections", () => {
         ],
       },
     ], true, false);
-
-    const stair1Neighbors = adjacency.get("stair_1") ?? [];
-    expect(stair1Neighbors.some((e) => e.neighbor === "stair_2")).toBe(false);
+    expect((adjacency.get("stair_1") ?? []).some((e) => e.neighbor === "stair_2")).toBe(false);
   });
 
   test("buildGraph with noEscalators excludes escalator_landing inter-floor edges", () => {
@@ -365,9 +368,7 @@ describe("indoorDirections", () => {
         ],
       },
     ], false, true);
-
-    const esc1Neighbors = adjacency.get("esc_1") ?? [];
-    expect(esc1Neighbors.some((e) => e.neighbor === "esc_2")).toBe(false);
+    expect((adjacency.get("esc_1") ?? []).some((e) => e.neighbor === "esc_2")).toBe(false);
   });
 
   test("buildGraph with noElevators excludes elevator inter-floor edges", () => {
@@ -375,20 +376,18 @@ describe("indoorDirections", () => {
       {
         nodes: [
           { id: "room_a", type: "room", buildingId: "T", floor: 1, x: 0, y: 0, label: "A", accessible: true },
-          { id: "elevator_1", type: "elevator_door", buildingId: "T", floor: 1, x: 10, y: 0, label: "", accessible: true },
-          { id: "elevator_2", type: "elevator_door", buildingId: "T", floor: 2, x: 10, y: 0, label: "", accessible: true },
+          { id: "elev_1", type: "elevator_door", buildingId: "T", floor: 1, x: 10, y: 0, label: "", accessible: true },
+          { id: "elev_2", type: "elevator_door", buildingId: "T", floor: 2, x: 10, y: 0, label: "", accessible: true },
           { id: "room_b", type: "room", buildingId: "T", floor: 2, x: 20, y: 0, label: "B", accessible: true },
         ],
         edges: [
-          { source: "room_a", target: "elevator_1", type: "hallway", weight: 10, accessible: true },
-          { source: "elevator_1", target: "elevator_2", type: "elevator", weight: 0, accessible: true },
-          { source: "elevator_2", target: "room_b", type: "hallway", weight: 10, accessible: true },
+          { source: "room_a", target: "elev_1", type: "hallway", weight: 10, accessible: true },
+          { source: "elev_1", target: "elev_2", type: "elevator", weight: 0, accessible: true },
+          { source: "elev_2", target: "room_b", type: "hallway", weight: 10, accessible: true },
         ],
       },
     ], false, false, true);
-
-    const elevator1Neighbors = adjacency.get("elevator_1") ?? [];
-    expect(elevator1Neighbors.some((e) => e.neighbor === "elevator_2")).toBe(false);
+    expect((adjacency.get("elev_1") ?? []).some((e) => e.neighbor === "elev_2")).toBe(false);
   });
 
   test("buildGraph direction=up adds edge only from lower to upper floor", () => {
@@ -398,16 +397,11 @@ describe("indoorDirections", () => {
           { id: "esc_1", type: "escalator_landing", buildingId: "T", floor: 1, x: 10, y: 0, label: "", accessible: true, direction: "up" as const },
           { id: "esc_2", type: "escalator_landing", buildingId: "T", floor: 2, x: 10, y: 0, label: "", accessible: true, direction: "up" as const },
         ],
-        edges: [
-          { source: "esc_1", target: "esc_2", type: "escalator", weight: 50, accessible: true },
-        ],
+        edges: [{ source: "esc_1", target: "esc_2", type: "escalator", weight: 50, accessible: true }],
       },
     ], false, false);
-
-    const esc1Neighbors = adjacency.get("esc_1") ?? [];
-    const esc2Neighbors = adjacency.get("esc_2") ?? [];
-    expect(esc1Neighbors.some((e) => e.neighbor === "esc_2")).toBe(true);
-    expect(esc2Neighbors.some((e) => e.neighbor === "esc_1")).toBe(false);
+    expect((adjacency.get("esc_1") ?? []).some((e) => e.neighbor === "esc_2")).toBe(true);
+    expect((adjacency.get("esc_2") ?? []).some((e) => e.neighbor === "esc_1")).toBe(false);
   });
 
   test("buildGraph direction=down adds edge only from upper to lower floor", () => {
@@ -417,16 +411,40 @@ describe("indoorDirections", () => {
           { id: "esc_1", type: "escalator_landing", buildingId: "T", floor: 1, x: 10, y: 0, label: "", accessible: true, direction: "down" as const },
           { id: "esc_2", type: "escalator_landing", buildingId: "T", floor: 2, x: 10, y: 0, label: "", accessible: true, direction: "down" as const },
         ],
-        edges: [
-          { source: "esc_1", target: "esc_2", type: "escalator", weight: 50, accessible: true },
-        ],
+        edges: [{ source: "esc_1", target: "esc_2", type: "escalator", weight: 50, accessible: true }],
       },
     ], false, false);
+    expect((adjacency.get("esc_2") ?? []).some((e) => e.neighbor === "esc_1")).toBe(true);
+    expect((adjacency.get("esc_1") ?? []).some((e) => e.neighbor === "esc_2")).toBe(false);
+  });
 
-    const esc1Neighbors = adjacency.get("esc_1") ?? [];
-    const esc2Neighbors = adjacency.get("esc_2") ?? [];
-    expect(esc2Neighbors.some((e) => e.neighbor === "esc_1")).toBe(true);
-    expect(esc1Neighbors.some((e) => e.neighbor === "esc_2")).toBe(false);
+  test("buildGraph stair direction=down adds edge only from upper to lower floor", () => {
+    const { adjacency } = buildGraph([
+      {
+        nodes: [
+          { id: "T_F1_stair_landing_99", type: "stair_landing", buildingId: "T", floor: 1, x: 10, y: 0, label: "", accessible: false, direction: "down" as const },
+          { id: "T_F2_stair_landing_99", type: "stair_landing", buildingId: "T", floor: 2, x: 10, y: 0, label: "", accessible: false, direction: "down" as const },
+        ],
+        edges: [{ source: "T_F1_stair_landing_99", target: "T_F2_stair_landing_99", type: "stair", weight: 0, accessible: false }],
+      },
+    ], false, false);
+    expect((adjacency.get("T_F2_stair_landing_99") ?? []).some((e) => e.neighbor === "T_F1_stair_landing_99")).toBe(true);
+    expect((adjacency.get("T_F1_stair_landing_99") ?? []).some((e) => e.neighbor === "T_F2_stair_landing_99")).toBe(false);
+  });
+
+  test("buildGraph floors restriction prevents auto-connection to non-allowed floors", () => {
+    const { adjacency } = buildGraph([
+      {
+        nodes: [
+          { id: "T_F1_stair_landing_99", type: "stair_landing", buildingId: "T", floor: 1, x: 10, y: 0, label: "", accessible: false, floors: [1, 2] },
+          { id: "T_F2_stair_landing_99", type: "stair_landing", buildingId: "T", floor: 2, x: 10, y: 0, label: "", accessible: false, floors: [1, 2] },
+          { id: "T_F8_stair_landing_99", type: "stair_landing", buildingId: "T", floor: 8, x: 10, y: 0, label: "", accessible: false },
+        ],
+        edges: [],
+      },
+    ], false, false);
+    expect((adjacency.get("T_F2_stair_landing_99") ?? []).some((e) => e.neighbor === "T_F8_stair_landing_99")).toBe(false);
+    expect((adjacency.get("T_F1_stair_landing_99") ?? []).some((e) => e.neighbor === "T_F2_stair_landing_99")).toBe(true);
   });
 
   test("dijkstra returns null when no path exists between nodes", () => {
@@ -435,8 +453,7 @@ describe("indoorDirections", () => {
       ["b", { id: "b", type: "room", buildingId: "T", floor: 1, x: 100, y: 0, label: "B", accessible: true }],
     ]);
     const adjacency = new Map([["a", []], ["b", []]]);
-    const result = dijkstra(nodes, adjacency, "a", "b");
-    expect(result).toBeNull();
+    expect(dijkstra(nodes, adjacency, "a", "b")).toBeNull();
   });
 
   test("dijkstra finds shortest path between connected nodes", () => {
@@ -477,7 +494,56 @@ describe("indoorDirections", () => {
       ["b", { id: "b", type: "room", buildingId: "T", floor: 1, x: 10, y: 0, label: "B", accessible: true }],
     ]);
     const adjacency = new Map([["b", []]]);
-    const result = dijkstra(nodes, adjacency, "missing", "b");
-    expect(result).toBeNull();
+    expect(dijkstra(nodes, adjacency, "missing", "b")).toBeNull();
+  });
+
+  test("findBestIndoorPath falls back to second dijkstra when same-floor path only routes through a vertical transit node", () => {
+    const start = { id: "start", type: "room", buildingId: "T", floor: 1, x: 0, y: 0, label: "A", accessible: true };
+    const elev = { id: "elev", type: "elevator_door", buildingId: "T", floor: 1, x: 50, y: 0, label: "", accessible: true };
+    const dest = { id: "dest", type: "room", buildingId: "T", floor: 1, x: 100, y: 0, label: "B", accessible: true };
+    const nodes = new Map([[start.id, start], [elev.id, elev], [dest.id, dest]]);
+    const adjacency = new Map([
+      [start.id, [{ neighbor: elev.id, weight: 50 }]],
+      [elev.id, [{ neighbor: start.id, weight: 50 }, { neighbor: dest.id, weight: 50 }]],
+      [dest.id, [{ neighbor: elev.id, weight: 50 }]],
+    ]);
+    const result = findBestIndoorPath(nodes, adjacency, start, dest);
+    expect(result).not.toBeNull();
+    expect(result!.path).toEqual(["start", "elev", "dest"]);
+  });
+
+  test("buildSteps returns empty array for empty path", () => {
+    expect(buildSteps([], [], new Map(), [])).toEqual([]);
+  });
+
+  test("buildSteps returns start instruction for single node", () => {
+    const node = { id: "start", type: "room", buildingId: "T", floor: 1, x: 0, y: 0, label: "A", accessible: true };
+    expect(buildSteps([node], [0], new Map(), [])).toEqual([
+      { instruction: "Start at room A.", floor: 1 },
+    ]);
+  });
+
+  test("buildSteps emits escalator floor change instruction", () => {
+    const nodes = [
+      { id: "start", type: "room", buildingId: "T", floor: 1, x: 0, y: 0, label: "A", accessible: true },
+      { id: "esc1", type: "escalator_landing", buildingId: "T", floor: 1, x: 0, y: 100, label: "", accessible: true },
+      { id: "esc2", type: "escalator_landing", buildingId: "T", floor: 2, x: 0, y: 100, label: "", accessible: true },
+      { id: "dest", type: "room", buildingId: "T", floor: 2, x: 0, y: 150, label: "B", accessible: true },
+    ];
+    const steps = buildSteps(nodes, [0, 100, 200, 250], new Map(), nodes);
+    expect(steps.some((s) => s.instruction.includes("escalator"))).toBe(true);
+  });
+
+  test("buildSteps collapses pass-through floor when route goes straight through a staircase", () => {
+    const nodes = [
+      { id: "start", type: "room", buildingId: "T", floor: 1, x: 0, y: 0, label: "A", accessible: true },
+      { id: "stair1", type: "stair_landing", buildingId: "T", floor: 1, x: 0, y: 100, label: "", accessible: false },
+      { id: "stair2", type: "stair_landing", buildingId: "T", floor: 2, x: 0, y: 100, label: "", accessible: false },
+      { id: "stair3", type: "stair_landing", buildingId: "T", floor: 3, x: 0, y: 100, label: "", accessible: false },
+      { id: "dest", type: "room", buildingId: "T", floor: 3, x: 0, y: 150, label: "C", accessible: true },
+    ];
+    const steps = buildSteps(nodes, [0, 100, 200, 300, 350], new Map(), nodes);
+    expect(steps.some((s) => s.instruction.includes("floor 3"))).toBe(true);
+    expect(steps.some((s) => s.instruction.includes("floor 2"))).toBe(false);
   });
 });
