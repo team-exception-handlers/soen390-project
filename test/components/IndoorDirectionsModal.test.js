@@ -127,9 +127,17 @@ jest.mock("../../assets/floor_plans/png/ve1.png", () => "ve1.png");
 jest.mock("../../assets/floor_plans/png/ve2.png", () => "ve2.png");
 jest.mock("../../assets/floor_plans/png/vl_1.png", () => "vl_1.png");
 jest.mock("../../assets/floor_plans/png/vl_2.png", () => "vl_2.png");
+jest.mock("../../utils/indoorDirections", () => {
+  const actual = jest.requireActual("../../utils/indoorDirections");
+  return {
+    ...actual,
+    findIndoorRoute: jest.fn(actual.findIndoorRoute),
+  };
+});
 
 const IndoorDirectionsModal =
   require("../../components/IndoorDirectionsModal").default;
+const indoorDirections = require("../../utils/indoorDirections");
 
 function expand(node) {
   if (node == null || typeof node === "boolean") return null;
@@ -405,5 +413,37 @@ describe("components/IndoorDirectionsModal", () => {
     expect(props.floorBounds).toHaveBeenCalledWith(-2);
     expect(findByType(tree, "Image").props.source).toBe("mb_s2.png");
     expect(findText(tree, "Floor 1")).toBeNull();
+  });
+
+  test("recomputes the route when the elevator toggle is disabled", () => {
+    mockStates = [null, { width: 0, height: 0 }, true, true, true, true, false];
+
+    renderModal(createProps({
+      buildingCode: "H",
+      originRoom: "110",
+      destinationRoom: "260",
+      route: createRoute({
+        segments: [
+          { floor: 1, points: [{ x: 0, y: 0 }, { x: 10, y: 10 }] },
+          { floor: 2, points: [{ x: 20, y: 20 }, { x: 30, y: 30 }] },
+        ],
+        steps: [
+          { instruction: "Start at room H-110.", floor: 1 },
+          { instruction: "take the elevator to floor 2.", floor: 2 },
+          { instruction: "Room H-260 will be straight ahead.", floor: 2 },
+        ],
+        startFloor: 1,
+        endFloor: 2,
+      }),
+    }));
+
+    expect(indoorDirections.findIndoorRoute).toHaveBeenCalledWith(
+      "H",
+      "110",
+      "260",
+      false,
+      false,
+      true,
+    );
   });
 });
