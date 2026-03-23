@@ -2139,8 +2139,7 @@ const loadRoute = async () => {
         )}
 
       {isDirectionsMode &&
-        !showRouteInstructions && !routeLoading &&
-        (routeInstructions.length > 0 || routeMode === "shuttle") && (
+        !showRouteInstructions && !routeLoading && (
           <Pressable
             {...routeSheetPanResponder.panHandlers}
             style={styles.routeStepsCollapsedTab}
