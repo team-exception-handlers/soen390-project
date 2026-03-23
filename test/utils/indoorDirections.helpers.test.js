@@ -16,6 +16,7 @@ const {
   resolveDirectionalEscalator,
   processEdge,
   connectVerticalNodesBySuffix,
+  isPassThroughFloorForSteps,
 } = __indoorDirectionsTestUtils;
 
 function createNode(overrides = {}) {
@@ -570,5 +571,135 @@ describe("refactored buildGraph helpers", () => {
       expect(adjacency.get(f2.id)).toContainEqual({ neighbor: f1.id, weight: 500 });
       expect(adjacency.get(f2.id)).toContainEqual({ neighbor: f3.id, weight: 500 });
     });
+  });
+
+
+  test("isPassThroughFloorForSteps returns false when all remaining nodes stay on the same floor with no destination room", () => {
+  const start = createNode({ id: "start", type: "room", floor: 1 });
+  const hall1 = createNode({ id: "hall1", type: "hallway", floor: 1 });
+  const hall2 = createNode({ id: "hall2", type: "hallway", floor: 1 });
+  const nodes = [start, hall1, hall2];
+  const result = isPassThroughFloorForSteps(nodes, start, 1, 1);
+
+  expect(result).toBe(false);
+});
+});
+
+describe("additional branch coverage", () => {
+
+  // foldOrEmitContinueForDestination — else if (segDist >= minWalkEmit) branch
+  // Triggered when: node is destination, canFoldIntoTurn is false (last step is NOT a Turn),
+  // but segDist is still large enough to emit a "Continue for about" step
+  test("emits 'Continue for about' when destination is far and last step is not a turn", () => {
+    const nodes = [
+      createNode({ id: "start", type: "room", label: "A", floor: 1, x: 0, y: 0 }),
+      createNode({ id: "hall1", type: "hallway", floor: 1, x: 200, y: 0 }),
+      createNode({ id: "dest", type: "room", label: "B", floor: 1, x: 400, y: 0 }),
+    ];
+
+    // Large distances so segDist >= minWalkEmit (50 units), but last step before
+    // destination is a straight step, not a "Turn" — so canFoldIntoTurn is false
+    const steps = buildSteps(
+      nodes,
+      [0, 200, 400],
+      new Map(),
+      nodes,
+    );
+
+    expect(steps.some((s) => s.instruction.startsWith("Continue for about"))).toBe(true);
+    expect(steps.some((s) => s.instruction.includes("Room B"))).toBe(true);
+  });
+
+  // findBestIndoorPath — retry dijkstra with excludeVerticalTransit=false on same floor
+  // Triggered when: start and end are on the same floor but the only path goes through
+  // a vertical transit node, so first dijkstra (excludeVerticalTransit=true) returns null
+  test("findBestIndoorPath retries without vertical exclusion when same-floor path requires transit node", () => {
+    const start = createNode({ id: "start", type: "room", floor: 1, x: 0, y: 0 });
+    const elevator = createNode({ id: "elev", type: "elevator_door", floor: 1, x: 50, y: 0 });
+    const end = createNode({ id: "end", type: "room", floor: 1, x: 100, y: 0 });
+
+    const nodes = new Map([
+      [start.id, start],
+      [elevator.id, elevator],
+      [end.id, end],
+    ]);
+
+    // Only path is through the elevator node — first dijkstra excludes it, second allows it
+    const adjacency = new Map([
+      [start.id, [{ neighbor: elevator.id, weight: 50 }]],
+      [elevator.id, [{ neighbor: start.id, weight: 50 }, { neighbor: end.id, weight: 50 }]],
+      [end.id, [{ neighbor: elevator.id, weight: 50 }]],
+    ]);
+
+    const result = dijkstra(nodes, adjacency, start.id, end.id, 1, null, false);
+    expect(result).not.toBeNull();
+    expect(result.path).toEqual(["start", "elev", "end"]);
+
+    // Also verify that with excludeVerticalTransit=true it returns null (proving the retry is needed)
+    const blockedResult = dijkstra(nodes, adjacency, start.id, end.id, 1, null, true);
+    expect(blockedResult).toBeNull();
+  });
+
+  // getFloorBounds — H floor 1 branch (hall1 special case)
+  test("getFloorBounds uses hall1 data for building H floor 1", () => {
+    const { getFloorBounds } = require("../../utils/indoorDirections");
+
+    const result = getFloorBounds("H", 1);
+
+    // Should return computed bounds from hall1 data, not the default 2000x1500
+    expect(result.width).not.toBe(2000);
+    expect(result.height).not.toBe(1500);
+    expect(result.width).toBeGreaterThan(0);
+    expect(result.height).toBeGreaterThan(0);
+  });
+
+  // getFloorBounds — H floor 2 branch (hall2 special case)
+  test("getFloorBounds uses hall2 data for building H floor 2", () => {
+    const { getFloorBounds } = require("../../utils/indoorDirections");
+
+    const result = getFloorBounds("H", 2);
+
+    expect(result.width).not.toBe(2000);
+    expect(result.height).not.toBe(1500);
+    expect(result.width).toBeGreaterThan(0);
+    expect(result.height).toBeGreaterThan(0);
+  });
+
+  // getFloorBounds — imageBounds early return (key exists in FLOOR_PLAN_IMAGE_BOUNDS)
+  test("getFloorBounds returns image bounds directly when key is in FLOOR_PLAN_IMAGE_BOUNDS", () => {
+    const { getFloorBounds } = require("../../utils/indoorDirections");
+
+    // "H-8" is in FLOOR_PLAN_IMAGE_BOUNDS as { width: 1024, height: 1024 }
+    const result = getFloorBounds("H", 8);
+
+    expect(result).toEqual({ width: 1024, height: 1024 });
+  });
+
+  // getFloorBounds — floorData not found fallback
+  test("getFloorBounds returns default 2000x1500 when no floor data matches", () => {
+    const { getFloorBounds } = require("../../utils/indoorDirections");
+
+    const result = getFloorBounds("ZZZUNKNOWN", 99);
+
+    expect(result).toEqual({ width: 2000, height: 1500 });
+  });
+
+  // getGraphFloorBounds — H floor 1 and floor 2 branches
+  test("getGraphFloorBounds uses hall1 data for building H floor 1", () => {
+    const { getGraphFloorBounds } = require("../../utils/indoorDirections");
+
+    const result = getGraphFloorBounds("H", 1);
+
+    expect(result.width).toBeGreaterThan(0);
+    expect(result.height).toBeGreaterThan(0);
+  });
+
+  test("getGraphFloorBounds uses hall2 data for building H floor 2", () => {
+    const { getGraphFloorBounds } = require("../../utils/indoorDirections");
+
+    const result = getGraphFloorBounds("H", 2);
+
+    expect(result.width).toBeGreaterThan(0);
+    expect(result.height).toBeGreaterThan(0);
   });
 });

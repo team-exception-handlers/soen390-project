@@ -1392,4 +1392,6 @@ export const __indoorDirectionsTestUtils = {
   resolveDirectionalEscalator,
   processEdge,
   connectVerticalNodesBySuffix,
+  isPassThroughFloorForSteps,
+  
 };
