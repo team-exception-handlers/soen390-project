@@ -43,18 +43,13 @@ import {
   getGraphFloorBounds,
   type IndoorRoute,
 } from "../../utils/indoorDirections";
-import { getNearestStop, STOPS } from "../../utils/locationLogic";
+
 import {
   findUserBuilding,
   hasLocationPermission,
   requestLocationPermission,
   startWatchingLocation,
 } from "../../utils/locationUtils";
-import {
-  calculateOsrmRouteHelper,
-  calculateShuttleRouteHelper,
-  calculateTransitRouteHelper,
-} from "../../utils/routeCalculators";
 import { getCampusRegion } from "../../utils/mapRegions";
 import {
   fetchOsrmRoute,
@@ -62,7 +57,12 @@ import {
   type RouteProfile,
 } from "../../utils/osrmDirections";
 import { getRoomDetails } from "../../utils/roomUtils";
-import { calculateArrivalTime, getShuttleInfo } from "../../utils/shuttleLogic";
+import {
+  calculateOsrmRouteHelper,
+  calculateShuttleRouteHelper,
+  calculateTransitRouteHelper,
+  RouteLoaderResult,
+} from "../../utils/routeCalculators";
 import {
   decodePolyline,
   fetchTransitItineraries,
@@ -873,81 +873,55 @@ export default function MapScreen() {
 
     let cancelled = false;
 
-    const loadRoute = async () => {
-      resetRouteState();
-      setRouteLoading(true);
+    const applyRouteResult = (res: RouteLoaderResult) => {
+  setRouteCoordinates(res.routeCoordinates);
+  setRouteDurationMinutes(res.routeDurationMinutes);
+  setRouteDistanceMeters(res.routeDistanceMeters);
+  setRouteInstructions(res.routeInstructions);
+  if (res.routeInstructions?.length > 0 && !routeInstructionsDismissedRef.current) {
+    setShowRouteInstructions(true);
+  }
+};
 
-      try {
-        if (routeMode === "shuttle") {
-          const res = await calculateShuttleRouteHelper(
-            actualOriginPoint,
-            destinationBuilding,
-            selectedShuttleDeparture
-          );
-          if (cancelled || !res) {
-            setRouteLoading(false);
-            return;
-          }
-          setRouteCoordinates(res.routeCoordinates);
-          setRouteDurationMinutes(res.routeDurationMinutes);
-          setRouteDistanceMeters(res.routeDistanceMeters);
-          setRouteInstructions(res.routeInstructions);
-          setTransitItineraries(res.transitItineraries);
-          setShuttleWalkToCoords(res.shuttleWalkToCoords);
-          setShuttleDriveCoords(res.shuttleDriveCoords);
-          setShuttleWalkFromCoords(res.shuttleWalkFromCoords);
-          if (res.routeInstructions?.length > 0 && !routeInstructionsDismissedRef.current) {
-            setShowRouteInstructions(true);
-          }
-          setRouteLoading(false);
-          return;
-        }
+const fetchRoute = async () => {
+  if (routeMode === "shuttle") {
+    return calculateShuttleRouteHelper(actualOriginPoint, destinationBuilding, selectedShuttleDeparture);
+  }
+  if (routeMode === "transit") {
+    return calculateTransitRouteHelper(actualOriginPoint, destinationBuilding);
+  }
+  return calculateOsrmRouteHelper(actualOriginPoint, destinationBuilding, routeMode, isSameCampus);
+};
 
-        if (routeMode === "transit") {
-          const res = await calculateTransitRouteHelper(actualOriginPoint, destinationBuilding);
-          if (cancelled || !res) {
-            setRouteLoading(false);
-            return;
-          }
-          setTransitItineraries(res.transitItineraries);
-          setSelectedItineraryIndex(0);
-          setExpandedItineraries([]);
-          setRouteStarted(false);
-          setRouteCoordinates(res.routeCoordinates);
-          setRouteDurationMinutes(res.routeDurationMinutes);
-          setRouteDistanceMeters(res.routeDistanceMeters);
-          setRouteInstructions(res.routeInstructions);
-          if (res.routeInstructions?.length > 0 && !routeInstructionsDismissedRef.current) {
-            setShowRouteInstructions(true);
-          }
-          setRouteLoading(false);
-          return;
-        }
+const loadRoute = async () => {
+  resetRouteState();
+  setRouteLoading(true);
 
-        const res = await calculateOsrmRouteHelper(
-          actualOriginPoint,
-          destinationBuilding,
-          routeMode,
-          isSameCampus
-        );
-        if (cancelled || !res) {
-          setRouteLoading(false);
-          return;
-        }
-        setRouteCoordinates(res.routeCoordinates);
-        setRouteDurationMinutes(res.routeDurationMinutes);
-        setRouteDistanceMeters(res.routeDistanceMeters);
-        setRouteInstructions(res.routeInstructions);
-        if (res.routeInstructions?.length > 0 && !routeInstructionsDismissedRef.current) {
-          setShowRouteInstructions(true);
-        }
-        setRouteLoading(false);
-      } catch {
-        if (cancelled) return;
-        resetRouteState();
-        setRouteLoading(false);
-      }
-    };
+  try {
+    const res = await fetchRoute();
+
+    if (cancelled || !res) return;
+
+    applyRouteResult(res);
+
+    if (routeMode === "transit") {
+      setTransitItineraries(res.transitItineraries);
+      setSelectedItineraryIndex(0);
+      setExpandedItineraries([]);
+      setRouteStarted(false);
+    } else if (routeMode === "shuttle") {
+      setTransitItineraries(res.transitItineraries);
+      setShuttleWalkToCoords(res.shuttleWalkToCoords);
+      setShuttleDriveCoords(res.shuttleDriveCoords);
+      setShuttleWalkFromCoords(res.shuttleWalkFromCoords);
+    }
+  } catch {
+    if (cancelled) return;
+    resetRouteState();
+  } finally {
+    setRouteLoading(false);
+  }
+};
 
     loadRoute();
 

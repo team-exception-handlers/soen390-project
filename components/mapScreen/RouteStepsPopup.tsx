@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, X } from "lucide-react-native";
-import React, {
+import {
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
@@ -11,16 +11,16 @@ import {
   View,
   type GestureResponderHandlers,
 } from "react-native";
-import type { MapScreenStyles } from "../../styles/mapScreen.styles";
 import type { BuildingRecord } from "../../constants/buildings";
-import ShuttleDirections from "../ShuttleDirections";
-import TransitLegTimeline from "../TransitLegTimeline";
+import type { MapScreenStyles } from "../../styles/mapScreen.styles";
 import type {
   RouteInstruction,
   RoutePoint,
   RouteProfile,
 } from "../../utils/osrmDirections";
 import type { TransitItinerary } from "../../utils/transitousDirections";
+import ShuttleDirections from "../ShuttleDirections";
+import TransitLegTimeline from "../TransitLegTimeline";
 
 type RouteMode = RouteProfile | "transit" | "shuttle";
 
@@ -218,24 +218,7 @@ export default function RouteStepsPopup({
   let content = null;
 
   if (routeMode === "shuttle") {
-    if (!routeStarted) {
-      content = (
-        <ShuttleDirections
-          origin={actualOriginPoint}
-          destination={destinationBuilding}
-          routeStarted={routeStarted}
-          routeInstructions={routeInstructions}
-          onDepartureSelect={(time) => {
-            if (
-              setSelectedShuttleDeparture &&
-              selectedShuttleDeparture !== time
-            ) {
-              setSelectedShuttleDeparture(time);
-            }
-          }}
-        />
-      );
-    } else {
+    if (routeStarted) {
       content = (
         <>
           <Text
@@ -270,7 +253,24 @@ export default function RouteStepsPopup({
           )}
         </>
       );
-    }
+    } else {
+      content = (
+        <ShuttleDirections
+          origin={actualOriginPoint}
+          destination={destinationBuilding}
+          routeStarted={routeStarted}
+          routeInstructions={routeInstructions}
+          onDepartureSelect={(time) => {
+            if (
+              setSelectedShuttleDeparture &&
+              selectedShuttleDeparture !== time
+            ) {
+              setSelectedShuttleDeparture(time);
+            }
+          }}
+        />
+      );
+    } 
   } else if (hasTransitItineraries) {
     if (showTransitJourneyDetails) {
       content = (

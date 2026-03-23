@@ -32,6 +32,16 @@ function createNode(overrides = {}) {
   };
 }
 
+function makeAdjacency(...ids) {
+  return new Map(ids.map((id) => [id, []]));
+}
+
+function makeSetup(...ids) {
+  const allNodes = new Map();
+  const adjacency = new Map(ids.map((id) => [id, []]));
+  return { allNodes, adjacency };
+}
+
 describe("indoorDirections internals", () => {
   test("maps MB S2 floor queries onto MB-S2 nodes on floor 1", () => {
     const s2Query = getFloorQuery("MB", -2);
@@ -335,9 +345,6 @@ describe("refactored buildGraph helpers", () => {
   });
 
   describe("resolveDirectionalEscalator", () => {
-    function makeAdjacency(...ids) {
-      return new Map(ids.map((id) => [id, []]));
-    }
 
     test("routes upward escalator from lower to upper floor", () => {
       const lower = createNode({ id: "lower", type: "escalator_landing", floor: 1, direction: "up" });
@@ -408,11 +415,6 @@ describe("refactored buildGraph helpers", () => {
   });
 
   describe("processEdge", () => {
-    function makeSetup(...ids) {
-      const allNodes = new Map();
-      const adjacency = new Map(ids.map((id) => [id, []]));
-      return { allNodes, adjacency };
-    }
 
     test("adds bidirectional edge for non-vertical edge types", () => {
       const { allNodes, adjacency } = makeSetup("a", "b");
