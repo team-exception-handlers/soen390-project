@@ -327,14 +327,19 @@ export default function RouteStepsPopup({
       );
     }
   } else {
-    content = routeInstructions.map((instruction, index) => (
+    content = routeInstructions.length > 0
+    ? routeInstructions.map((instruction, index) => (
       <Text
         key={`${instruction.text}-${instruction.distanceMeters}`}
         style={styles.routeStepText}
       >
         {`${index + 1}. ${instruction.text}`}
       </Text>
-    ));
+    )) : (
+      <Text style={styles.routeStepText}>
+        Route loaded. No step-by-step directions available.
+      </Text>
+    );
   }
 
   return (

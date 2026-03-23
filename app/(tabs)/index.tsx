@@ -656,7 +656,7 @@ export default function MapScreen() {
     };
   }, [actualOriginPoint, destinationBuilding, isSameCampus]);
 
-  const resetRouteState = (resetDismissed = false) => {
+  const resetRouteState = () => {
     setRouteCoordinates([]);
     setRouteInstructions([]);
     setShowRouteInstructions(false);
@@ -665,9 +665,7 @@ export default function MapScreen() {
     setExpandedItineraries([]);
     setExpandedIntermediateStops(new Set());
     setRouteStarted(false);
-    if(resetDismissed){
-      routeInstructionsDismissedRef.current = false;
-    }
+    routeInstructionsDismissedRef.current = false;
     setShuttleWalkToCoords([]);
     setShuttleDriveCoords([]);
     setShuttleWalkFromCoords([]);
@@ -677,7 +675,7 @@ export default function MapScreen() {
 
   const exitDirectionsMode = () => {
     setIsDirectionsMode(false);
-    resetRouteState(true);
+    resetRouteState();
     setRouteCoordinates([]);
     setRouteInstructions([]);
     setShowRouteInstructions(false);
@@ -865,7 +863,7 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (!isDirectionsMode || !destinationBuilding || !actualOriginPoint) {
-      resetRouteState(true);
+      resetRouteState();
       setRouteCoordinates([]);
       setRouteInstructions([]);
       setShowRouteInstructions(false);
@@ -2115,7 +2113,7 @@ const loadRoute = async () => {
 
       {isDirectionsMode &&
         showRouteInstructions &&
-        (routeInstructions.length > 0 || routeMode === "shuttle") && (
+        (routeInstructions.length > 0 || routeCoordinates.length > 0 || routeMode === "shuttle") && (
           <RouteStepsPopup
             styles={styles}
             formatTime={formatTime}
@@ -2141,7 +2139,8 @@ const loadRoute = async () => {
         )}
 
       {isDirectionsMode &&
-        !showRouteInstructions && !routeLoading && (
+        !showRouteInstructions &&
+        (routeInstructions.length > 0 || routeCoordinates.length > 0 || routeMode === "shuttle") && (
           <Pressable
             {...routeSheetPanResponder.panHandlers}
             style={styles.routeStepsCollapsedTab}
