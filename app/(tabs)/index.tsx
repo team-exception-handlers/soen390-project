@@ -2139,7 +2139,7 @@ const loadRoute = async () => {
         )}
 
       {isDirectionsMode &&
-        !showRouteInstructions &&
+        !showRouteInstructions && !routeLoading &&
         (routeInstructions.length > 0 || routeMode === "shuttle") && (
           <Pressable
             {...routeSheetPanResponder.panHandlers}
