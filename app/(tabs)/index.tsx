@@ -656,7 +656,7 @@ export default function MapScreen() {
     };
   }, [actualOriginPoint, destinationBuilding, isSameCampus]);
 
-  const resetRouteState = () => {
+  const resetRouteState = (resetDismissed = false) => {
     setRouteCoordinates([]);
     setRouteInstructions([]);
     setShowRouteInstructions(false);
@@ -665,7 +665,9 @@ export default function MapScreen() {
     setExpandedItineraries([]);
     setExpandedIntermediateStops(new Set());
     setRouteStarted(false);
-    routeInstructionsDismissedRef.current = false;
+    if(resetDismissed){
+      routeInstructionsDismissedRef.current = false;
+    }
     setShuttleWalkToCoords([]);
     setShuttleDriveCoords([]);
     setShuttleWalkFromCoords([]);
@@ -675,7 +677,7 @@ export default function MapScreen() {
 
   const exitDirectionsMode = () => {
     setIsDirectionsMode(false);
-    resetRouteState();
+    resetRouteState(true);
     setRouteCoordinates([]);
     setRouteInstructions([]);
     setShowRouteInstructions(false);
@@ -863,7 +865,7 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (!isDirectionsMode || !destinationBuilding || !actualOriginPoint) {
-      resetRouteState();
+      resetRouteState(true);
       setRouteCoordinates([]);
       setRouteInstructions([]);
       setShowRouteInstructions(false);

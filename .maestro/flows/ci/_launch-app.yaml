@@ -1,5 +1,6 @@
 appId: com.anonymous.concordiaclassfinder
 ---
+- stopApp
 - launchApp:
     clearState: false
 - extendedWaitUntil:
