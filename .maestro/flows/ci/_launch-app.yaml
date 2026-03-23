@@ -1,4 +1,8 @@
 appId: com.anonymous.concordiaclassfinder
-
 ---
-- launchApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
