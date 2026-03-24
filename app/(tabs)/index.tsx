@@ -449,7 +449,15 @@ export default function MapScreen() {
 
   const handleLocationUpdate = useCallback(
     (location: Location.LocationObject) => {
-      const { latitude, longitude } = location.coords;
+      const coords = location?.coords;
+      if (
+        !coords ||
+        typeof coords.latitude !== "number" ||
+        typeof coords.longitude !== "number"
+      ) {
+        return;
+      }
+      const { latitude, longitude } = coords;
       const detected = detectBuildingFromLocation(latitude, longitude);
 
       setUserLocation(location);
@@ -671,6 +679,20 @@ export default function MapScreen() {
     setShuttleWalkFromCoords([]);
     setOriginRoom("");
     setDestinationRoom("");
+  };
+
+  const resetRouteGeometryState = () => {
+    setRouteCoordinates([]);
+    setRouteInstructions([]);
+    setShowRouteInstructions(false);
+    setTransitItineraries([]);
+    setSelectedItineraryIndex(0);
+    setExpandedItineraries([]);
+    setExpandedIntermediateStops(new Set());
+    setRouteStarted(false);
+    setShuttleWalkToCoords([]);
+    setShuttleDriveCoords([]);
+    setShuttleWalkFromCoords([]);
   };
 
   const exitDirectionsMode = () => {
@@ -896,7 +918,7 @@ const fetchRoute = async () => {
 };
 
 const loadRoute = async () => {
-  resetRouteState();
+  resetRouteGeometryState();
   setRouteLoading(true);
 
   try {
