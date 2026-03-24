@@ -183,7 +183,7 @@ function getBuildingFloors(buildingCode: string): FloorData[] {
   });
 }
 function isEscalatorEdge(e: IndoorEdge, allNodes: Map<string, IndoorNode>): boolean {
-  if(e.type === "escalator") return true;
+  if (e.type === "escalator") return true;
   const src = allNodes.get(e.source);
   const tgt = allNodes.get(e.target);
   return src?.type === "escalator_landing" || tgt?.type === "escalator_landing";
@@ -213,10 +213,10 @@ function resolveDirectionalEscalator(
   const lower = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? srcNode : tgtNode;
   const upper = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? tgtNode : srcNode;
   const fromId = direction === "up" ? lower!.id : upper!.id;
-  const toId   = direction === "up" ? upper!.id : lower!.id;
+  const toId = direction === "up" ? upper!.id : lower!.id;
 
   if (!adjacency.has(fromId)) adjacency.set(fromId, []);
-  if (!adjacency.has(toId))   adjacency.set(toId, []);
+  if (!adjacency.has(toId)) adjacency.set(toId, []);
   adjacency.get(fromId)!.push({ neighbor: toId, weight: e.weight });
   return true;
 }
@@ -844,7 +844,7 @@ function emitFloorChangeStep(
   }
 
   state.inPassThroughFloor = false;
-  
+
   let via = "stairs";
   if (prev.type === "elevator_door" || node.type === "elevator_door") {
     via = "elevator";
@@ -1445,4 +1445,10 @@ export const __indoorDirectionsTestUtils = {
   simplifyPathForSteps,
   buildSteps,
   findBestIndoorPath,
+  addBidirectionalEdge,
+  isEscalatorEdge,
+  resolveDirectionalEscalator,
+  processEdge,
+  connectVerticalNodesBySuffix,
+  isPassThroughFloorForSteps,
 };
