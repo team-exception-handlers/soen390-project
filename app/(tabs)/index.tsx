@@ -878,7 +878,9 @@ export default function MapScreen() {
   setRouteDurationMinutes(res.routeDurationMinutes);
   setRouteDistanceMeters(res.routeDistanceMeters);
   setRouteInstructions(res.routeInstructions);
-  if (res.routeInstructions?.length > 0 && !routeInstructionsDismissedRef.current) {
+  const hasRoute = res.routeCoordinates.length > 0 || res.routeInstructions.length > 0;
+
+  if (hasRoute && !routeInstructionsDismissedRef.current) {
     setShowRouteInstructions(true);
   }
 };
