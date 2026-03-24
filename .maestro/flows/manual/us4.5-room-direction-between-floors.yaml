@@ -13,7 +13,7 @@ appId: host.exp.Exponent
       id: "directions-panel"
     timeout: 20000
 
-# FROM: search "Hall building", confirm, then room 260
+# FROM: search "Hall building", confirm, then room 920
 - tapOn:
     id: "direction-from-button"
 
@@ -38,9 +38,9 @@ appId: host.exp.Exponent
 - tapOn:
     id: "direction-from-room-input"
 
-- inputText: "260"
+- inputText: "920"
 
-# TO: search "Hall building", confirm, then room 857
+# TO: search "Hall building", confirm, then room 823
 - tapOn:
     id: "direction-to-button"
 
@@ -65,7 +65,7 @@ appId: host.exp.Exponent
 - tapOn:
     id: "direction-to-room-input"
 
-- inputText: "857"
+- inputText: "823"
 
 - extendedWaitUntil:
     visible:
