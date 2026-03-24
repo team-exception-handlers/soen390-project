@@ -38,6 +38,9 @@ export function decodePolyline(
     encoded: string,
     precision = 7,
 ): { latitude: number; longitude: number }[] {
+    if (typeof encoded !== "string" || encoded.length === 0) {
+        return [];
+    }
     const coords: { latitude: number; longitude: number }[] = [];
     const factor = Math.pow(10, precision);
     let index = 0;
@@ -137,12 +140,25 @@ export function buildTransitousUrl(
     return `${MOTIS_BASE_URL}?${params.toString()}`;
 }
 
-// Parse a single itinerary 
+function normalizeLegEndpoint(
+    place: any,
+    fallbackName: string,
+): { name: string; lat: number; lon: number } {
+    if (place && typeof place === "object") {
+        return {
+            name: typeof place.name === "string" && place.name.length > 0 ? place.name : fallbackName,
+            lat: typeof place.lat === "number" ? place.lat : 0,
+            lon: typeof place.lon === "number" ? place.lon : 0,
+        };
+    }
+    return { name: fallbackName, lat: 0, lon: 0 };
+}
+
 function parseItinerary(itinerary: any): TransitItinerary {
-    const legs: TransitLeg[] = (itinerary.legs ?? []).map((leg: any) => ({
+    const legs: TransitLeg[] = (itinerary.legs ?? []).map((leg: any, index: number) => ({
         mode: leg.mode ?? "WALK",
-        from: leg.from,
-        to: leg.to,
+        from: normalizeLegEndpoint(leg.from, index === 0 ? "Origin" : "Stop"),
+        to: normalizeLegEndpoint(leg.to, "Destination"),
         startTime: leg.startTime ?? "",
         endTime: leg.endTime ?? "",
         distance: leg.distance ?? 0,
@@ -150,7 +166,7 @@ function parseItinerary(itinerary: any): TransitItinerary {
         route: leg.routeShortName ?? leg.route ?? undefined,
         headsign: leg.headsign ?? undefined,
         legGeometry: leg.legGeometry ?? null,
-        intermediateStops: leg.intermediateStops ?? [],
+        intermediateStops: Array.isArray(leg.intermediateStops) ? leg.intermediateStops : [],
     }));
 
     const coordinates = legs.flatMap((leg) =>
@@ -165,10 +181,16 @@ function parseItinerary(itinerary: any): TransitItinerary {
     const transitLegs = legs.filter((l) => l.mode !== "WALK").length;
     const transfers = Math.max(0, transitLegs - 1);
 
-    const instructions = legs.map((leg) => ({
-        text: formatLegInstruction(leg),
-        distanceMeters: leg.distance ?? 0,
-    }));
+    const instructions = legs.map((leg) => {
+        try {
+            return {
+                text: formatLegInstruction(leg),
+                distanceMeters: leg.distance ?? 0,
+            };
+        } catch {
+            return { text: "Continue journey.", distanceMeters: leg.distance ?? 0 };
+        }
+    });
 
     return {
         durationSeconds: Math.round(itinerary.duration ?? 0),

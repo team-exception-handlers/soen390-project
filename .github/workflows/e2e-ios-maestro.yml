@@ -461,6 +461,37 @@ jobs:
             [ -d "$dir" ] && cp -r "$dir" maestro-e2e-logs/ 2>/dev/null || true
           done
 
+      - name: Copy macOS DiagnosticReports on failure
+        if: failure()
+        env:
+          GH_RUN_STARTED_AT: ${{ github.run_started_at }}
+        run: |
+          mkdir -p maestro-e2e-logs/diagnostic-reports
+          DIAG_DIR="${HOME}/Library/Logs/DiagnosticReports"
+          if [ ! -d "$DIAG_DIR" ]; then
+            echo "No DiagnosticReports directory at $DIAG_DIR"
+            exit 0
+          fi
+          # Only reports from this workflow run onward (github.run_started_at), not the runner's
+          # full history. Fallback if the timestamp is missing (rare).
+          REF="${RUNNER_TEMP}/e2e-diag-cutoff"
+          if [ -n "${GH_RUN_STARTED_AT}" ]; then
+            python3 -c "import os, pathlib; from datetime import datetime, timezone; iso=os.environ['GH_RUN_STARTED_AT'].strip(); p=pathlib.Path(os.environ['RUNNER_TEMP'])/'e2e-diag-cutoff'; dt=datetime.fromisoformat(iso.replace('Z','+00:00')); dt=dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc); ts=dt.timestamp(); p.parent.mkdir(parents=True, exist_ok=True); p.touch(); os.utime(p,(ts,ts))"
+            echo "Filtering diagnostic reports newer than workflow start: ${GH_RUN_STARTED_AT}"
+            TIME_PRED=( -newer "$REF" )
+          else
+            echo "::warning::github.run_started_at empty; falling back to last 120 minutes"
+            TIME_PRED=( -mmin -120 )
+          fi
+          FOUND=0
+          while IFS= read -r -d '' f; do
+            if cp "$f" maestro-e2e-logs/diagnostic-reports/ 2>/dev/null; then
+              FOUND=$((FOUND + 1))
+            fi
+          done < <(find "$DIAG_DIR" -maxdepth 2 -type f \( -name "*.ips" -o -name "*.crash" \) "${TIME_PRED[@]}" -print0 2>/dev/null)
+          echo "Copied $FOUND diagnostic report(s) from $DIAG_DIR"
+          ls -la maestro-e2e-logs/diagnostic-reports 2>/dev/null || true
+
       - name: Upload Maestro artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4

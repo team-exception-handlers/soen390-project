@@ -329,7 +329,7 @@ describe("indoorDirections", () => {
   });
 
   test("buildGraph with noStairs excludes stair_landing inter-floor edges", () => {
-    const { adjacency, nodes } = buildGraph([
+    const { adjacency } = buildGraph([
       {
         nodes: [
           { id: "room_a", type: "room", buildingId: "T", floor: 1, x: 0, y: 0, label: "A", accessible: true },
