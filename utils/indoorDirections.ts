@@ -18,6 +18,7 @@ export interface IndoorNode {
   label?: string;
   accessible: boolean;
   direction?: "up" | "down" | "both";
+  floors?: number[];
 }
 
 export interface IndoorEdge {
@@ -182,7 +183,7 @@ function getBuildingFloors(buildingCode: string): FloorData[] {
   });
 }
 function isEscalatorEdge(e: IndoorEdge, allNodes: Map<string, IndoorNode>): boolean {
-  if(e.type === "escalator") return true;
+  if (e.type === "escalator") return true;
   const src = allNodes.get(e.source);
   const tgt = allNodes.get(e.target);
   return src?.type === "escalator_landing" || tgt?.type === "escalator_landing";
@@ -212,10 +213,10 @@ function resolveDirectionalEscalator(
   const lower = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? srcNode : tgtNode;
   const upper = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? tgtNode : srcNode;
   const fromId = direction === "up" ? lower!.id : upper!.id;
-  const toId   = direction === "up" ? upper!.id : lower!.id;
+  const toId = direction === "up" ? upper!.id : lower!.id;
 
   if (!adjacency.has(fromId)) adjacency.set(fromId, []);
-  if (!adjacency.has(toId))   adjacency.set(toId, []);
+  if (!adjacency.has(toId)) adjacency.set(toId, []);
   adjacency.get(fromId)!.push({ neighbor: toId, weight: e.weight });
   return true;
 }
@@ -285,13 +286,11 @@ function connectVerticalNodesBySuffix(
   });
 }
 
-function buildGraph(
-  floors: FloorData[],
-  noStairs = false,
-  noEscalators = false,
-  noElevators = false,
-): { nodes: Map<string, IndoorNode>; adjacency: Map<string, { neighbor: string; weight: number }[]> } {
-  const nodes    = new Map<string, IndoorNode>();
+function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false, noElevators = false): {
+  nodes: Map<string, IndoorNode>;
+  adjacency: Map<string, { neighbor: string; weight: number }[]>;
+} {
+  const nodes = new Map<string, IndoorNode>();
   const adjacency = new Map<string, { neighbor: string; weight: number }[]>();
 
   const allNodes = new Map<string, IndoorNode>();
@@ -307,13 +306,66 @@ function buildGraph(
       if (!adjacency.has(n.id)) adjacency.set(n.id, []);
     }
     for (const e of floor.edges as IndoorEdge[]) {
+      if (e.type === "stair" || e.type === "escalator" || e.type === "elevator") {
+        const srcNode = allNodes.get(e.source);
+        const tgtNode = allNodes.get(e.target);
+        const isEscalatorEdge = e.type === "escalator" || srcNode?.type === "escalator_landing" || tgtNode?.type === "escalator_landing";
+        const isElevatorEdge = e.type === "elevator" || srcNode?.type === "elevator_door" || tgtNode?.type === "elevator_door";
+        if (isElevatorEdge && noElevators) continue;
+        if (isEscalatorEdge && noEscalators) continue;
+        if (!isEscalatorEdge && !isElevatorEdge && noStairs) continue;
+
+        // Enforce directionality for any vertical edge where either endpoint has a direction
+        const direction = srcNode?.direction ?? tgtNode?.direction;
+        if (direction === "up" || direction === "down") {
+          const lowerNode = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? srcNode : tgtNode;
+          const upperNode = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? tgtNode : srcNode;
+          const fromId = direction === "up" ? lowerNode!.id : upperNode!.id;
+          const toId = direction === "up" ? upperNode!.id : lowerNode!.id;
+          if (!adjacency.has(fromId)) adjacency.set(fromId, []);
+          if (!adjacency.has(toId)) adjacency.set(toId, []);
+          adjacency.get(fromId)!.push({ neighbor: toId, weight: e.weight });
+          continue;
+        }
+      }
       if (!adjacency.has(e.source)) adjacency.set(e.source, []);
       if (!adjacency.has(e.target)) adjacency.set(e.target, []);
       processEdge(e, allNodes, adjacency, noStairs, noEscalators, noElevators);
     }
   }
 
-  connectVerticalNodesBySuffix(nodes, adjacency, noStairs, noEscalators, noElevators);
+  // Connect stair/elevator nodes with the same suffix across floors (same physical location)
+  const bySuffix = new Map<string, IndoorNode[]>();
+  nodes.forEach((node) => {
+    if (VERTICAL_NODE_TYPES.has(node.type)) {
+      const match = node.id.match(/_(stair_landing|escalator_landing|elevator_door)_(\d+)$/);
+      if (match) {
+        const key = `${match[1]}_${match[2]}`;
+        const list = bySuffix.get(key) ?? [];
+        list.push(node);
+        bySuffix.set(key, list);
+      }
+    }
+  });
+
+  bySuffix.forEach((connectedNodes) => {
+    if (connectedNodes.length < 2) return;
+    connectedNodes.sort((a, b) => a.floor - b.floor);
+    for (let i = 0; i < connectedNodes.length - 1; i++) {
+      const a = connectedNodes[i];
+      const b = connectedNodes[i + 1];
+      if (noStairs && a.type === "stair_landing") continue;
+      if (noEscalators && a.type === "escalator_landing") continue;
+      if (noElevators && a.type === "elevator_door") continue;
+      // If either node has a floors restriction, only connect if both floors are allowed
+      const allowedFloors = a.floors ?? b.floors;
+      if (allowedFloors && (!allowedFloors.includes(a.floor) || !allowedFloors.includes(b.floor))) continue;
+      // Skip auto-connection for directional escalators or stairs — their edges are explicitly in the JSON
+      if ((a.direction === "up" || a.direction === "down")) continue;
+      adjacency.get(a.id)!.push({ neighbor: b.id, weight: INTER_FLOOR_WEIGHT });
+      adjacency.get(b.id)!.push({ neighbor: a.id, weight: INTER_FLOOR_WEIGHT });
+    }
+  });
 
   return { nodes, adjacency };
 }
@@ -753,9 +805,22 @@ function isPassThroughFloorForSteps(
   fromIdx: number,
   floor: number,
 ): boolean {
+  let sawFirstVertical = false;
+  let sawNonVerticalAfterFirst = false;
+
   for (let j = fromIdx; j < nodes.length; j++) {
-    if (nodes[j].floor !== floor) return true;
+    if (nodes[j].floor !== floor) {
+      // Leaving the floor — pass-through only if we never walked between two vertical nodes
+      return !(sawFirstVertical && sawNonVerticalAfterFirst);
+    }
     if (nodes[j].type === "room" && nodes[j].id !== start.id) return false;
+
+    if (VERTICAL_NODE_TYPES.has(nodes[j].type)) {
+      if (sawFirstVertical && sawNonVerticalAfterFirst) return false;
+      sawFirstVertical = true;
+    } else if (sawFirstVertical) {
+      sawNonVerticalAfterFirst = true;
+    }
   }
   return false;
 }
@@ -779,7 +844,7 @@ function emitFloorChangeStep(
   }
 
   state.inPassThroughFloor = false;
-  
+
   let via = "stairs";
   if (prev.type === "elevator_door" || node.type === "elevator_door") {
     via = "elevator";
@@ -1192,10 +1257,7 @@ function buildIndoorRouteFromDijkstraResult(
   }
   if (currentSegment) segments.push(currentSegment);
 
-  const orthogonalSegments = segments.map((seg) => ({
-    floor: seg.floor,
-    points: orthogonalizeSegmentPoints(seg.points),
-  }));
+  const orthogonalSegments = segments;
 
   const allFloorNodes = Array.from(graphNodes.values());
   const landmarkBuildingId =
@@ -1229,12 +1291,7 @@ export function findIndoorRoute(
   const floors = getBuildingFloors(buildingCode);
   if (floors.length === 0) return null;
 
-  const { nodes, adjacency } = buildGraph(
-    floors,
-    noStairs,
-    noEscalators,
-    noElevators,
-  );
+  const { nodes, adjacency } = buildGraph(floors, noStairs, noEscalators, noElevators);
   const { startNode, endNode } = findIndoorRouteEndpoints(
     nodes,
     buildingCode,
@@ -1387,11 +1444,11 @@ export const __indoorDirectionsTestUtils = {
   getArrivalRelationFromDisplayedApproach,
   simplifyPathForSteps,
   buildSteps,
+  findBestIndoorPath,
   addBidirectionalEdge,
   isEscalatorEdge,
   resolveDirectionalEscalator,
   processEdge,
   connectVerticalNodesBySuffix,
   isPassThroughFloorForSteps,
-  
 };

@@ -691,7 +691,8 @@
       "x": 972,
       "y": 1329,
       "label": "",
-      "accessible": false
+      "accessible": false,
+      "direction": "up"
     },
     {
       "id": "Hall_F8_stair_landing_29",
@@ -701,7 +702,8 @@
       "x": 972,
       "y": 971,
       "label": "",
-      "accessible": false
+      "accessible": false,
+      "direction": "down"
     },
     {
       "id": "Hall_F8_stair_landing_30",
@@ -3441,17 +3443,19 @@
       "x": 1077,
       "y": 909,
       "label": "",
-      "accessible": false
+      "accessible": false,
+      "direction": "up"
     },
     {
       "id": "Hall_F9_stair_landing_21",
-      "type": "stair_landing",
+      "type": "escalator_landing",
       "buildingId": "Hall",
       "floor": 9,
       "x": 1093,
       "y": 1207,
       "label": "",
-      "accessible": false
+      "accessible": false,
+      "direction": "down"
     },
     {
       "id": "Hall_F9_stair_landing_22",
