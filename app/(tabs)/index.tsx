@@ -43,10 +43,11 @@ import {
   getGraphFloorBounds,
   type IndoorRoute,
 } from "../../utils/indoorDirections";
-import { getNearestStop, STOPS } from "../../utils/locationLogic";
+
 import {
   findUserBuilding,
   hasLocationPermission,
+  getInitialLocationFix,
   requestLocationPermission,
   startWatchingLocation,
 } from "../../utils/locationUtils";
@@ -57,7 +58,12 @@ import {
   type RouteProfile,
 } from "../../utils/osrmDirections";
 import { getRoomDetails } from "../../utils/roomUtils";
-import { calculateArrivalTime, getShuttleInfo } from "../../utils/shuttleLogic";
+import {
+  calculateOsrmRouteHelper,
+  calculateShuttleRouteHelper,
+  calculateTransitRouteHelper,
+  RouteLoaderResult,
+} from "../../utils/routeCalculators";
 import {
   decodePolyline,
   fetchTransitItineraries,
@@ -127,7 +133,7 @@ const detectBuildingFromLocation = (
 
   return { code: null, campus: null };
 };
-const getFloorPlanAsset = (key: string): any | null => {
+const getFloorPlanAsset = (key: string): any => {
   const assets: Record<string, () => any> = {
     "H-1": () => require("../../assets/floor_plans/png/H1.png"),
     "H-2": () => require("../../assets/floor_plans/png/H2.png"),
@@ -208,9 +214,9 @@ export default function MapScreen() {
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
-  const [, setRouteDurationMinutes] = useState<number | null>(null);
-  const [, setRouteDistanceMeters] = useState<number | null>(null);
-  const [, setRouteLoading] = useState(false);
+  const [routeDurationMinutes, setRouteDurationMinutes] = useState<number | null>(null);
+  const [routeDistanceMeters, setRouteDistanceMeters] = useState<number | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
   const [routeInstructions, setRouteInstructions] = useState<
     RouteInstruction[]
   >([]);
@@ -228,7 +234,7 @@ export default function MapScreen() {
   >([]);
   const [selectedItineraryIndex, setSelectedItineraryIndex] = useState(0);
 
-  const [selectedShuttleDeparture, setSelectedShuttleDeparture] = useState<
+  const [selectedShuttleDeparture] = useState<
     string | null
   >(null);
   const [shuttleWalkToCoords, setShuttleWalkToCoords] = useState<
@@ -294,8 +300,8 @@ export default function MapScreen() {
 
   const isWebPlatform = Platform.OS === "web";
   const webFrameTargetOrigin =
-    isWebPlatform && typeof window !== "undefined"
-      ? window.location.origin
+    isWebPlatform && typeof globalThis.window !== "undefined"
+      ? globalThis.window.location.origin
       : null;
   const serializedWebFrameTargetOrigin = JSON.stringify(
     webFrameTargetOrigin ?? "*",
@@ -444,7 +450,15 @@ export default function MapScreen() {
 
   const handleLocationUpdate = useCallback(
     (location: Location.LocationObject) => {
-      const { latitude, longitude } = location.coords;
+      const coords = location?.coords;
+      if (
+        !coords ||
+        typeof coords.latitude !== "number" ||
+        typeof coords.longitude !== "number"
+      ) {
+        return;
+      }
+      const { latitude, longitude } = coords;
       const detected = detectBuildingFromLocation(latitude, longitude);
 
       setUserLocation(location);
@@ -472,12 +486,14 @@ export default function MapScreen() {
       }
 
       try {
-        const initialLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
-        handleLocationUpdate(initialLocation);
-      } catch (error) {
-        console.error("Error getting initial location:", error);
+        const initialLocation = await getInitialLocationFix();
+        if (initialLocation) {
+          handleLocationUpdate(initialLocation);
+        } else {
+          setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
+        }
+      } catch {
+        // If a location fix isn't available, fall back to a default origin building.
         setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
       }
 
@@ -666,6 +682,20 @@ export default function MapScreen() {
     setShuttleWalkFromCoords([]);
     setOriginRoom("");
     setDestinationRoom("");
+  };
+
+  const resetRouteGeometryState = () => {
+    setRouteCoordinates([]);
+    setRouteInstructions([]);
+    setShowRouteInstructions(false);
+    setTransitItineraries([]);
+    setSelectedItineraryIndex(0);
+    setExpandedItineraries([]);
+    setExpandedIntermediateStops(new Set());
+    setRouteStarted(false);
+    setShuttleWalkToCoords([]);
+    setShuttleDriveCoords([]);
+    setShuttleWalkFromCoords([]);
   };
 
   const exitDirectionsMode = () => {
@@ -868,294 +898,57 @@ export default function MapScreen() {
 
     let cancelled = false;
 
-    const handleShuttleRoute = async () => {
-      setRouteCoordinates([]);
-      setRouteDurationMinutes(30);
-      setRouteDistanceMeters(null);
-      setRouteInstructions([{ text: "Shuttle Journey", distanceMeters: 0 }]);
-      setTransitItineraries([]);
-      setShuttleWalkToCoords([]);
-      setShuttleDriveCoords([]);
-      setShuttleWalkFromCoords([]);
+    const applyRouteResult = (res: RouteLoaderResult) => {
+  setRouteCoordinates(res.routeCoordinates);
+  setRouteDurationMinutes(res.routeDurationMinutes);
+  setRouteDistanceMeters(res.routeDistanceMeters);
+  setRouteInstructions(res.routeInstructions);
+  const hasRoute = res.routeCoordinates.length > 0 || res.routeInstructions.length > 0;
 
-      if (!routeInstructionsDismissedRef.current) {
-        setShowRouteInstructions(true);
-      }
+  if (hasRoute && !routeInstructionsDismissedRef.current) {
+    setShowRouteInstructions(true);
+  }
+};
 
-      try {
-        const nearest = getNearestStop(actualOriginPoint);
-        const originStopCoords = STOPS[nearest.stop];
-        const destStopCoords = STOPS[nearest.destination];
+const fetchRoute = async () => {
+  if (routeMode === "shuttle") {
+    return calculateShuttleRouteHelper(actualOriginPoint, destinationBuilding, selectedShuttleDeparture);
+  }
+  if (routeMode === "transit") {
+    return calculateTransitRouteHelper(actualOriginPoint, destinationBuilding);
+  }
+  return calculateOsrmRouteHelper(actualOriginPoint, destinationBuilding, routeMode, isSameCampus);
+};
 
-        const mockedNow = new Date();
+const loadRoute = async () => {
+  resetRouteGeometryState();
+  setRouteLoading(true);
 
-        const shuttleInfo = getShuttleInfo(nearest.stop as any, mockedNow);
-        if (shuttleInfo.serviceUnavailable) {
-          if (cancelled) return;
-          setRouteLoading(false);
-          return;
-        }
+  try {
+    const res = await fetchRoute();
 
-        const [walkTo, drive, walkFrom] = await Promise.all([
-          fetchOsrmRoute(actualOriginPoint, originStopCoords, "walking"),
-          fetchOsrmRoute(originStopCoords, destStopCoords, "driving"),
-          fetchOsrmRoute(destStopCoords, destinationBuilding, "walking"),
-        ]);
+    if (cancelled || !res) return;
 
-        if (cancelled) return;
+    applyRouteResult(res);
 
-        const instructions: RouteInstruction[] = [];
-        if (walkTo.instructions) instructions.push(...walkTo.instructions);
-
-        const walkToMinutes = Math.round(walkTo.durationSeconds / 60);
-        const arrivalAtStopDate = new Date(mockedNow);
-        arrivalAtStopDate.setMinutes(
-          arrivalAtStopDate.getMinutes() + walkToMinutes,
-        );
-
-        let validDeparture: Date | undefined;
-
-        if (selectedShuttleDeparture) {
-          const [h, m] = selectedShuttleDeparture.split(":").map(Number);
-          validDeparture = new Date(mockedNow);
-          validDeparture.setHours(h, m, 0, 0);
-          if (validDeparture < mockedNow && h < 5)
-            validDeparture.setDate(validDeparture.getDate() + 1);
-        } else {
-          const activeDepartures = shuttleInfo.nextThreeDepartures.map(
-            (t: string) => {
-              const [h, m] = t.split(":").map(Number);
-              const d = new Date(mockedNow);
-              d.setHours(h, m, 0, 0);
-              if (d < mockedNow && h < 5) d.setDate(d.getDate() + 1); // handle overnight if needed
-              return d;
-            },
-          );
-          validDeparture =
-            activeDepartures.find((d: Date) => d >= arrivalAtStopDate) ||
-            activeDepartures[0];
-        }
-
-        let waitMinutes = 0;
-        if (validDeparture) {
-          const waitMs = validDeparture.getTime() - arrivalAtStopDate.getTime();
-          waitMinutes = Math.max(0, Math.round(waitMs / 60000));
-          instructions.push({
-            text: `Arrive at ${nearest.stop} shuttle stop. Wait for ${waitMinutes} minute(s).`,
-            distanceMeters: 0,
-          });
-
-          const hh = validDeparture.getHours().toString().padStart(2, "0");
-          const mm = validDeparture.getMinutes().toString().padStart(2, "0");
-          const arrivalTimeString = calculateArrivalTime(`${hh}:${mm}`);
-
-          const arrH = parseInt(arrivalTimeString.split(":")[0]);
-          const arrM = parseInt(arrivalTimeString.split(":")[1]);
-          const arrivalDate = new Date(validDeparture);
-          arrivalDate.setHours(arrH, arrM, 0, 0);
-          if (arrivalDate < validDeparture)
-            arrivalDate.setDate(arrivalDate.getDate() + 1);
-
-          instructions.push({
-            text: `Take the shuttle to ${nearest.destination} campus. Estimated arrival at ${arrivalTimeString}.`,
-            distanceMeters: drive.distanceMeters,
-          });
-
-          const walkToLeg = {
-            mode: "WALK",
-            from: {
-              name: "Current Location",
-              lat: actualOriginPoint.latitude,
-              lon: actualOriginPoint.longitude,
-            },
-            to: {
-              name: `${nearest.stop} Shuttle Stop`,
-              lat: originStopCoords.latitude,
-              lon: originStopCoords.longitude,
-            },
-            startTime: mockedNow.toISOString(),
-            endTime: arrivalAtStopDate.toISOString(),
-            distance: walkTo.distanceMeters,
-            duration: walkTo.durationSeconds,
-            legGeometry: null,
-          };
-
-          const shuttleLeg = {
-            mode: "BUS",
-            route: "Shuttle",
-            headsign: `${nearest.destination} Campus`,
-            from: {
-              name: `${nearest.stop} Shuttle Stop`,
-              lat: originStopCoords.latitude,
-              lon: originStopCoords.longitude,
-            },
-            to: {
-              name: `${nearest.destination} Shuttle Stop`,
-              lat: destStopCoords.latitude,
-              lon: destStopCoords.longitude,
-            },
-            startTime: validDeparture.toISOString(),
-            endTime: arrivalDate.toISOString(),
-            distance: drive.distanceMeters,
-            duration: Math.round(
-              (arrivalDate.getTime() - validDeparture.getTime()) / 1000,
-            ),
-            legGeometry: null,
-          };
-
-          const walkFromLeg = {
-            mode: "WALK",
-            from: {
-              name: `${nearest.destination} Shuttle Stop`,
-              lat: destStopCoords.latitude,
-              lon: destStopCoords.longitude,
-            },
-            to: {
-              name: destinationBuilding.shortName,
-              lat: destinationBuilding.latitude,
-              lon: destinationBuilding.longitude,
-            },
-            startTime: arrivalDate.toISOString(),
-            endTime: new Date(
-              arrivalDate.getTime() + walkFrom.durationSeconds * 1000,
-            ).toISOString(),
-            distance: walkFrom.distanceMeters,
-            duration: walkFrom.durationSeconds,
-            legGeometry: null,
-          };
-
-          const totalDuration =
-            walkTo.durationSeconds +
-            shuttleLeg.duration +
-            walkFrom.durationSeconds +
-            waitMinutes * 60;
-
-          const transitItin: TransitItinerary = {
-            durationSeconds: totalDuration,
-            distanceMeters:
-              walkTo.distanceMeters +
-              drive.distanceMeters +
-              walkFrom.distanceMeters,
-            transfers: 0,
-            departureTime: new Date().toISOString(),
-            arrivalTime: walkFromLeg.endTime,
-            legs: [walkToLeg, shuttleLeg, walkFromLeg],
-            instructions,
-            coordinates: [],
-          };
-
-          setTransitItineraries([transitItin]);
-        } else {
-          instructions.push({
-            text: `Arrive at ${nearest.stop} shuttle stop.`,
-            distanceMeters: 0,
-          });
-          instructions.push({
-            text: `Take the shuttle to ${nearest.destination} campus.`,
-            distanceMeters: drive.distanceMeters,
-          });
-        }
-
-        if (walkFrom.instructions) instructions.push(...walkFrom.instructions);
-
-        setRouteInstructions(instructions);
-        setRouteDurationMinutes(
-          Math.round(
-            (walkTo.durationSeconds +
-              drive.durationSeconds +
-              walkFrom.durationSeconds) /
-              60,
-          ) + waitMinutes,
-        );
-        setRouteDistanceMeters(
-          walkTo.distanceMeters +
-            drive.distanceMeters +
-            walkFrom.distanceMeters,
-        );
-
-        setShuttleWalkToCoords(walkTo.coordinates);
-        setShuttleDriveCoords(drive.coordinates);
-        setShuttleWalkFromCoords(walkFrom.coordinates);
-        setRouteLoading(false);
-      } catch (err) {
-        if (cancelled) return;
-        setRouteLoading(false);
-      }
-    };
-
-    const handleTransitRoute = async () => {
-      const itineraries = await fetchTransitItineraries(
-        actualOriginPoint,
-        destinationBuilding,
-        new Date().toISOString(),
-      );
-      if (cancelled) return;
-      setTransitItineraries(itineraries);
+    if (routeMode === "transit") {
+      setTransitItineraries(res.transitItineraries);
       setSelectedItineraryIndex(0);
       setExpandedItineraries([]);
       setRouteStarted(false);
-
-      const firstRoute = itineraries[0];
-      setRouteCoordinates([]);
-      setRouteDurationMinutes(Math.round(firstRoute.durationSeconds / 60));
-      setRouteDistanceMeters(firstRoute.distanceMeters);
-      setRouteInstructions(firstRoute.instructions);
-      if (
-        firstRoute.instructions.length > 0 &&
-        !routeInstructionsDismissedRef.current
-      ) {
-        setShowRouteInstructions(true);
-      }
-    };
-
-    const handleOsrmRoute = async () => {
-      const actualMode = (
-        routeMode === "walking" && !isSameCampus ? "cycling" : routeMode
-      ) as RouteProfile;
-      const route = await fetchOsrmRoute(
-        actualOriginPoint,
-        destinationBuilding,
-        actualMode,
-      );
-      if (cancelled) return;
-      setRouteCoordinates(route.coordinates);
-      setRouteDurationMinutes(Math.round(route.durationSeconds / 60));
-      setRouteDistanceMeters(route.distanceMeters);
-      setRouteInstructions(route.instructions);
-      if (
-        route.instructions.length > 0 &&
-        !routeInstructionsDismissedRef.current
-      ) {
-        setShowRouteInstructions(true);
-      }
-    };
-
-    const loadRoute = async () => {
-      try {
-        if (routeMode === "shuttle") {
-          await handleShuttleRoute();
-          return;
-        }
-
-        if (routeMode === "transit") {
-          await handleTransitRoute();
-        } else {
-          await handleOsrmRoute();
-        }
-      } catch {
-        if (cancelled) return;
-        setRouteCoordinates([]);
-        setRouteInstructions([]);
-        setShowRouteInstructions(false);
-        setTransitItineraries([]);
-        setSelectedItineraryIndex(0);
-        setExpandedItineraries([]);
-        setExpandedIntermediateStops(new Set());
-        setRouteStarted(false);
-        routeInstructionsDismissedRef.current = false;
-      } finally {
-      }
-    };
+    } else if (routeMode === "shuttle") {
+      setTransitItineraries(res.transitItineraries);
+      setShuttleWalkToCoords(res.shuttleWalkToCoords);
+      setShuttleDriveCoords(res.shuttleDriveCoords);
+      setShuttleWalkFromCoords(res.shuttleWalkFromCoords);
+    }
+  } catch {
+    if (cancelled) return;
+    resetRouteState();
+  } finally {
+    setRouteLoading(false);
+  }
+};
 
     loadRoute();
 
@@ -2347,7 +2140,7 @@ export default function MapScreen() {
 
       {isDirectionsMode &&
         showRouteInstructions &&
-        (routeInstructions.length > 0 || routeMode === "shuttle") && (
+        (routeInstructions.length > 0 || routeCoordinates.length > 0 || routeMode === "shuttle") && (
           <RouteStepsPopup
             styles={styles}
             formatTime={formatTime}
@@ -2374,7 +2167,7 @@ export default function MapScreen() {
 
       {isDirectionsMode &&
         !showRouteInstructions &&
-        (routeInstructions.length > 0 || routeMode === "shuttle") && (
+        (routeInstructions.length > 0 || routeCoordinates.length > 0 || routeMode === "shuttle") && (
           <Pressable
             {...routeSheetPanResponder.panHandlers}
             style={styles.routeStepsCollapsedTab}

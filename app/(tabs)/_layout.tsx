@@ -58,8 +58,22 @@ export default function TabsLayout() {
         tabBarItemStyle: { paddingVertical: 0 },
       }}
     >
-      <Tabs.Screen name="index" options={{ tabBarIcon: MapTabIcon }} />
-      <Tabs.Screen name="calendar" options={{ tabBarIcon: CalendarTabIcon }} />
+      <Tabs.Screen
+        name="index"
+        options={{
+          tabBarIcon: MapTabIcon,
+          tabBarButtonTestID: "tab-map",
+          tabBarAccessibilityLabel: "tab-map",
+        }}
+      />
+      <Tabs.Screen
+        name="calendar"
+        options={{
+          tabBarIcon: CalendarTabIcon,
+          tabBarButtonTestID: "tab-calendar",
+          tabBarAccessibilityLabel: "tab-calendar",
+        }}
+      />
     </Tabs>
   );
 }

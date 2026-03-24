@@ -182,6 +182,109 @@ function getBuildingFloors(buildingCode: string): FloorData[] {
     return filteredHallCombined.nodes.length > 0 ? [filteredHallCombined] : [];
   });
 }
+function isEscalatorEdge(e: IndoorEdge, allNodes: Map<string, IndoorNode>): boolean {
+  if(e.type === "escalator") return true;
+  const src = allNodes.get(e.source);
+  const tgt = allNodes.get(e.target);
+  return src?.type === "escalator_landing" || tgt?.type === "escalator_landing";
+}
+
+function addBidirectionalEdge(
+  adjacency: Map<string, { neighbor: string; weight: number }[]>,
+  source: string,
+  target: string,
+  weight: number
+): void {
+  adjacency.get(source)!.push({ neighbor: target, weight });
+  adjacency.get(target)!.push({ neighbor: source, weight });
+}
+
+function resolveDirectionalEscalator(
+  e: IndoorEdge,
+  allNodes: Map<string, IndoorNode>,
+  adjacency: Map<string, { neighbor: string; weight: number }[]>
+): boolean {
+  const srcNode = allNodes.get(e.source);
+  const tgtNode = allNodes.get(e.target);
+  const direction = srcNode?.direction ?? tgtNode?.direction;
+
+  if (direction !== "up" && direction !== "down") return false;
+
+  const lower = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? srcNode : tgtNode;
+  const upper = (srcNode?.floor ?? 0) < (tgtNode?.floor ?? 0) ? tgtNode : srcNode;
+  const fromId = direction === "up" ? lower!.id : upper!.id;
+  const toId   = direction === "up" ? upper!.id : lower!.id;
+
+  if (!adjacency.has(fromId)) adjacency.set(fromId, []);
+  if (!adjacency.has(toId))   adjacency.set(toId, []);
+  adjacency.get(fromId)!.push({ neighbor: toId, weight: e.weight });
+  return true;
+}
+
+function processEdge(
+  e: IndoorEdge,
+  allNodes: Map<string, IndoorNode>,
+  adjacency: Map<string, { neighbor: string; weight: number }[]>,
+  noStairs: boolean,
+  noEscalators: boolean,
+  noElevators: boolean
+): void {
+  if (e.type === "elevator") {
+    if (!noElevators) addBidirectionalEdge(adjacency, e.source, e.target, e.weight);
+    return;
+  }
+
+  if (e.type !== "stair" && e.type !== "escalator") {
+    addBidirectionalEdge(adjacency, e.source, e.target, e.weight);
+    return;
+  }
+
+  const escalator = isEscalatorEdge(e, allNodes);
+
+  if (escalator && noEscalators) return;
+  if (!escalator && noStairs) return;
+
+  if (escalator && resolveDirectionalEscalator(e, allNodes, adjacency)) return;
+
+  addBidirectionalEdge(adjacency, e.source, e.target, e.weight);
+}
+
+function connectVerticalNodesBySuffix(
+  nodes: Map<string, IndoorNode>,
+  adjacency: Map<string, { neighbor: string; weight: number }[]>,
+  noStairs: boolean,
+  noEscalators: boolean,
+  noElevators: boolean
+): void {
+  const bySuffix = new Map<string, IndoorNode[]>();
+
+  nodes.forEach((node) => {
+    if (!VERTICAL_NODE_TYPES.has(node.type)) return;
+    const match = node.id.match(/_(stair_landing|escalator_landing|elevator_door)_(\d+)$/);
+    if (!match) return;
+    const key = `${match[1]}_${match[2]}`;
+    const list = bySuffix.get(key) ?? [];
+    list.push(node);
+    bySuffix.set(key, list);
+  });
+
+  bySuffix.forEach((connectedNodes) => {
+    if (connectedNodes.length < 2) return;
+    connectedNodes.sort((a, b) => a.floor - b.floor);
+
+    for (let i = 0; i < connectedNodes.length - 1; i++) {
+      const a = connectedNodes[i];
+      const b = connectedNodes[i + 1];
+
+      if (noStairs && a.type === "stair_landing") continue;
+      if (noEscalators && a.type === "escalator_landing") continue;
+      if (noElevators && a.type === "elevator_door") continue;
+      if (a.type === "escalator_landing" && (a.direction === "up" || a.direction === "down")) continue;
+
+      addBidirectionalEdge(adjacency, a.id, b.id, INTER_FLOOR_WEIGHT);
+    }
+  });
+}
 
 function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false, noElevators = false): {
   nodes: Map<string, IndoorNode>;
@@ -190,7 +293,6 @@ function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false,
   const nodes = new Map<string, IndoorNode>();
   const adjacency = new Map<string, { neighbor: string; weight: number }[]>();
 
-  // Build a full node lookup across all floors for cross-floor edge type checks
   const allNodes = new Map<string, IndoorNode>();
   for (const floor of floors) {
     for (const n of floor.nodes as IndoorNode[]) {
@@ -228,8 +330,7 @@ function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false,
       }
       if (!adjacency.has(e.source)) adjacency.set(e.source, []);
       if (!adjacency.has(e.target)) adjacency.set(e.target, []);
-      adjacency.get(e.source)!.push({ neighbor: e.target, weight: e.weight });
-      adjacency.get(e.target)!.push({ neighbor: e.source, weight: e.weight });
+      processEdge(e, allNodes, adjacency, noStairs, noEscalators, noElevators);
     }
   }
 
@@ -743,12 +844,14 @@ function emitFloorChangeStep(
   }
 
   state.inPassThroughFloor = false;
-  const via =
-    prev.type === "elevator_door" || node.type === "elevator_door"
-      ? "elevator"
-      : prev.type === "escalator_landing" || node.type === "escalator_landing"
-        ? "escalator"
-        : "stairs";
+  
+  let via = "stairs";
+  if (prev.type === "elevator_door" || node.type === "elevator_door") {
+    via = "elevator";
+  } else if (prev.type === "escalator_landing" || node.type === "escalator_landing") {
+    via = "escalator";
+  }
+
   const walkPart =
     segDist >= minWalkEmit ? `Walk about ${roundDistanceHuman(segDist)} m, then ` : "";
 
@@ -866,17 +969,27 @@ function emitWalkLeadingToTurnIfNeeded(
   emitOrMergeContinueStraight(state, node, segDist);
 }
 
-function emitTurnWaypoint(
-  state: BuildStepsState,
-  i: number,
-  node: IndoorNode,
-  prev: IndoorNode,
-  next: IndoorNode,
-  turn: "left" | "right",
-  segDist: number,
-  minWalkEmit: number,
-  minContinue: number,
-): void {
+function emitTurnWaypoint({
+  state,
+  i,
+  node,
+  prev,
+  next,
+  turn,
+  segDist,
+  minWalkEmit,
+  minContinue,
+}: {
+  state: BuildStepsState;
+  i: number;
+  node: IndoorNode;
+  prev: IndoorNode;
+  next: IndoorNode;
+  turn: "left" | "right";
+  segDist: number;
+  minWalkEmit: number;
+  minContinue: number;
+}): void {
   emitWalkLeadingToTurnIfNeeded(state, i, node, segDist, minWalkEmit);
 
   state.lastEmittedDistIdx = i;
@@ -968,7 +1081,7 @@ function emitRouteStepsFromSimplifiedNodes(
       continue;
     }
 
-    emitTurnWaypoint(
+    emitTurnWaypoint({
       state,
       i,
       node,
@@ -976,9 +1089,9 @@ function emitRouteStepsFromSimplifiedNodes(
       next,
       turn,
       segDist,
-      MIN_WALK_EMIT,
-      MIN_CONTINUE,
-    );
+      minWalkEmit: MIN_WALK_EMIT,
+      minContinue: MIN_CONTINUE,
+    });
   }
 }
 
@@ -1135,11 +1248,12 @@ function buildIndoorRouteFromDijkstraResult(
   let currentSegment: IndoorPathSegment | null = null;
 
   for (const node of pathNodes) {
-    if (!currentSegment || currentSegment.floor !== node.floor) {
+    const seg = currentSegment as any;
+    if (seg?.floor !== node.floor) {
       if (currentSegment) segments.push(currentSegment);
       currentSegment = { floor: node.floor, points: [] };
     }
-    currentSegment.points.push({ x: node.x, y: node.y });
+    currentSegment!.points.push({ x: node.x, y: node.y });
   }
   if (currentSegment) segments.push(currentSegment);
 

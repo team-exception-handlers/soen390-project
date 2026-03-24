@@ -1,0 +1,27 @@
+# US-3.4: Generate directions to my next class
+
+appId: host.exp.Exponent
+
+---
+- runFlow:
+    file: _launch-expo-go.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+
+- runFlow:
+    file: us3.1-google-calendar-connection.yaml
+
+- extendedWaitUntil:
+    visible:
+      text: "Directions"
+    timeout: 30000
+- tapOn:
+    text: "Directions"
+
+- extendedWaitUntil:
+    visible:
+      id: "route-steps-popup"
+    timeout: 45000

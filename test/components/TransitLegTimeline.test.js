@@ -17,63 +17,63 @@ jest.mock("react-native", () => ({
     View: "View",
 }));
 
+function loadComponent() {
+    return require(path.join(__dirname, "..", "..", "components", "TransitLegTimeline.tsx")).default;
+}
+
+function expand(node) {
+    if (node == null || typeof node === "boolean") return null;
+
+    // Text nodes that are plain strings/numbers
+    if (typeof node === "string" || typeof node === "number") return node;
+
+    // Arrays of children
+    if (Array.isArray(node)) {
+        const out = node.map(expand).filter((x) => x !== null);
+        return out;
+    }
+
+    // React element
+    if (typeof node === "object" && node.$$typeof) {
+        const { type, props } = node;
+
+        // React.Fragment
+        if (type === React.Fragment) {
+            return expand(props?.children);
+        }
+
+        // Function component
+        if (typeof type === "function") {
+            return expand(type(props || {}));
+        }
+
+        // Host component
+        if (typeof type === "string") {
+            const newProps = { ...(props || {}) };
+            if (newProps.children !== undefined) {
+                newProps.children = expand(newProps.children);
+            }
+            return { type, props: newProps };
+        }
+    }
+
+    return null;
+}
+
+function textFrom(node) {
+    if (node == null) return "";
+    if (typeof node === "string" || typeof node === "number") return String(node);
+    if (Array.isArray(node)) return node.map(textFrom).join("");
+    if (typeof node === "object" && node.type === "Text") return textFrom(node.props?.children);
+    if (typeof node === "object" && node.props?.children != null) return textFrom(node.props.children);
+    return "";
+}
+
 describe("components/TransitLegTimeline.tsx (no renderer dependency)", () => {
     beforeEach(() => {
         jest.resetModules();
         jest.clearAllMocks();
     });
-
-    function loadComponent() {
-        return require(path.join(__dirname, "..", "..", "components", "TransitLegTimeline.tsx")).default;
-    }
-
-    function expand(node) {
-        if (node == null || typeof node === "boolean") return null;
-
-        // Text nodes that are plain strings/numbers
-        if (typeof node === "string" || typeof node === "number") return node;
-
-        // Arrays of children
-        if (Array.isArray(node)) {
-            const out = node.map(expand).filter((x) => x !== null);
-            return out;
-        }
-
-        // React element
-        if (typeof node === "object" && node.$$typeof) {
-            const { type, props } = node;
-
-            // React.Fragment
-            if (type === React.Fragment) {
-                return expand(props?.children);
-            }
-
-            // Function component
-            if (typeof type === "function") {
-                return expand(type(props || {}));
-            }
-
-            // Host component
-            if (typeof type === "string") {
-                const newProps = { ...(props || {}) };
-                if (newProps.children !== undefined) {
-                    newProps.children = expand(newProps.children);
-                }
-                return { type, props: newProps };
-            }
-        }
-
-        return null;
-    }
-
-    function textFrom(node) {
-        if (node == null) return "";
-        if (typeof node === "string" || typeof node === "number") return String(node);
-        if (Array.isArray(node)) return node.map(textFrom).join("");
-        if (typeof node === "object" && node.type === "Text") return textFrom(node.props?.children);
-        if (typeof node === "object" && node.props?.children != null) return textFrom(node.props.children);
-        return "";
-    }
 
     function findInArray(arr, regex) {
         for (const child of arr) {
@@ -88,7 +88,7 @@ describe("components/TransitLegTimeline.tsx (no renderer dependency)", () => {
             const t = textFrom(node);
             if (regex.test(t)) return node;
         }
-        if (node.props && node.props.children) {
+        if (node.props?.children) {
             return findByText(node.props.children, regex);
         }
         return null;
@@ -109,7 +109,7 @@ describe("components/TransitLegTimeline.tsx (no renderer dependency)", () => {
 
     function findAllInObject(node, type, acc) {
         if (node.type === type) acc.push(node);
-        if (node.props && node.props.children) {
+        if (node.props?.children) {
             findAllByType(node.props.children, type, acc);
         }
     }

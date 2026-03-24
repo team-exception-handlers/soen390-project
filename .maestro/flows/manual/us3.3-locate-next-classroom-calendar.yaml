@@ -1,0 +1,20 @@
+# US-3.3: Find the location of the classroom from the next (upcoming) Calendar Event
+
+appId: host.exp.Exponent
+
+---
+- runFlow:
+    file: us3.1-google-calendar-connection.yaml
+
+- extendedWaitUntil:
+    visible:
+      text: "Upcoming Events"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: "Primary Calendar"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: "Next Class"
+    timeout: 30000
