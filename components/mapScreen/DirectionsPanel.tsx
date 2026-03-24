@@ -19,6 +19,7 @@ type GetFloorPlanAsset = (key: string) => FloorPlanAsset;
 type RoomInputGroupProps = Readonly<{
   building: BuildingRecord | null;
   room: string;
+  roomInputTestID?: string;
   setRoom: Dispatch<SetStateAction<string>>;
   roomInputTestID?: string;
   styles: MapScreenStyles;
@@ -36,6 +37,7 @@ type RoomInputGroupProps = Readonly<{
 function RoomInputGroup({
   building,
   room,
+  roomInputTestID,
   setRoom,
   roomInputTestID,
   styles,
@@ -55,6 +57,7 @@ function RoomInputGroup({
   return (
     <View style={styles.roomInputContainer}>
       <TextInput
+        testID={roomInputTestID}
         style={styles.roomInput}
         placeholder="Room #"
         placeholderTextColor="rgba(255,255,255,0.4)"
@@ -367,6 +370,7 @@ export default function DirectionsPanel({
           <RoomInputGroup
             building={originBuilding}
             room={originRoom}
+            roomInputTestID="direction-from-room-input"
             setRoom={setOriginRoom}
             roomInputTestID="search-room-from-input"
             styles={styles}
@@ -417,6 +421,7 @@ export default function DirectionsPanel({
           <RoomInputGroup
             building={destinationBuilding}
             room={destinationRoom}
+            roomInputTestID="direction-to-room-input"
             setRoom={setDestinationRoom}
             roomInputTestID="search-room-to-input"
             styles={styles}

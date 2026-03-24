@@ -14,14 +14,19 @@ appId: host.exp.Exponent
 - extendedWaitUntil:
     visible:
       id: "tab-calendar"
-    timeout: 20000
+    timeout: 40000
 - tapOn:
     id: "tab-calendar"
 
 - extendedWaitUntil:
     visible:
-      text: "Directions"
+      text: "Next Class"
     timeout: 30000
+
+- extendedWaitUntil:
+    visible:
+      text: "Directions"
+    timeout: 40000
 - tapOn:
     text: "Directions"
 
