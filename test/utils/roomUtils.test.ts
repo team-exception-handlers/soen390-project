@@ -38,7 +38,7 @@ describe("getRoomsForBuilding", () => {
   test("returns sorted unique room labels for VE", () => {
     const rooms = getRoomsForBuilding("VE");
     expect(rooms.length).toBeGreaterThan(0);
-    const sorted = [...rooms].sort();
+    const sorted = [...rooms].sort((a, b) => a.localeCompare(b));
     expect(rooms).toEqual(sorted);
     expect(new Set(rooms).size).toBe(rooms.length);
     expect(rooms.some((l) => l.toLowerCase().includes("101"))).toBe(true);

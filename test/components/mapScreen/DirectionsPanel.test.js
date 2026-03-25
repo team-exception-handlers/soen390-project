@@ -19,7 +19,14 @@ jest.mock("react-native", () => {
       children,
     );
   };
-  Pressable.propTypes = { children: PropTypes.node };
+  Pressable.propTypes = {
+    children: PropTypes.node,
+    style: PropTypes.oneOfType([
+      PropTypes.object,
+      PropTypes.array,
+      PropTypes.func,
+    ]),
+  };
 
   const Text = ({ children, ...rest }) =>
     React.createElement("Text", rest, children);

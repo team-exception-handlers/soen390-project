@@ -91,7 +91,7 @@ export const getRoomsForBuilding = (buildingCode: string): string[] => {
     }
   }
 
-  return labels.sort();
+  return labels.sort((a, b) => a.localeCompare(b));
 };
 
 export const getRoomDetails = (
