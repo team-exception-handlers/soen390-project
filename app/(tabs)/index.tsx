@@ -81,6 +81,7 @@ import {
   formatTime,
   type TransitItinerary,
 } from "../../utils/transitousDirections";
+import { findNearestWashroomTarget } from "../../utils/washroomSearch";
 
 let WebView: React.ComponentType<any> | null = null;
 if (Platform.OS !== "web") {
@@ -891,8 +892,78 @@ export default function MapScreen() {
       .slice(0, 8);
   }, [campusBuildings, searchText]);
 
+  const washroomSearchResults = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+    const isWashroomQuery =
+      query.includes("washroom") || query.includes("bathroom");
+    if (!isWashroomQuery) return [];
+
+    const washroomParams = {
+      campusBuildings,
+      actualOriginPoint,
+      originBuildingCode: originBuilding?.code ?? null,
+      originRoom,
+      destinationBuildingCode: destinationBuilding?.code ?? null,
+      destinationRoom,
+    };
+
+    const maleWashroomTarget = findNearestWashroomTarget(
+      "male_washroom",
+      washroomParams,
+    );
+    const femaleWashroomTarget = findNearestWashroomTarget(
+      "female_washroom",
+      washroomParams,
+    );
+
+    return [
+      maleWashroomTarget
+        ? {
+          key: "nearest-male-washroom",
+          label: "Nearest male washroom",
+          building: maleWashroomTarget.building,
+          roomLabel: maleWashroomTarget.roomLabel,
+        }
+        : null,
+      femaleWashroomTarget
+        ? {
+          key: "nearest-female-washroom",
+          label: "Nearest female washroom",
+          building: femaleWashroomTarget.building,
+          roomLabel: femaleWashroomTarget.roomLabel,
+        }
+        : null,
+    ].filter((result): result is {
+      key: string;
+      label: string;
+      building: BuildingRecord;
+      roomLabel: string;
+    } => result !== null);
+  }, [
+    actualOriginPoint,
+    campusBuildings,
+    destinationBuilding?.code,
+    destinationRoom,
+    originBuilding?.code,
+    originRoom,
+    searchText,
+  ]);
+
   const handleSearchResultPress = (building: BuildingRecord) => {
     setSelectedBuilding(building.code);
+    setSearchText("");
+    Keyboard.dismiss();
+  };
+
+  const handleWashroomSearchResultPress = (
+    building: BuildingRecord,
+    roomLabel: string,
+  ) => {
+    setSelectedBuilding(null);
+    setDestinationBuildingCode(building.code);
+    setDestinationRoom(roomLabel);
+    setIsDirectionsMode(true);
+    setEditingField(undefined);
     setSearchText("");
     Keyboard.dismiss();
   };
@@ -1886,20 +1957,17 @@ export default function MapScreen() {
           const isCurrent = currentBuilding === buildingCode;
 
           let strokeColor = "#A32638";
-          let fillColor = "#A32638";
+          let fillColor = "rgba(163, 38, 56, 0.2)";
           let strokeWidth = 2;
-          let fillOpacity = 0.2;
 
           if (isSelected) {
             strokeColor = "#238c51";
-            fillColor = "#238c51";
+            fillColor = "rgba(35, 140, 81, 0.5)";
             strokeWidth = 3;
-            fillOpacity = 0.5;
           } else if (isCurrent) {
             strokeColor = "#FFA500";
-            fillColor = "#FFA500";
+            fillColor = "rgba(255, 165, 0, 0.5)";
             strokeWidth = 3;
-            fillOpacity = 0.5;
           }
 
           const fillColorWithOpacity =
@@ -2025,11 +2093,34 @@ export default function MapScreen() {
         searchInputRef={searchInputRef}
       />
 
-      {searchResults.length > 0 && (
+      {(washroomSearchResults.length > 0 || searchResults.length > 0) && (
         <View style={styles.searchResultsContainer} testID="search-results">
           <Text style={styles.searchResultsHint}>
-            Tap a building to set destination (To).
+            {washroomSearchResults.length > 0
+              ? "Tap an option to locate the nearest washroom."
+              : "Tap a building to set destination (To)."}
           </Text>
+          {washroomSearchResults.map((result) => (
+            <Pressable
+              key={result.key}
+              testID={`search-result-${result.key}`}
+              style={styles.searchResultItem}
+              onPress={() =>
+                handleWashroomSearchResultPress(
+                  result.building,
+                  result.roomLabel,
+                )
+              }
+            >
+              <Text style={styles.searchResultCode}>{result.building.code}</Text>
+              <Text style={styles.searchResultName} numberOfLines={1}>
+                {result.label}
+              </Text>
+              <Text style={styles.searchResultAddress} numberOfLines={1}>
+                {`Room ${result.roomLabel} - ${result.building.longName}`}
+              </Text>
+            </Pressable>
+          ))}
           {searchResults.map((building) => (
             <Pressable
               key={building.code}
