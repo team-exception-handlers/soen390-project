@@ -65,6 +65,13 @@ import {
   RouteLoaderResult,
 } from "../../utils/routeCalculators";
 import {
+  NativeMapCallout,
+  NativeMapMarker,
+  NativeMapPolygon,
+  NativeMapPolyline,
+  NativeMapView,
+} from "../../utils/nativeMaps";
+import {
   decodePolyline,
   fetchTransitItineraries,
   formatTime,
@@ -347,11 +354,15 @@ export default function MapScreen() {
     [isWebPlatform, insets.top, insets.bottom],
   );
 
-  let MapViewComponent: React.ComponentType<any> | null = null;
-  let MapMarkerComponent: React.ComponentType<any> | null = null;
-  let MapCalloutComponent: React.ComponentType<any> | null = null;
-  let MapPolygonComponent: React.ComponentType<any> | null = null;
-  let MapPolylineComponent: React.ElementType | null = null;
+  const MapViewComponent = !isWebPlatform && !isExpoGo ? NativeMapView : null;
+  const MapMarkerComponent =
+    !isWebPlatform && !isExpoGo ? NativeMapMarker : null;
+  const MapCalloutComponent =
+    !isWebPlatform && !isExpoGo ? NativeMapCallout : null;
+  const MapPolygonComponent =
+    !isWebPlatform && !isExpoGo ? NativeMapPolygon : null;
+  const MapPolylineComponent =
+    !isWebPlatform && !isExpoGo ? NativeMapPolyline : null;
 
   useEffect(() => {
     if (!isWebPlatform || !webFrameTargetOrigin) return;
@@ -378,24 +389,6 @@ export default function MapScreen() {
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, [isWebPlatform, webFrameTargetOrigin]);
-
-  if (Platform.OS !== "web" && !isExpoGo) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const maps = require("react-native-maps");
-      MapViewComponent = maps.default;
-      MapMarkerComponent = maps.Marker;
-      MapCalloutComponent = maps.Callout;
-      MapPolygonComponent = maps.Polygon;
-      MapPolylineComponent = maps.Polyline;
-    } catch {
-      MapViewComponent = null;
-      MapMarkerComponent = null;
-      MapCalloutComponent = null;
-      MapPolygonComponent = null;
-      MapPolylineComponent = null;
-    }
-  }
 
   const applyDetectedLocationState = useCallback(
     (
