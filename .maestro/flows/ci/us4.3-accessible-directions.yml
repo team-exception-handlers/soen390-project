@@ -1,6 +1,6 @@
 # US-4.3: Accessible directions - CI
 
-appId: com.anonymous.concordiacclassfinder
+appId: com.anonymous.concordiaclassfinder
 
 ---
 - runFlow:

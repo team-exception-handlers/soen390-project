@@ -13,6 +13,21 @@ appId: host.exp.Exponent
 
 - extendedWaitUntil:
     visible:
+      id: "directions-panel"
+    timeout: 20000
+
+- extendedWaitUntil:
+    visible:
+      id: "direction-from-room-input"
+    timeout: 20000
+- tapOn:
+    id: "direction-from-room-input"
+- inputText: "919"
+- tapOn:
+    point: "50%, 50%"
+
+- extendedWaitUntil:
+    visible:
       id: "tab-calendar"
     timeout: 40000
 - tapOn:
@@ -32,16 +47,8 @@ appId: host.exp.Exponent
 
 - extendedWaitUntil:
     visible:
-      id: "route-steps-popup"
-    timeout: 45000
+      id: "indoor-directions-button"
+    timeout: 20000
 
 - tapOn:
-    id: "route-steps-close-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "route-steps-collapsed-tab"
-    timeout: 10000
-
-- assertVisible:
-    id: "route-steps-collapsed-tab"
+    id: "indoor-directions-button"
