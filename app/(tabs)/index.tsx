@@ -46,12 +46,19 @@ import {
 
 import {
   findUserBuilding,
-  hasLocationPermission,
   getInitialLocationFix,
+  hasLocationPermission,
   requestLocationPermission,
   startWatchingLocation,
 } from "../../utils/locationUtils";
 import { getCampusRegion } from "../../utils/mapRegions";
+import {
+  NativeMapCallout,
+  NativeMapMarker,
+  NativeMapPolygon,
+  NativeMapPolyline,
+  NativeMapView,
+} from "../../utils/nativeMaps";
 import {
   fetchOsrmRoute,
   type RouteInstruction,
@@ -64,13 +71,6 @@ import {
   calculateTransitRouteHelper,
   RouteLoaderResult,
 } from "../../utils/routeCalculators";
-import {
-  NativeMapCallout,
-  NativeMapMarker,
-  NativeMapPolygon,
-  NativeMapPolyline,
-  NativeMapView,
-} from "../../utils/nativeMaps";
 import {
   decodePolyline,
   fetchTransitItineraries,
@@ -892,56 +892,56 @@ export default function MapScreen() {
     let cancelled = false;
 
     const applyRouteResult = (res: RouteLoaderResult) => {
-  setRouteCoordinates(res.routeCoordinates);
-  setRouteDurationMinutes(res.routeDurationMinutes);
-  setRouteDistanceMeters(res.routeDistanceMeters);
-  setRouteInstructions(res.routeInstructions);
-  const hasRoute = res.routeCoordinates.length > 0 || res.routeInstructions.length > 0;
+      setRouteCoordinates(res.routeCoordinates);
+      setRouteDurationMinutes(res.routeDurationMinutes);
+      setRouteDistanceMeters(res.routeDistanceMeters);
+      setRouteInstructions(res.routeInstructions);
+      const hasRoute = res.routeCoordinates.length > 0 || res.routeInstructions.length > 0;
 
-  if (hasRoute && !routeInstructionsDismissedRef.current) {
-    setShowRouteInstructions(true);
-  }
-};
+      if (hasRoute && !routeInstructionsDismissedRef.current) {
+        setShowRouteInstructions(true);
+      }
+    };
 
-const fetchRoute = async () => {
-  if (routeMode === "shuttle") {
-    return calculateShuttleRouteHelper(actualOriginPoint, destinationBuilding, selectedShuttleDeparture);
-  }
-  if (routeMode === "transit") {
-    return calculateTransitRouteHelper(actualOriginPoint, destinationBuilding);
-  }
-  return calculateOsrmRouteHelper(actualOriginPoint, destinationBuilding, routeMode, isSameCampus);
-};
+    const fetchRoute = async () => {
+      if (routeMode === "shuttle") {
+        return calculateShuttleRouteHelper(actualOriginPoint, destinationBuilding, selectedShuttleDeparture);
+      }
+      if (routeMode === "transit") {
+        return calculateTransitRouteHelper(actualOriginPoint, destinationBuilding);
+      }
+      return calculateOsrmRouteHelper(actualOriginPoint, destinationBuilding, routeMode, isSameCampus);
+    };
 
-const loadRoute = async () => {
-  resetRouteGeometryState();
-  setRouteLoading(true);
+    const loadRoute = async () => {
+      resetRouteGeometryState();
+      setRouteLoading(true);
 
-  try {
-    const res = await fetchRoute();
+      try {
+        const res = await fetchRoute();
 
-    if (cancelled || !res) return;
+        if (cancelled || !res) return;
 
-    applyRouteResult(res);
+        applyRouteResult(res);
 
-    if (routeMode === "transit") {
-      setTransitItineraries(res.transitItineraries);
-      setSelectedItineraryIndex(0);
-      setExpandedItineraries([]);
-      setRouteStarted(false);
-    } else if (routeMode === "shuttle") {
-      setTransitItineraries(res.transitItineraries);
-      setShuttleWalkToCoords(res.shuttleWalkToCoords);
-      setShuttleDriveCoords(res.shuttleDriveCoords);
-      setShuttleWalkFromCoords(res.shuttleWalkFromCoords);
-    }
-  } catch {
-    if (cancelled) return;
-    resetRouteState();
-  } finally {
-    setRouteLoading(false);
-  }
-};
+        if (routeMode === "transit") {
+          setTransitItineraries(res.transitItineraries);
+          setSelectedItineraryIndex(0);
+          setExpandedItineraries([]);
+          setRouteStarted(false);
+        } else if (routeMode === "shuttle") {
+          setTransitItineraries(res.transitItineraries);
+          setShuttleWalkToCoords(res.shuttleWalkToCoords);
+          setShuttleDriveCoords(res.shuttleDriveCoords);
+          setShuttleWalkFromCoords(res.shuttleWalkFromCoords);
+        }
+      } catch {
+        if (cancelled) return;
+        resetRouteState();
+      } finally {
+        setRouteLoading(false);
+      }
+    };
 
     loadRoute();
 
@@ -1286,29 +1286,29 @@ const loadRoute = async () => {
               const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               const routeMode = ${JSON.stringify(routeMode)};
               const routeCoordinates = ${JSON.stringify(
-                routeCoordinates.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      routeCoordinates.map((point) => [
+        point.latitude,
+        point.longitude,
+      ]),
+    )};
               const shuttleWalkToCoords = ${JSON.stringify(
-                shuttleWalkToCoords.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      shuttleWalkToCoords.map((point) => [
+        point.latitude,
+        point.longitude,
+      ]),
+    )};
               const shuttleDriveCoords = ${JSON.stringify(
-                shuttleDriveCoords.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      shuttleDriveCoords.map((point) => [
+        point.latitude,
+        point.longitude,
+      ]),
+    )};
               const shuttleWalkFromCoords = ${JSON.stringify(
-                shuttleWalkFromCoords.map((point) => [
-                  point.latitude,
-                  point.longitude,
-                ]),
-              )};
+      shuttleWalkFromCoords.map((point) => [
+        point.latitude,
+        point.longitude,
+      ]),
+    )};
 
               // Per-leg transit segments for Leaflet
               const transitSegments = ${JSON.stringify(webTransitSegments)};
@@ -1622,9 +1622,8 @@ const loadRoute = async () => {
 
               updateMarkerVisibility();
 
-              ${
-                userLat && userLng
-                  ? `
+              ${userLat && userLng
+        ? `
               console.log('Adding user marker at:', ${userLat}, ${userLng});
               const userIcon = L.divIcon({
                   className: 'user-marker',
@@ -1634,8 +1633,8 @@ const loadRoute = async () => {
               });
               window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
               `
-                  : 'console.log("No user location available");'
-              }
+        : 'console.log("No user location available");'
+      }
           </script>
       </body>
       </html>
@@ -1719,7 +1718,7 @@ const loadRoute = async () => {
                   setSelectedBuilding(data.buildingCode);
                 if (data?.type === "buildingDeselected")
                   setSelectedBuilding(null);
-              } catch {}
+              } catch { }
               return false;
             }
             return true;
@@ -1735,9 +1734,9 @@ const loadRoute = async () => {
 
   const nativeMapContent =
     MapViewComponent &&
-    MapMarkerComponent &&
-    MapCalloutComponent &&
-    MapPolygonComponent ? (
+      MapMarkerComponent &&
+      MapCalloutComponent &&
+      MapPolygonComponent ? (
       <MapViewComponent
         ref={mapRef}
         testID="map-native"
@@ -1906,10 +1905,10 @@ const loadRoute = async () => {
           const polygonCode = hasExactPolygon
             ? building.code
             : allPolygons.features.find(
-                (f: any) =>
-                  building.code.startsWith(f.properties.code) &&
-                  f.properties.code.length >= 2,
-              )?.properties.code || building.code;
+              (f: any) =>
+                building.code.startsWith(f.properties.code) &&
+                f.properties.code.length >= 2,
+            )?.properties.code || building.code;
 
           return (
             <MapMarkerComponent
@@ -2208,7 +2207,13 @@ const loadRoute = async () => {
             </Pressable>
 
             {activeFloorPlan && (
-              typeof activeFloorPlan === "number" ? (
+              Platform.OS === "web" ? (
+                <Image
+                  source={activeFloorPlan}
+                  style={styles.floorPlanImage}
+                  resizeMode="contain"
+                />
+              ) : typeof activeFloorPlan === "number" ? (
                 <Image
                   source={activeFloorPlan}
                   style={styles.floorPlanImage}
@@ -2216,18 +2221,12 @@ const loadRoute = async () => {
                 />
               ) : (
                 (() => {
-                  const FloorPlanComponent =
-                    activeFloorPlan as React.ComponentType<{
-                      width?: string | number;
-                      height?: string | number;
-                    }>;
+                  const FloorPlanComponent = activeFloorPlan as React.ComponentType<{
+                    width?: string | number;
+                    height?: string | number;
+                  }>;
                   return (
-                    <Svg
-                      width="100%"
-                      height="100%"
-                      viewBox="0 0 1024 1024"
-                      preserveAspectRatio="xMidYMid meet"
-                    >
+                    <Svg width="100%" height="100%" viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid meet">
                       <FloorPlanComponent width={1024} height={1024} />
                     </Svg>
                   );
