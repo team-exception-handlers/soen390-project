@@ -6,8 +6,8 @@ import {
   type SetStateAction,
 } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import type { MapScreenStyles } from "../../styles/mapScreen.styles";
 import type { BuildingRecord } from "../../constants/buildings";
+import type { MapScreenStyles } from "../../styles/mapScreen.styles";
 import { RoomRecord } from "../../types/rooms";
 import type { RouteProfile } from "../../utils/osrmDirections";
 
@@ -20,6 +20,7 @@ type RoomInputGroupProps = Readonly<{
   building: BuildingRecord | null;
   room: string;
   setRoom: Dispatch<SetStateAction<string>>;
+  roomInputTestID?: string;
   styles: MapScreenStyles;
   getRoomDetails: (
     buildingCode: string,
@@ -36,6 +37,7 @@ function RoomInputGroup({
   building,
   room,
   setRoom,
+  roomInputTestID,
   styles,
   getRoomDetails,
   getFloorPlanAsset,
@@ -61,6 +63,7 @@ function RoomInputGroup({
         keyboardType="default"
         onFocus={onFocus}
         onBlur={onBlur}
+        testID={roomInputTestID}
       />
       <Pressable
         style={
@@ -365,6 +368,7 @@ export default function DirectionsPanel({
             building={originBuilding}
             room={originRoom}
             setRoom={setOriginRoom}
+            roomInputTestID="search-room-from-input"
             styles={styles}
             getRoomDetails={getRoomDetails}
             getFloorPlanAsset={getFloorPlanAsset}
@@ -372,7 +376,11 @@ export default function DirectionsPanel({
             setFloorPlanModalVisible={setFloorPlanModalVisible}
             onFocus={() => setFocusedRoom?.("from")}
             onBlur={() =>
-              setTimeout(() => setFocusedRoom?.((prev) => (prev === "from" ? null : prev)), 200)
+              setTimeout(
+                () =>
+                  setFocusedRoom?.((prev) => (prev === "from" ? null : prev)),
+                200,
+              )
             }
           />
         </View>
@@ -410,6 +418,7 @@ export default function DirectionsPanel({
             building={destinationBuilding}
             room={destinationRoom}
             setRoom={setDestinationRoom}
+            roomInputTestID="search-room-to-input"
             styles={styles}
             getRoomDetails={getRoomDetails}
             getFloorPlanAsset={getFloorPlanAsset}
@@ -417,7 +426,10 @@ export default function DirectionsPanel({
             setFloorPlanModalVisible={setFloorPlanModalVisible}
             onFocus={() => setFocusedRoom?.("to")}
             onBlur={() =>
-              setTimeout(() => setFocusedRoom?.((prev) => (prev === "to" ? null : prev)), 200)
+              setTimeout(
+                () => setFocusedRoom?.((prev) => (prev === "to" ? null : prev)),
+                200,
+              )
             }
           />
         </View>
@@ -451,7 +463,7 @@ export default function DirectionsPanel({
             {roomSuggestions.map((label, index) => (
               <Pressable
                 key={label}
-                testID={`room-suggestion-${label}`}
+                testID={`room-suggestion-index-${index}`}
                 style={({ pressed }) => [
                   styles.roomSuggestionItem,
                   index === roomSuggestions.length - 1 &&
