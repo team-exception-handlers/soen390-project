@@ -1,0 +1,71 @@
+# US-4.2: Shortest indoor path - CI
+
+appId: com.anonymous.concordiaclassfinder
+
+---
+- runFlow:
+    file: _launch-app.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+
+- assertVisible: "Where to?"
+- assertVisible:
+    id: "directions-panel"
+- assertVisible:
+    id: "direction-go-button"
+
+# FROM: search "Hall building", confirm, then room 919
+- tapOn:
+    id: "direction-from-button"
+- tapOn:
+    id: "search-input"
+- inputText: "Hall building"
+- extendedWaitUntil:
+    visible:
+      id: "search-result-H"
+    timeout: 15000
+- tapOn:
+    id: "search-result-H"
+- extendedWaitUntil:
+    visible:
+      id: "building-info-directions"
+    timeout: 10000
+- tapOn:
+    id: "building-info-directions"
+
+- tapOn:
+    id: "direction-from-room-input"
+- inputText: "919"
+
+# TO: search "Hall building", confirm, then room 964
+- tapOn:
+    id: "direction-to-button"
+- tapOn:
+    id: "search-input"
+- inputText: "Hall building"
+- extendedWaitUntil:
+    visible:
+      id: "search-result-H"
+    timeout: 15000
+- tapOn:
+    id: "search-result-H"
+- extendedWaitUntil:
+    visible:
+      id: "building-info-directions"
+    timeout: 10000
+- tapOn:
+    id: "building-info-directions"
+
+- tapOn:
+    id: "direction-to-room-input"
+- inputText: "964"
+
+- extendedWaitUntil:
+    visible:
+      id: "indoor-directions-button"
+    timeout: 20000
+- tapOn:
+    id: "indoor-directions-button"

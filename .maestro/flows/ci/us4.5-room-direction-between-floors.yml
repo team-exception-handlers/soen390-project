@@ -1,0 +1,79 @@
+# US-4.5: Room direction between floors - CI
+
+appId: com.anonymous.concordiacclassfinder
+
+---
+- runFlow:
+    file: _launch-app.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+
+- assertVisible: "Where to?"
+- assertVisible:
+    id: "directions-panel"
+- assertVisible:
+    id: "direction-go-button"
+
+# FROM: search "Hall building", confirm, then room 260
+- tapOn:
+    id: "direction-from-button"
+- tapOn:
+    id: "search-input"
+- inputText: "Hall building"
+- extendedWaitUntil:
+    visible:
+      id: "search-result-H"
+    timeout: 15000
+- tapOn:
+    id: "search-result-H"
+- extendedWaitUntil:
+    visible:
+      id: "building-info-directions"
+    timeout: 10000
+- tapOn:
+    id: "building-info-directions"
+
+- tapOn:
+    id: "direction-from-room-input"
+- inputText: "260"
+
+# TO: search "Hall building", confirm, then room 857
+- tapOn:
+    id: "direction-to-button"
+- tapOn:
+    id: "search-input"
+- inputText: "Hall building"
+- extendedWaitUntil:
+    visible:
+      id: "search-result-H"
+    timeout: 15000
+- tapOn:
+    id: "search-result-H"
+- extendedWaitUntil:
+    visible:
+      id: "building-info-directions"
+    timeout: 10000
+- tapOn:
+    id: "building-info-directions"
+
+- tapOn:
+    id: "direction-to-room-input"
+- inputText: "857"
+
+- extendedWaitUntil:
+    visible:
+      id: "indoor-directions-button"
+    timeout: 20000
+- tapOn:
+    id: "indoor-directions-button"
+
+# Switch to Floor 8 for the destination segment
+- extendedWaitUntil:
+    visible:
+      id: "indoor-directions-floor-8"
+    timeout: 20000
+- tapOn:
+    id: "indoor-directions-floor-8"

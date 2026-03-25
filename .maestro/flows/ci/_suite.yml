@@ -21,3 +21,9 @@ appId: com.anonymous.concordiaclassfinder
     file: us2.6-concordia-shuttle.yml
 - runFlow:
     file: us3.x-calendar-flows.yml
+- runFlow:
+    file: us4.2-shortest-path-direction.yml
+- runFlow:
+    file: us4.3-accessible-directions.yml
+- runFlow:
+    file: us4.5-room-direction-between-floors.yml
