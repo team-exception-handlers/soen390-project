@@ -1,4 +1,7 @@
-import { getRoomDetails } from "../../utils/roomUtils";
+import {
+  getRoomDetails,
+  roomLabelMatchesSearchPrefix,
+} from "../../utils/roomUtils";
 
 describe("getRoomDetails", () => {
   test("returns the correct room", () => {
@@ -27,5 +30,20 @@ describe("getRoomDetails", () => {
     expect(room).toBeDefined();
     expect(room?.buildingCode).toBe("MB");
     expect(room?.roomNumber).toBe("S2.330");
+  });
+});
+
+describe("roomLabelMatchesSearchPrefix", () => {
+  test("matches number part prefix for Hall (H-) labels", () => {
+    expect(roomLabelMatchesSearchPrefix("H", "H-867", "8")).toBe(true);
+    expect(roomLabelMatchesSearchPrefix("H", "H-118", "8")).toBe(false);
+    expect(roomLabelMatchesSearchPrefix("H", "H-118", "118")).toBe(true);
+    expect(roomLabelMatchesSearchPrefix("H", "H-867", "h-8")).toBe(true);
+  });
+
+  test("matches full label prefix when user types building code", () => {
+    expect(roomLabelMatchesSearchPrefix("VE", "VE-101", "ve-10")).toBe(true);
+    expect(roomLabelMatchesSearchPrefix("VE", "VE-101", "101")).toBe(true);
+    expect(roomLabelMatchesSearchPrefix("VE", "VE-101", "02")).toBe(false);
   });
 });

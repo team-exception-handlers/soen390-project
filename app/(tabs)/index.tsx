@@ -64,7 +64,11 @@ import {
   type RouteInstruction,
   type RouteProfile,
 } from "../../utils/osrmDirections";
-import { getRoomDetails } from "../../utils/roomUtils";
+import {
+  getRoomDetails,
+  getRoomsForBuilding,
+  roomLabelMatchesSearchPrefix,
+} from "../../utils/roomUtils";
 import {
   calculateOsrmRouteHelper,
   calculateShuttleRouteHelper,
@@ -207,6 +211,8 @@ export default function MapScreen() {
   );
   const [originRoom, setOriginRoom] = useState<string>("");
   const [destinationRoom, setDestinationRoom] = useState<string>("");
+  const [focusedRoom, setFocusedRoom] = useState<"from" | "to" | null>(null);
+  const roomSuggestionPressedRef = useRef(false);
   const [isDirectionsMode, setIsDirectionsMode] = useState(false);
   const [indoorRoute, setIndoorRoute] = useState<IndoorRoute | null | undefined>(
     undefined,
@@ -576,6 +582,23 @@ export default function MapScreen() {
     if (!originBuilding || !destinationBuilding) return true;
     return originBuilding.campus === destinationBuilding.campus;
   }, [originBuilding, destinationBuilding]);
+
+  const roomSuggestions = useMemo(() => {
+    if (!focusedRoom) return [];
+    const building =
+      focusedRoom === "from" ? originBuilding : destinationBuilding;
+    if (!building) return [];
+    const currentRoom = (
+      focusedRoom === "from" ? originRoom : destinationRoom
+    ).trim().toLowerCase();
+    const allRooms = getRoomsForBuilding(building.code);
+    if (!currentRoom) return allRooms.slice(0, 10);
+    return allRooms
+      .filter((r) =>
+        roomLabelMatchesSearchPrefix(building.code, r, currentRoom),
+      )
+      .slice(0, 10);
+  }, [focusedRoom, originBuilding, destinationBuilding, originRoom, destinationRoom]);
 
   useEffect(() => {
     if (isSameCampus) setRouteMode("walking");
@@ -2041,6 +2064,18 @@ export default function MapScreen() {
         getFloorPlanAsset={getFloorPlanAsset}
         onShowIndoorDirections={() => setIndoorDirectionsModalVisible(true)}
         hasIndoorRoute={hasIndoorRoute}
+        focusedRoom={focusedRoom}
+        setFocusedRoom={setFocusedRoom}
+        roomSuggestions={roomSuggestions}
+        onRoomSuggestionPressIn={() => {
+          roomSuggestionPressedRef.current = true;
+        }}
+        onRoomSuggestionSelect={(room, field) => {
+          roomSuggestionPressedRef.current = false;
+          if (field === "from") setOriginRoom(room);
+          else setDestinationRoom(room);
+          setFocusedRoom(null);
+        }}
       />
 
       {currentBuilding &&
@@ -2091,6 +2126,7 @@ export default function MapScreen() {
       )}
 
       {shouldUseWebFallback ? webMapContent : nativeMapContent}
+
       <Pressable
         testID="next-class-floating-button"
         style={styles.nextClassButton}

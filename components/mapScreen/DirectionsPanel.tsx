@@ -5,7 +5,7 @@ import {
   type RefObject,
   type SetStateAction,
 } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import type { MapScreenStyles } from "../../styles/mapScreen.styles";
 import type { BuildingRecord } from "../../constants/buildings";
 import { RoomRecord } from "../../types/rooms";
@@ -28,6 +28,8 @@ type RoomInputGroupProps = Readonly<{
   getFloorPlanAsset: GetFloorPlanAsset;
   setActiveFloorPlan: (asset: FloorPlanAsset) => void;
   setFloorPlanModalVisible: (visible: boolean) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }>;
 
 function RoomInputGroup({
@@ -39,6 +41,8 @@ function RoomInputGroup({
   getFloorPlanAsset,
   setActiveFloorPlan,
   setFloorPlanModalVisible,
+  onFocus,
+  onBlur,
 }: RoomInputGroupProps) {
   if (!building) return null;
 
@@ -55,6 +59,8 @@ function RoomInputGroup({
         value={room}
         onChangeText={setRoom}
         keyboardType="default"
+        onFocus={onFocus}
+        onBlur={onBlur}
       />
       <Pressable
         style={
@@ -276,6 +282,11 @@ type DirectionsPanelProps = Readonly<{
   getFloorPlanAsset: GetFloorPlanAsset;
   onShowIndoorDirections?: () => void;
   hasIndoorRoute?: boolean;
+  focusedRoom?: "from" | "to" | null;
+  setFocusedRoom?: Dispatch<SetStateAction<"from" | "to" | null>>;
+  roomSuggestions?: string[];
+  onRoomSuggestionPressIn?: () => void;
+  onRoomSuggestionSelect?: (room: string, field: "from" | "to") => void;
 }>;
 
 export default function DirectionsPanel({
@@ -306,6 +317,11 @@ export default function DirectionsPanel({
   getFloorPlanAsset,
   onShowIndoorDirections,
   hasIndoorRoute,
+  focusedRoom = null,
+  setFocusedRoom,
+  roomSuggestions = [],
+  onRoomSuggestionPressIn,
+  onRoomSuggestionSelect,
 }: DirectionsPanelProps) {
   const isSameBuilding =
     originBuilding?.code != null &&
@@ -354,6 +370,10 @@ export default function DirectionsPanel({
             getFloorPlanAsset={getFloorPlanAsset}
             setActiveFloorPlan={setActiveFloorPlan}
             setFloorPlanModalVisible={setFloorPlanModalVisible}
+            onFocus={() => setFocusedRoom?.("from")}
+            onBlur={() =>
+              setTimeout(() => setFocusedRoom?.((prev) => (prev === "from" ? null : prev)), 200)
+            }
           />
         </View>
 
@@ -395,6 +415,10 @@ export default function DirectionsPanel({
             getFloorPlanAsset={getFloorPlanAsset}
             setActiveFloorPlan={setActiveFloorPlan}
             setFloorPlanModalVisible={setFloorPlanModalVisible}
+            onFocus={() => setFocusedRoom?.("to")}
+            onBlur={() =>
+              setTimeout(() => setFocusedRoom?.((prev) => (prev === "to" ? null : prev)), 200)
+            }
           />
         </View>
 
@@ -408,6 +432,45 @@ export default function DirectionsPanel({
           </Text>
         </Pressable>
       </View>
+
+      {focusedRoom != null && roomSuggestions.length > 0 && (
+        <View style={styles.roomSuggestionsDropdownWrap}>
+          <ScrollView
+            testID="room-suggestions-list"
+            style={styles.roomSuggestionsDropdown}
+            contentContainerStyle={styles.roomSuggestionsDropdownContent}
+            keyboardShouldPersistTaps="always"
+            nestedScrollEnabled
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.roomSuggestionsHeader}>
+              <Text style={styles.roomSuggestionsHeaderText}>
+                Suggested rooms
+              </Text>
+            </View>
+            {roomSuggestions.map((label, index) => (
+              <Pressable
+                key={label}
+                testID={`room-suggestion-${label}`}
+                style={({ pressed }) => [
+                  styles.roomSuggestionItem,
+                  index === roomSuggestions.length - 1 &&
+                    styles.roomSuggestionItemLast,
+                  pressed && styles.roomSuggestionItemPressed,
+                ]}
+                onPressIn={onRoomSuggestionPressIn}
+                onPress={() => {
+                  if (focusedRoom) {
+                    onRoomSuggestionSelect?.(label, focusedRoom);
+                  }
+                }}
+              >
+                <Text style={styles.roomSuggestionText}>{label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {showIndoorButton && (
         <Pressable
