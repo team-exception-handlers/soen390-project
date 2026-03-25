@@ -901,7 +901,8 @@
       "x": 193,
       "y": 71,
       "label": "234",
-      "accessible": true
+      "accessible": true,
+      "category": "male_washroom"
     },
     {
       "id": "VE_F2_room_104",
@@ -911,7 +912,8 @@
       "x": 236,
       "y": 72,
       "label": "232",
-      "accessible": true
+      "accessible": true,
+      "category":"female_washroom"
     },
     {
       "id": "VE_F2_doorway_92",

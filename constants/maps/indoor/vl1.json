@@ -1121,7 +1121,8 @@
       "x": 676,
       "y": 227,
       "label": "112",
-      "accessible": true
+      "accessible": true,
+      "category": "male_washroom"
     },
     {
       "id": "VL_F1_room_118",
@@ -1131,7 +1132,8 @@
       "x": 750,
       "y": 232,
       "label": "118",
-      "accessible": true
+      "accessible": true,
+      "category":"female_washroom"
     },
     {
       "id": "VL_F1_room_110",
@@ -1141,7 +1143,8 @@
       "x": 685,
       "y": 306,
       "label": "110",
-      "accessible": true
+      "accessible": true,
+      "category":"female_washroom"
     },
     {
       "id": "VL_F1_room_116",
@@ -1151,7 +1154,8 @@
       "x": 748,
       "y": 305,
       "label": "116",
-      "accessible": true
+      "accessible": true,
+      "category": "male_washroom"
     },
     {
       "id": "VL_F1_room_120",

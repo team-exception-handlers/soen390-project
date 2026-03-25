@@ -61,7 +61,8 @@
       "x": 677,
       "y": 302,
       "label": "210",
-      "accessible": true
+      "accessible": true,
+      "category":"female_washroom"
     },
     {
       "id": "VL_F2_room_49",
@@ -71,7 +72,8 @@
       "x": 676,
       "y": 227,
       "label": "212",
-      "accessible": true
+      "accessible": true,
+      "category": "male_washroom"
     },
     {
       "id": "VL_F2_room_50",

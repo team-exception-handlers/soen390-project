@@ -381,7 +381,8 @@
       "x": 655,
       "y": 569,
       "label": "H-802",
-      "accessible": true
+      "accessible": true,
+      "category":"female_washroom"
     },
     {
       "id": "Hall_F8_room_331",
@@ -631,7 +632,8 @@
       "x": 1274,
       "y": 669,
       "label": "H-810",
-      "accessible": true
+      "accessible": true,
+      "category": "male_washroom"
     },
     {
       "id": "Hall_F8_room_356",
@@ -2083,7 +2085,8 @@
       "x": 1386,
       "y": 1466,
       "label": "H-902",
-      "accessible": true
+      "accessible": true,
+      "category":"female_washroom"
     },
     {
       "id": "Hall_F9_room_246",
@@ -2123,7 +2126,8 @@
       "x": 758,
       "y": 1386,
       "label": "H-910",
-      "accessible": true
+      "accessible": true,
+      "category": "male_washroom"
     },
     {
       "id": "Hall_F9_room_252",
@@ -5095,7 +5099,8 @@
       "x": 907,
       "y": 1078,
       "label": "H-114",
-      "accessible": true
+      "accessible": true,
+      "category": "male_washroom"
     },
     {
       "id": "Hall_F1_room_70",
@@ -5105,7 +5110,8 @@
       "x": 914,
       "y": 1339,
       "label": "H-112",
-      "accessible": true
+      "accessible": true,
+      "category":"female_washroom"
     },
     {
       "id": "Hall_F1_room_71",
