@@ -153,15 +153,19 @@ function findNearestBuildingFromSet(
     return candidateBuildings[0];
   }
 
-  return candidateBuildings.reduce((nearest, current) => {
-    const nearestDistanceSquared =
-      (nearest.latitude - actualOriginPoint.latitude) ** 2 +
-      (nearest.longitude - actualOriginPoint.longitude) ** 2;
-    const currentDistanceSquared =
-      (current.latitude - actualOriginPoint.latitude) ** 2 +
-      (current.longitude - actualOriginPoint.longitude) ** 2;
-    return currentDistanceSquared < nearestDistanceSquared ? current : nearest;
-  });
+  const [first, ...rest] = candidateBuildings;
+  return rest.reduce(
+    (nearest, current) => {
+      const nearestDistanceSquared =
+        (nearest.latitude - actualOriginPoint.latitude) ** 2 +
+        (nearest.longitude - actualOriginPoint.longitude) ** 2;
+      const currentDistanceSquared =
+        (current.latitude - actualOriginPoint.latitude) ** 2 +
+        (current.longitude - actualOriginPoint.longitude) ** 2;
+      return currentDistanceSquared < nearestDistanceSquared ? current : nearest;
+    },
+    first,
+  );
 }
 
 export type FindNearestWashroomParams = {
@@ -232,7 +236,8 @@ export function findNearestWashroomTarget(
         );
 
         if (startRoomNode) {
-          const nearestByRoomDistance = buildingWashrooms.reduce(
+          const [firstWashroom, ...otherWashrooms] = buildingWashrooms;
+          const nearestByRoomDistance = otherWashrooms.reduce(
             (nearest, current) => {
               const nearestDistance =
                 Math.abs(nearest.floor - startRoomNode.floor) * 10000 +
@@ -244,6 +249,7 @@ export function findNearestWashroomTarget(
                 (current.y - startRoomNode.y) ** 2;
               return currentDistance < nearestDistance ? current : nearest;
             },
+            firstWashroom,
           );
 
           return {
