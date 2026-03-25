@@ -1,0 +1,4 @@
+appId: com.example.a390_r1_test
+---
+- launchApp
+- assertVisible: "Hello from MainActivity"

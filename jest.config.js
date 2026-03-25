@@ -33,6 +33,8 @@ module.exports = {
         '!metro.config.js',
         '!**/hooks/**',
         '!**/app/**',
+        '!**/utils/nativeMaps.ts',
+        '!**/utils/nativeMaps.web.ts',
         '!**/test/mocks/**',
     ],
     coverageThreshold: {
