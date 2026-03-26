@@ -15,6 +15,26 @@ appId: com.anonymous.concordiaclassfinder
     id: "directions-panel"
 - assertVisible:
     id: "direction-go-button"
+
+# FROM: Hall building, then room suggestions for "86" (H-86xx)
+- tapOn:
+    id: "direction-from-button"
+- tapOn:
+    id: "search-input"
+- inputText: "Hall building"
+- extendedWaitUntil:
+    visible:
+      id: "search-result-H"
+    timeout: 15000
+- tapOn:
+    id: "search-result-H"
+- extendedWaitUntil:
+    visible:
+      id: "building-info-directions"
+    timeout: 10000
+- tapOn:
+    id: "building-info-directions"
+
 - tapOn:
     id: "search-room-from-input"
 - inputText: "86"
@@ -45,7 +65,7 @@ appId: com.anonymous.concordiaclassfinder
 - tapOn:
     id: "route-steps-close-button"
 - tapOn:
-    id: "search-room-to-input"
+    id: "direction-to-room-input"
 - extendedWaitUntil:
     visible:
       id: "room-suggestions-list"
