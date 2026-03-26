@@ -446,4 +446,29 @@ describe("components/IndoorDirectionsModal", () => {
       true,
     );
   });
+
+  test("toggles accessibility settings modal from header", () => {
+    const props = createProps({
+      route: createRoute(),
+    });
+
+    const tree = renderModal(props);
+
+    findByTestID(tree, "indoor-directions-settings-button").props.onPress();
+    expect(mockStates[3]).toBe(true);
+
+    const settingsModal = findAll(
+      tree,
+      (node) =>
+        node?.type === "Modal" && node?.props?.animationType === "fade",
+    )[0];
+    expect(settingsModal).toBeTruthy();
+    settingsModal.props.onRequestClose();
+    expect(mockStates[3]).toBe(false);
+
+    findByTestID(tree, "indoor-directions-settings-overlay").props.onPress();
+    expect(mockStates[3]).toBe(false);
+
+    findByTestID(tree, "indoor-directions-settings-card").props.onPress();
+  });
 });
