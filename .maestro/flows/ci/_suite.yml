@@ -22,6 +22,8 @@ appId: com.anonymous.concordiaclassfinder
 - runFlow:
     file: us3.x-calendar-flows.yml
 - runFlow:
+    file: us4.1-locate-rooms-specific-floor.yml
+- runFlow:
     file: us4.2-shortest-path-direction.yml
 - runFlow:
     file: us4.3-accessible-directions.yml
