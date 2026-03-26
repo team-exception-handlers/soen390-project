@@ -972,11 +972,14 @@ export default function MapScreen() {
       cancelled = true;
     };
   }, [
-    isDirectionsMode,
-    destinationBuilding,
-    actualOriginPoint,
-    routeMode,
-    isSameCampus,
+    [
+      isDirectionsMode,
+      destinationBuilding,
+      actualOriginPoint,
+      routeMode,
+      isSameCampus,
+      selectedShuttleDeparture,
+    ]
   ]);
 
   // Only show pins for buildings that have a polygon (exact or parent e.g. CJ for CJA)
