@@ -1902,15 +1902,27 @@ export default function MapScreen() {
             fillOpacity = 0.5;
           }
 
+          const fillColorWithOpacity =
+            fillColor.startsWith("#") && fillColor.length === 7
+              ? (() => {
+                  const cleaned = fillColor.slice(1);
+                  const intValue = Number.parseInt(cleaned, 16);
+                  const r = (intValue >> 16) & 255;
+                  const g = (intValue >> 8) & 255;
+                  const b = intValue & 255;
+                  const a = Math.max(0, Math.min(1, fillOpacity));
+                  return `rgba(${r}, ${g}, ${b}, ${a})`;
+                })()
+              : fillColor;
+
           return (
             <MapPolygonComponent
               key={buildingCode}
               testID={`polygon-${buildingCode}`}
               coordinates={coordinates}
               strokeColor={strokeColor}
-              fillColor={fillColor}
+              fillColor={fillColorWithOpacity}
               strokeWidth={strokeWidth}
-              fillOpacity={fillOpacity}
               tappable
               onPress={() =>
                 setSelectedBuilding(

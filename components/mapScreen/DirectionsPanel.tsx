@@ -21,6 +21,7 @@ type RoomInputGroupProps = Readonly<{
   room: string;
   setRoom: Dispatch<SetStateAction<string>>;
   styles: MapScreenStyles;
+  roomInputTestID?: string;
   getRoomDetails: (
     buildingCode: string,
     roomNumber: string,
@@ -367,6 +368,11 @@ export default function DirectionsPanel({
             building={originBuilding}
             room={originRoom}
             setRoom={setOriginRoom}
+            roomInputTestID={
+              isDirectionsMode
+                ? "direction-from-room-input"
+                : "search-room-from-input"
+            }
             styles={styles}
             getRoomDetails={getRoomDetails}
             getFloorPlanAsset={getFloorPlanAsset}
@@ -416,6 +422,11 @@ export default function DirectionsPanel({
             building={destinationBuilding}
             room={destinationRoom}
             setRoom={setDestinationRoom}
+            roomInputTestID={
+              isDirectionsMode
+                ? "direction-to-room-input"
+                : "search-room-to-input"
+            }
             styles={styles}
             getRoomDetails={getRoomDetails}
             getFloorPlanAsset={getFloorPlanAsset}
