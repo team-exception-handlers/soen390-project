@@ -1452,6 +1452,20 @@ export default function MapScreen() {
                   updateMarkerVisibility();
               };
 
+              const fitRouteBounds = (bounds) => {
+                  if (bounds) map.fitBounds(bounds, { padding: [50, 50] });
+              };
+
+              const addRouteMarker = (coordinate, color, fillColor) => {
+                  return L.circleMarker(coordinate, {
+                      radius: 6,
+                      color,
+                      fillColor,
+                      fillOpacity: 1,
+                      weight: 2
+                  }).addTo(map);
+              };
+
              const segmentColor = (mode, route) => {
                   if (mode === "WALK") return "#2E7D32";
                   if (mode === "BUS") return "#007AFF";    
@@ -1493,7 +1507,7 @@ export default function MapScreen() {
                 if (routeLayers.length) {
                   hasAnyRoute = true;
                   const group = L.featureGroup(routeLayers);
-                  map.fitBounds(group.getBounds(), { padding: [50, 50] });
+                  fitRouteBounds(group.getBounds());
                 }
               }
 
@@ -1523,7 +1537,7 @@ export default function MapScreen() {
                   }
 
                   const group = L.featureGroup(routeLayers);
-                  map.fitBounds(group.getBounds(), { padding: [50, 50] });
+                  fitRouteBounds(group.getBounds());
                   hasAnyRoute = true;
               }
 
@@ -1544,21 +1558,8 @@ export default function MapScreen() {
                   const routePolyline = L.polyline(routeCoordinates, routeStyle).addTo(map);
                   routeLayers.push(routePolyline);
 
-                  L.circleMarker(routeCoordinates[0], {
-                      radius: 6,
-                      color: '#14532D',
-                      fillColor: '#22C55E',
-                      fillOpacity: 1,
-                      weight: 2
-                  }).addTo(map);
-
-                  L.circleMarker(routeCoordinates[routeCoordinates.length - 1], {
-                      radius: 6,
-                      color: '#7F1D1D',
-                      fillColor: '#EF4444',
-                      fillOpacity: 1,
-                      weight: 2
-                  }).addTo(map);
+                  addRouteMarker(routeCoordinates[0], '#14532D', '#22C55E');
+                  addRouteMarker(routeCoordinates[routeCoordinates.length - 1], '#7F1D1D', '#EF4444');
 
                   map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
                   hasAnyRoute = true;
@@ -1599,6 +1600,18 @@ export default function MapScreen() {
                   notifyHost({ type: 'buildingSelected', buildingCode: buildingCode });
               };
 
+              const handlePolygonSelect = (polygon, buildingCode) => {
+                  if (selectedPolygon) resetPolygonStyle(selectedPolygon);
+
+                  if (selectedPolygon === polygon) {
+                      deselectBuilding();
+                  } else {
+                      polygon.setStyle(selectedPolygonStyle);
+                      selectedPolygon = polygon;
+                      selectBuilding(buildingCode, polygon);
+                  }
+              };
+
               polygonData.features.forEach((feature) => {
                   const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
                   const buildingCode = feature.properties.code;
@@ -1609,10 +1622,7 @@ export default function MapScreen() {
                   polygon.__buildingCode = buildingCode;
 
                   polygon.on('click', function(e) {
-                      if (selectedPolygon) resetPolygonStyle(selectedPolygon);
-                      this.setStyle(selectedPolygonStyle);
-                      selectedPolygon = this;
-                      selectBuilding(buildingCode, this);
+                      handlePolygonSelect(this, buildingCode);
                       L.DomEvent.stopPropagation(e);
                   });
 
@@ -1663,15 +1673,7 @@ export default function MapScreen() {
                       }
 
                       if (polygon) {
-                          if (selectedPolygon) resetPolygonStyle(selectedPolygon);
-
-                          if (selectedPolygon === polygon) {
-                              deselectBuilding();
-                          } else {
-                              polygon.setStyle(selectedPolygonStyle);
-                              selectedPolygon = polygon;
-                              selectBuilding(building.code, polygon);
-                          }
+                          handlePolygonSelect(polygon, building.code);
                       } else {
                           deselectBuilding();
                       }
@@ -1869,35 +1871,40 @@ export default function MapScreen() {
           }
 
           if (routeMode === "shuttle") {
+            const shuttleWalkStyle = {
+              strokeColor: "#2E7D32",
+              strokeWidth: 6,
+              lineDashPattern: [2, 12],
+              lineCap: "round" as const,
+            };
+
+            const shuttleDriveStyle = {
+              strokeColor: "#912338",
+              strokeWidth: 6,
+              lineCap: "round" as const,
+            };
+
             return (
               <>
                 {shuttleWalkToCoords.length > 1 && (
                   <MapPolylineComponent
                     testID="route-polyline-shuttle-walk-to"
                     coordinates={shuttleWalkToCoords}
-                    strokeColor="#2E7D32"
-                    strokeWidth={6}
-                    lineDashPattern={[2, 12]}
-                    lineCap="round"
+                    {...shuttleWalkStyle}
                   />
                 )}
                 {shuttleDriveCoords.length > 1 && (
                   <MapPolylineComponent
                     testID="route-polyline-shuttle-drive"
                     coordinates={shuttleDriveCoords}
-                    strokeColor="#912338"
-                    strokeWidth={6}
-                    lineCap="round"
+                    {...shuttleDriveStyle}
                   />
                 )}
                 {shuttleWalkFromCoords.length > 1 && (
                   <MapPolylineComponent
                     testID="route-polyline-shuttle-walk-from"
                     coordinates={shuttleWalkFromCoords}
-                    strokeColor="#2E7D32"
-                    strokeWidth={6}
-                    lineDashPattern={[2, 12]}
-                    lineCap="round"
+                    {...shuttleWalkStyle}
                   />
                 )}
               </>
