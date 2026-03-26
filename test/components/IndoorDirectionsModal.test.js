@@ -132,6 +132,7 @@ jest.mock("../../utils/indoorDirections", () => {
   return {
     ...actual,
     findIndoorRoute: jest.fn(actual.findIndoorRoute),
+    getSpecialNodesForFloor: jest.fn(actual.getSpecialNodesForFloor),
   };
 });
 
@@ -285,6 +286,31 @@ describe("components/IndoorDirectionsModal", () => {
     expect(circles.length).toBeGreaterThanOrEqual(2);
     expect(circles.some((c) => c.props.fill === "#238c51")).toBe(true); // start pin
     expect(circles.some((c) => c.props.fill === "#D32F2F")).toBe(true); // end pin
+  });
+
+  test("skips special nodes mapping inside route overlay when a route exists (covers line 478)", () => {
+    indoorDirections.getSpecialNodesForFloor.mockImplementation(() => [
+      { id: "test-node", x: 20, y: 20, type: "bathroom" },
+    ]);
+
+    const props = createProps({
+      buildingCode: "MB",
+      route: createRoute(),
+    });
+
+    findByTestID(renderModal(props), "indoor-directions-map").props.onLayout({
+      nativeEvent: { layout: { width: 200, height: 100 } },
+    });
+
+    const tree = renderModal(props);
+
+    expect(indoorDirections.getSpecialNodesForFloor).toHaveBeenCalledWith("MB", 1);
+
+    const circles = findAll(tree, (node) => node?.type === "Circle");
+    // 2 route point markers + 1 mocked special node in the route overlay.
+    // If the line 478 logic were not used, a second overlay would add the node again.
+    expect(circles.length).toBe(3);
+    expect(circles.some((c) => c.props.fill === "#2196F3")).toBe(true);
   });
 
   test("uses graph bounds when provided and renders a single-point route without a polyline", () => {
