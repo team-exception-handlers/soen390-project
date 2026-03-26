@@ -743,52 +743,83 @@ export default function MapScreen() {
     resetRouteState();
   };
 
-  const handleCampusChange = (nextCampus: Campus) => {
-    if (isDirectionsMode) {
-      setCampus(nextCampus);
-      const polygons =
-        nextCampus === "SGW" ? SGW_POLYGONS.features : LOY_POLYGONS.features;
-      const newRegion = getCampusRegion(nextCampus, polygons);
-      setMapViewportRegion(newRegion);
-      if (!isWebPlatform && mapRef.current?.animateToRegion) {
-        mapRef.current.animateToRegion(newRegion, 450);
+  const setDestinationAndEnterDirectionsMode = (
+    building: string | null,
+    room?: string | null,
+    clearInputs = true,
+  ) => {
+    if (!building) return; // Safeguard: building is required
+    
+    setDestinationBuildingCode(building);
+    setDestinationRoom(room ?? "");
+    setIsDirectionsMode(true);
+    setEditingField(undefined);
+    if (clearInputs) {
+      setSelectedBuilding(null);
+      setSearchText("");
+    }
+    routeInstructionsDismissedRef.current = false;
+    setShowRouteInstructions(true);
+
+    const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
+    if (destinationRecord && destinationRecord.campus !== campus) {
+      setCampus(destinationRecord.campus);
+    }
+  };
+
+  const animateMapToRegion = useCallback(
+    (region: any, targetCampus: Campus) => {
+      setMapViewportRegion(region);
+
+      if (!isWebPlatform) {
+        mapRef.current?.animateToRegion?.(region, 450);
       }
+
       if (Platform.OS === "web") {
-        const minLat = newRegion.latitude - newRegion.latitudeDelta / 2;
-        const maxLat = newRegion.latitude + newRegion.latitudeDelta / 2;
-        const minLng = newRegion.longitude - newRegion.longitudeDelta / 2;
-        const maxLng = newRegion.longitude + newRegion.longitudeDelta / 2;
+        const minLat = region.latitude - region.latitudeDelta / 2;
+        const maxLat = region.latitude + region.latitudeDelta / 2;
+        const minLng = region.longitude - region.longitudeDelta / 2;
+        const maxLng = region.longitude + region.longitudeDelta / 2;
         postToWebIframe({
           type: "focusBounds",
-          bounds: [
-            [minLat, minLng],
-            [maxLat, maxLng],
-          ],
-          campus: nextCampus,
+          bounds: [[minLat, minLng], [maxLat, maxLng]],
+          campus: targetCampus,
           padding: [20, 20],
         });
       }
+
       if (webViewRef.current && webMapReady) {
         const bounds: [number, number][] = [
           [
-            newRegion.latitude - newRegion.latitudeDelta / 2,
-            newRegion.longitude - newRegion.longitudeDelta / 2,
+            region.latitude - region.latitudeDelta / 2,
+            region.longitude - region.longitudeDelta / 2,
           ],
           [
-            newRegion.latitude + newRegion.latitudeDelta / 2,
-            newRegion.longitude + newRegion.longitudeDelta / 2,
+            region.latitude + region.latitudeDelta / 2,
+            region.longitude + region.longitudeDelta / 2,
           ],
         ];
         const script = `
           (function() {
             if (window.setMapBounds) {
-              window.setMapBounds(${JSON.stringify(bounds)}, [20, 20], ${JSON.stringify(nextCampus)});
+              window.setMapBounds(${JSON.stringify(bounds)}, [20, 20], ${JSON.stringify(targetCampus)});
             }
           })();
           true;
         `;
         webViewRef.current.injectJavaScript(script);
       }
+    },
+    [isWebPlatform, postToWebIframe, webMapReady],
+  );
+
+  const handleCampusChange = (nextCampus: Campus) => {
+    if (isDirectionsMode) {
+      setCampus(nextCampus);
+      const polygons =
+        nextCampus === "SGW" ? SGW_POLYGONS.features : LOY_POLYGONS.features;
+      const newRegion = getCampusRegion(nextCampus, polygons);
+      animateMapToRegion(newRegion, nextCampus);
       return;
     }
     setCampus(nextCampus);
@@ -825,23 +856,10 @@ export default function MapScreen() {
         return;
       }
 
-      setDestinationBuildingCode(building);
-      setDestinationRoom(room ?? "");
-      setIsDirectionsMode(true);
-      setEditingField(undefined);
-      setSelectedBuilding(null);
-      setSearchText("");
-      routeInstructionsDismissedRef.current = false;
-      setShowRouteInstructions(true);
-
-      const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
-      if (destinationRecord && destinationRecord.campus !== campus) {
-        setCampus(destinationRecord.campus);
-      }
-
       const className = nextEvent.summary ?? "your next class";
       const location = room ? `${building}-${room}` : building;
 
+      setDestinationAndEnterDirectionsMode(building, room);
       setNextClassMessage(`Directions set to ${className} (${location}).`);
     } catch (error) {
       console.error("Failed to get next class directions:", error);
@@ -978,12 +996,7 @@ export default function MapScreen() {
     building: BuildingRecord,
     roomLabel: string,
   ) => {
-    setSelectedBuilding(null);
-    setDestinationBuildingCode(building.code);
-    setDestinationRoom(roomLabel);
-    setIsDirectionsMode(true);
-    setEditingField(undefined);
-    setSearchText("");
+    setDestinationAndEnterDirectionsMode(building.code, roomLabel, true);
     Keyboard.dismiss();
   };
 
@@ -1182,43 +1195,8 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (isDirectionsMode) return;
-
-    setMapViewportRegion(region);
-
-    if (!isWebPlatform) {
-      mapRef.current?.animateToRegion?.(region, 450);
-    }
-
-    if (Platform.OS === "web") {
-      postToWebIframe({
-        type: "focusBounds",
-        bounds: campusBounds,
-        campus,
-        padding: [20, 20],
-      });
-      return;
-    }
-
-    if (webViewRef.current && webMapReady) {
-      const script = `
-        (function() {
-          if (window.setMapBounds) {
-            window.setMapBounds(${JSON.stringify(campusBounds)}, [20, 20], ${JSON.stringify(campus)});
-          }
-        })();
-        true;
-      `;
-      webViewRef.current.injectJavaScript(script);
-    }
-  }, [
-    campus,
-    campusBounds,
-    isDirectionsMode,
-    isWebPlatform,
-    postToWebIframe,
-    region,
-    webMapReady,
-  ]);
+    animateMapToRegion(region, campus);
+  }, [campus, isDirectionsMode, region, animateMapToRegion]);
 
   useEffect(() => {
     if (Platform.OS === "web" || !webViewRef.current || !webMapReady) return;
