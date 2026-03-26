@@ -1909,7 +1909,7 @@ export default function MapScreen() {
               strokeColor={strokeColor}
               fillColor={fillColor}
               strokeWidth={strokeWidth}
-              fillOpacity={fillOpacity}
+              
               tappable
               onPress={() =>
                 setSelectedBuilding(
