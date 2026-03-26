@@ -342,6 +342,16 @@ describe("components/mapScreen/DirectionsPanel", () => {
     expect(props.clearDirections).toHaveBeenCalled();
   });
 
+  test("renders room input testIDs in directions mode", () => {
+    const props = createProps({
+      isDirectionsMode: true,
+    });
+    const el = renderTree(DirectionsPanel(props));
+
+    expect(findByTestID(el, "direction-from-room-input")).not.toBeNull();
+    expect(findByTestID(el, "direction-to-room-input")).not.toBeNull();
+  });
+
   test("renders indoor directions button for same building with rooms", () => {
     const props = createProps({
       originBuilding: originBuilding,
