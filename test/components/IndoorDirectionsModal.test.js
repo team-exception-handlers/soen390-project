@@ -281,7 +281,10 @@ describe("components/IndoorDirectionsModal", () => {
     tree = renderModal(props);
 
     expect(findByType(tree, "Polyline").props.points).toBe("0,50 50,100 100,100");
-    expect(findAll(tree, (node) => node?.type === "Circle")).toHaveLength(2);
+    const circles = findAll(tree, (node) => node?.type === "Circle");
+    expect(circles.length).toBeGreaterThanOrEqual(2);
+    expect(circles.some((c) => c.props.fill === "#238c51")).toBe(true); // start pin
+    expect(circles.some((c) => c.props.fill === "#D32F2F")).toBe(true); // end pin
   });
 
   test("uses graph bounds when provided and renders a single-point route without a polyline", () => {
@@ -307,8 +310,12 @@ describe("components/IndoorDirectionsModal", () => {
     expect(props.graphFloorBounds).toHaveBeenCalledWith(1);
     expect(findByType(tree, "Image").props.source).toBe("ve1.png");
     expect(findAll(tree, (node) => node?.type === "Polyline")).toHaveLength(0);
-    expect(findAll(tree, (node) => node?.type === "Circle")).toHaveLength(2);
-    expect(findAll(tree, (node) => node?.type === "Circle")[0].props.cx).toBe(100);
+    const circles = findAll(tree, (node) => node?.type === "Circle");
+    expect(circles.length).toBeGreaterThanOrEqual(2);
+    expect(circles.some((c) => c.props.fill === "#238c51")).toBe(true);
+    expect(circles.some((c) => c.props.fill === "#D32F2F")).toBe(true);
+    const startCircle = circles.find((c) => c.props.fill === "#238c51");
+    expect(startCircle?.props.cx).toBe(100);
   });
 
   test("renders floor tabs for multi-floor routes and switches the active SVG floor", () => {
