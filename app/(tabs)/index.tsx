@@ -227,9 +227,9 @@ export default function MapScreen() {
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
-  const [routeDurationMinutes, setRouteDurationMinutes] = useState<number | null>(null);
-  const [routeDistanceMeters, setRouteDistanceMeters] = useState<number | null>(null);
-  const [routeLoading, setRouteLoading] = useState(false);
+  const [, setRouteDurationMinutes] = useState<number | null>(null);
+  const [, setRouteDistanceMeters] = useState<number | null>(null);
+  const [, setRouteLoading] = useState(false);
   const [routeInstructions, setRouteInstructions] = useState<
     RouteInstruction[]
   >([]);
@@ -977,6 +977,7 @@ export default function MapScreen() {
     actualOriginPoint,
     routeMode,
     isSameCampus,
+    selectedShuttleDeparture,
   ]);
 
   // Only show pins for buildings that have a polygon (exact or parent e.g. CJ for CJA)
