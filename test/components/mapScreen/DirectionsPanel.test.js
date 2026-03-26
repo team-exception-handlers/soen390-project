@@ -10,9 +10,23 @@ jest.mock("react-native", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
 
-  const Pressable = ({ children, ...rest }) =>
-    React.createElement("Pressable", rest, children);
-  Pressable.propTypes = { children: PropTypes.node };
+  const Pressable = ({ children, style, ...rest }) => {
+    const resolvedStyle =
+      typeof style === "function" ? style({ pressed: false }) : style;
+    return React.createElement(
+      "Pressable",
+      { ...rest, style: resolvedStyle },
+      children,
+    );
+  };
+  Pressable.propTypes = {
+    children: PropTypes.node,
+    style: PropTypes.oneOfType([
+      PropTypes.object,
+      PropTypes.array,
+      PropTypes.func,
+    ]),
+  };
 
   const Text = ({ children, ...rest }) =>
     React.createElement("Text", rest, children);
@@ -24,9 +38,14 @@ jest.mock("react-native", () => {
     React.createElement("View", rest, children);
   View.propTypes = { children: PropTypes.node };
 
+  const ScrollView = ({ children, ...rest }) =>
+    React.createElement("ScrollView", rest, children);
+  ScrollView.propTypes = { children: PropTypes.node };
+
   return {
     Pressable,
     StyleSheet: { create: (styles) => styles },
+    ScrollView,
     Text,
     TextInput,
     View,
@@ -400,5 +419,62 @@ describe("components/mapScreen/DirectionsPanel", () => {
 
     const toButton = findByTestID(el, "direction-to-button");
     expect(toButton.props.style).toContain(props.styles.directionFieldButtonActive);
+  });
+
+  test("room input focus and blur call setFocusedRoom and clear after delay", () => {
+    jest.useFakeTimers();
+    let focusedRoomState = null;
+    const setFocusedRoom = jest.fn((update) => {
+      focusedRoomState =
+        typeof update === "function"
+          ? update(focusedRoomState)
+          : update;
+    });
+
+    const props = createProps({ setFocusedRoom });
+    const el = renderTree(DirectionsPanel(props));
+    const textInputs = findAll(el, (node) => node?.type === "TextInput");
+
+    textInputs[0].props.onFocus();
+    expect(setFocusedRoom).toHaveBeenCalledWith("from");
+
+    textInputs[0].props.onBlur();
+    jest.advanceTimersByTime(200);
+    expect(focusedRoomState).toBeNull();
+
+    setFocusedRoom.mockClear();
+    focusedRoomState = "to";
+    textInputs[0].props.onBlur();
+    jest.advanceTimersByTime(200);
+    expect(focusedRoomState).toBe("to");
+
+    textInputs[1].props.onFocus();
+    expect(setFocusedRoom).toHaveBeenCalledWith("to");
+
+    focusedRoomState = "to";
+    textInputs[1].props.onBlur();
+    jest.advanceTimersByTime(200);
+    expect(focusedRoomState).toBeNull();
+
+    jest.useRealTimers();
+  });
+
+  test("room suggestions list calls press handlers and select callback", () => {
+    const onRoomSuggestionPressIn = jest.fn();
+    const onRoomSuggestionSelect = jest.fn();
+    const props = createProps({
+      focusedRoom: "from",
+      roomSuggestions: ["H-801", "H-802"],
+      onRoomSuggestionPressIn,
+      onRoomSuggestionSelect,
+    });
+    const el = renderTree(DirectionsPanel(props));
+
+    const suggestion = findByTestID(el, "room-suggestion-index-0");
+    expect(suggestion).toBeTruthy();
+    suggestion.props.onPressIn();
+    expect(onRoomSuggestionPressIn).toHaveBeenCalled();
+    suggestion.props.onPress();
+    expect(onRoomSuggestionSelect).toHaveBeenCalledWith("H-801", "from");
   });
 });

@@ -1,0 +1,61 @@
+# US-4.1: Locate rooms on a specific floor
+
+appId: host.exp.Exponent
+
+---
+- runFlow:
+    file: _launch-expo-go.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+- assertVisible: "Where to?"
+- assertVisible:
+    id: "directions-panel"
+- assertVisible:
+    id: "direction-go-button"
+- tapOn:
+    id: "search-room-from-input"
+- inputText: "86"
+- extendedWaitUntil:
+    visible:
+      id: "room-suggestions-list"
+    timeout: 5000
+- tapOn:
+    id: "room-suggestion-index-1"
+
+- tapOn:
+    id: "direction-to-button"
+- tapOn:
+    id: "search-input"
+- inputText: "Hall"
+- extendedWaitUntil:
+    visible:
+      id: "search-results"
+    timeout: 5000
+- tapOn:
+    id: "search-result-H"
+- extendedWaitUntil:
+    visible:
+      id: "building-info-directions"
+    timeout: 5000
+- tapOn:
+    id: "building-info-directions"
+- tapOn:
+    id: "route-steps-close-button"
+- tapOn:
+    id: "search-room-to-input"
+- extendedWaitUntil:
+    visible:
+      id: "room-suggestions-list"
+    timeout: 5000
+- tapOn:
+    id: "room-suggestion-index-2"
+- extendedWaitUntil:
+    visible:
+      id: "indoor-directions-button"
+    timeout: 20000
+
+- tapOn:
+    id: "indoor-directions-button"
