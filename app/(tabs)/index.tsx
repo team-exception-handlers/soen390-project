@@ -26,7 +26,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg from "react-native-svg";
+import Svg, { Circle } from "react-native-svg";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import BuildingInformation from "../../components/BuildingInformation";
 import IndoorDirectionsModal from "../../components/IndoorDirectionsModal";
@@ -42,6 +42,7 @@ import {
   findIndoorRoute,
   getFloorBounds,
   getGraphFloorBounds,
+  getSpecialNodesForFloor,
   type IndoorRoute,
 } from "../../utils/indoorDirections";
 
@@ -165,6 +166,23 @@ const getFloorPlanAsset = (key: string): any => {
   };
   return assets[key] ? assets[key]() : null;
 };
+
+const parseFloorPlanKey = (key: string): { building: string; floor: number } | null => {
+  // Parse floor plan keys like "H-1", "H-2", "MB-1", "MB--2"
+  const match = key.match(/^([A-Z]+)-(-?\d+)$/);
+  if (!match) return null;
+  const building = match[1];
+  const floor = parseInt(match[2], 10);
+  return { building, floor };
+};
+
+const SPECIAL_NODE_COLORS: Record<string, { fill: string; label: string }> = {
+  bathroom: { fill: "#2196F3", label: "Bathroom" }, // Blue
+  stairs: { fill: "#FF9800", label: "Stairs" }, // Orange
+  elevator: { fill: "#F44336", label: "Elevator" }, // Red
+  escalator: { fill: "#4CAF50", label: "Escalator" }, // Green
+};
+
 /* these make it so we can view selected campus and building from the map level */
 const getTransitColor = (mode: string, route?: string) => {
   if (mode === "WALK") return "#2E7D32";
@@ -1981,26 +1999,13 @@ export default function MapScreen() {
             strokeWidth = 3;
           }
 
-          const fillColorWithOpacity =
-            fillColor.startsWith("#") && fillColor.length === 7
-              ? (() => {
-                  const cleaned = fillColor.slice(1);
-                  const intValue = Number.parseInt(cleaned, 16);
-                  const r = (intValue >> 16) & 255;
-                  const g = (intValue >> 8) & 255;
-                  const b = intValue & 255;
-                  const a = Math.max(0, Math.min(1, fillOpacity));
-                  return `rgba(${r}, ${g}, ${b}, ${a})`;
-                })()
-              : fillColor;
-
           return (
             <MapPolygonComponent
               key={buildingCode}
               testID={`polygon-${buildingCode}`}
               coordinates={coordinates}
               strokeColor={strokeColor}
-              fillColor={fillColorWithOpacity}
+              fillColor={fillColor}
               strokeWidth={strokeWidth}
               tappable
               onPress={() =>
@@ -2426,33 +2431,145 @@ export default function MapScreen() {
             ) : null}
 
             <View style={styles.floorPlanModalBody}>
-              {activeFloorPlan && (
-                Platform.OS === "web" ? (
-                  <Image
-                    source={activeFloorPlan}
-                    style={styles.floorPlanImage}
-                    resizeMode="contain"
-                  />
-                ) : typeof activeFloorPlan === "number" ? (
-                  <Image
-                    source={activeFloorPlan}
-                    style={styles.floorPlanImage}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  (() => {
-                    const FloorPlanComponent = activeFloorPlan as React.ComponentType<{
-                      width?: string | number;
-                      height?: string | number;
-                    }>;
-                    return (
-                      <Svg width="100%" height="100%" viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid meet">
-                        <FloorPlanComponent width={1024} height={1024} />
-                      </Svg>
-                    );
-                  })()
-                )
-              )}
+              {activeFloorPlan && selectedFloorPlanKey && (() => {
+                const parsedKey = parseFloorPlanKey(selectedFloorPlanKey);
+                if (!parsedKey) {
+                  // Fallback rendering without nodes
+                  return Platform.OS === "web" ? (
+                    <Image
+                      source={activeFloorPlan}
+                      style={styles.floorPlanImage}
+                      resizeMode="contain"
+                    />
+                  ) : typeof activeFloorPlan === "number" ? (
+                    <Image
+                      source={activeFloorPlan}
+                      style={styles.floorPlanImage}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    (() => {
+                      const FloorPlanComponent = activeFloorPlan as React.ComponentType<{
+                        width?: string | number;
+                        height?: string | number;
+                      }>;
+                      return (
+                        <Svg width="100%" height="100%" viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid meet">
+                          <FloorPlanComponent width={1024} height={1024} />
+                        </Svg>
+                      );
+                    })()
+                  );
+                }
+
+                const specialNodes = getSpecialNodesForFloor(parsedKey.building, parsedKey.floor);
+                const bounds = getFloorBounds(parsedKey.building, parsedKey.floor);
+                const graphBounds = getGraphFloorBounds(parsedKey.building, parsedKey.floor);
+
+                if (Platform.OS === "web") {
+                  return (
+                    <View style={{ position: 'relative', width: '100%', height: '100%' }}>
+                      <Image
+                        source={activeFloorPlan}
+                        style={styles.floorPlanImage}
+                        resizeMode="contain"
+                      />
+                      {specialNodes.length > 0 && (
+                        <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+                          {specialNodes.map((node) => {
+                            const x = (node.x * bounds.width) / graphBounds.width;
+                            const y = (node.y * bounds.height) / graphBounds.height;
+                            const nodeColor = SPECIAL_NODE_COLORS[node.type];
+                            if (!nodeColor) return null;
+                            return (
+                              <Circle
+                                key={node.id}
+                                cx={x}
+                                cy={y}
+                                r={12}
+                                fill={nodeColor.fill}
+                                stroke="white"
+                                strokeWidth={2}
+                                opacity={0.9}
+                              />
+                            );
+                          })}
+                        </Svg>
+                      )}
+                    </View>
+                  );
+                } else if (typeof activeFloorPlan === "number") {
+                  return (
+                    <View style={{ position: 'relative', width: '100%', height: '100%' }}>
+                      <Image
+                        source={activeFloorPlan}
+                        style={styles.floorPlanImage}
+                        resizeMode="contain"
+                      />
+                      {specialNodes.length > 0 && (
+                        <View style={StyleSheet.absoluteFill}>
+                          <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet">
+                            {specialNodes.map((node) => {
+                              const x = (node.x * bounds.width) / graphBounds.width;
+                              const y = (node.y * bounds.height) / graphBounds.height;
+                              const nodeColor = SPECIAL_NODE_COLORS[node.type];
+                              if (!nodeColor) return null;
+                              return (
+                                <Circle
+                                  key={node.id}
+                                  cx={x}
+                                  cy={y}
+                                  r={12}
+                                  fill={nodeColor.fill}
+                                  stroke="white"
+                                  strokeWidth={2}
+                                  opacity={0.9}
+                                />
+                              );
+                            })}
+                          </Svg>
+                        </View>
+                      )}
+                    </View>
+                  );
+                } else {
+                  const FloorPlanComponent = activeFloorPlan as React.ComponentType<{
+                    width?: string | number;
+                    height?: string | number;
+                  }>;
+                  return (
+                    <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet">
+                      <FloorPlanComponent width={bounds.width} height={bounds.height} />
+                      {specialNodes.map((node) => {
+                        const x = (node.x * bounds.width) / graphBounds.width;
+                        const y = (node.y * bounds.height) / graphBounds.height;
+                        const nodeColor = SPECIAL_NODE_COLORS[node.type];
+                        if (!nodeColor) return null;
+                        return (
+                          <Circle
+                            key={node.id}
+                            cx={x}
+                            cy={y}
+                            r={12}
+                            fill={nodeColor.fill}
+                            stroke="white"
+                            strokeWidth={2}
+                            opacity={0.9}
+                          />
+                        );
+                      })}
+                    </Svg>
+                  );
+                }
+              })()}
+            </View>
+            <View style={styles.floorPlanLegend}>
+              {Object.entries(SPECIAL_NODE_COLORS).map(([type, { fill, label }]) => (
+                <View key={type} style={styles.floorPlanLegendItem}>
+                  <View style={[styles.floorPlanLegendSwatch, { backgroundColor: fill }]} />
+                  <Text style={styles.floorPlanLegendText}>{label}</Text>
+                </View>
+              ))}
             </View>
           </View>
         </View>

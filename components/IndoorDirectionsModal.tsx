@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import Svg, { Circle, Polyline, type SvgProps } from "react-native-svg";
 import type { IndoorRoute } from "../utils/indoorDirections";
-import { findIndoorRoute } from "../utils/indoorDirections";
+import { findIndoorRoute, getSpecialNodesForFloor } from "../utils/indoorDirections";
 
 import CC1Plan from "../assets/floor_plans/svg/CC1.svg";
 import H1Plan from "../assets/floor_plans/svg/H1.svg";
@@ -37,6 +37,13 @@ const FLOOR_PLAN_ASSETS: Record<string, FloorPlanAsset> = {
   "VL-1": { kind: "image", source: require("../assets/floor_plans/png/vl_1.png") },
   "VL-2": { kind: "image", source: require("../assets/floor_plans/png/vl_2.png") },
   "CC-1": { kind: "svg", component: CC1Plan },
+};
+
+const SPECIAL_NODE_COLORS: Record<string, { fill: string; label: string }> = {
+  bathroom: { fill: "#2196F3", label: "Bathroom" }, // Blue
+  stairs: { fill: "#FF9800", label: "Stairs" }, // Orange
+  elevator: { fill: "#F44336", label: "Elevator" }, // Red
+  escalator: { fill: "#4CAF50", label: "Escalator" }, // Green
 };
 
 const DEFAULT_FLOOR_BOUNDS = { width: 2000, height: 1500 };
@@ -181,6 +188,10 @@ export default function IndoorDirectionsModal({
     effectiveFloor,
   );
   const allPointsOnFloor = segmentsOnActiveFloor.flatMap((s) => s.points);
+
+  // Get special nodes (bathrooms, stairs, elevators, escalators) for the current floor
+  const specialNodes =
+    effectiveFloor !== null ? getSpecialNodesForFloor(buildingCode, effectiveFloor) : [];
 
   const floorAsset =
     effectiveFloor !== null
@@ -410,6 +421,24 @@ export default function IndoorDirectionsModal({
                         opacity={0.9}
                       />
                     )}
+                    {/* Special floor nodes (bathrooms, stairs, elevators, escalators) */}
+                    {specialNodes.map((node) => {
+                      const { sx, sy } = scalePoint(node.x, node.y);
+                      const nodeColor = SPECIAL_NODE_COLORS[node.type];
+                      if (!nodeColor) return null;
+                      return (
+                        <Circle
+                          key={node.id}
+                          cx={sx}
+                          cy={sy}
+                          r={6}
+                          fill={nodeColor.fill}
+                          stroke="white"
+                          strokeWidth={1.5}
+                          opacity={0.8}
+                        />
+                      );
+                    })}
                     {startPoint && (
                       <Circle
                         cx={startPoint.sx}
@@ -430,6 +459,36 @@ export default function IndoorDirectionsModal({
                         strokeWidth={2}
                       />
                     )}
+                  </Svg>
+                )}
+                
+                {/* Special nodes overlay (always visible when viewing a floor) */}
+                {containerSize.width > 0 && specialNodes.length > 0 && (
+                  <Svg
+                    style={StyleSheet.absoluteFill}
+                    width={containerSize.width}
+                    height={containerSize.height}
+                    pointerEvents="none"
+                  >
+                    {specialNodes.map((node) => {
+                      const { sx, sy } = scalePoint(node.x, node.y);
+                      const nodeColor = SPECIAL_NODE_COLORS[node.type];
+                      if (!nodeColor) return null;
+                      // Skip rendering if already rendered in the route overlay
+                      if (scaledPoints.length > 0) return null;
+                      return (
+                        <Circle
+                          key={node.id}
+                          cx={sx}
+                          cy={sy}
+                          r={6}
+                          fill={nodeColor.fill}
+                          stroke="white"
+                          strokeWidth={1.5}
+                          opacity={0.8}
+                        />
+                      );
+                    })}
                   </Svg>
                 )}
               </View>

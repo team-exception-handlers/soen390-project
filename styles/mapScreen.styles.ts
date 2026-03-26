@@ -102,6 +102,33 @@ export function createMapScreenStyles({
       width: "100%",
       minHeight: 0,
     },
+    floorPlanLegend: {
+      flexDirection: "row",
+      justifyContent: "space-around",
+      alignItems: "center",
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderTopWidth: 1,
+      borderTopColor: "#E0E0E0",
+      backgroundColor: "#FAFAFA",
+    },
+    floorPlanLegendItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    floorPlanLegendSwatch: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 1,
+      borderColor: "#FFFFFF",
+    },
+    floorPlanLegendText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: "#1F1F24",
+    },
     roomInput: {
       flex: 1,
       height: 30,
