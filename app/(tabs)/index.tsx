@@ -2420,6 +2420,26 @@ export default function MapScreen() {
                 const bounds = getFloorBounds(parsedKey.building, parsedKey.floor);
                 const graphBounds = getGraphFloorBounds(parsedKey.building, parsedKey.floor);
 
+                const renderSpecialNodeCircles = () =>
+                  specialNodes.map((node) => {
+                    const x = (node.x * bounds.width) / graphBounds.width;
+                    const y = (node.y * bounds.height) / graphBounds.height;
+                    const nodeColor = SPECIAL_NODE_COLORS[node.type];
+                    if (!nodeColor) return null;
+                    return (
+                      <Circle
+                        key={node.id}
+                        cx={x}
+                        cy={y}
+                        r={12}
+                        fill={nodeColor.fill}
+                        stroke="white"
+                        strokeWidth={2}
+                        opacity={0.9}
+                      />
+                    );
+                  });
+
                 if (Platform.OS === "web") {
                   return (
                     <View style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -2430,24 +2450,7 @@ export default function MapScreen() {
                       />
                       {specialNodes.length > 0 && (
                         <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
-                          {specialNodes.map((node) => {
-                            const x = (node.x * bounds.width) / graphBounds.width;
-                            const y = (node.y * bounds.height) / graphBounds.height;
-                            const nodeColor = SPECIAL_NODE_COLORS[node.type];
-                            if (!nodeColor) return null;
-                            return (
-                              <Circle
-                                key={node.id}
-                                cx={x}
-                                cy={y}
-                                r={12}
-                                fill={nodeColor.fill}
-                                stroke="white"
-                                strokeWidth={2}
-                                opacity={0.9}
-                              />
-                            );
-                          })}
+                          {renderSpecialNodeCircles()}
                         </Svg>
                       )}
                     </View>
@@ -2463,24 +2466,7 @@ export default function MapScreen() {
                       {specialNodes.length > 0 && (
                         <View style={StyleSheet.absoluteFill}>
                           <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet">
-                            {specialNodes.map((node) => {
-                              const x = (node.x * bounds.width) / graphBounds.width;
-                              const y = (node.y * bounds.height) / graphBounds.height;
-                              const nodeColor = SPECIAL_NODE_COLORS[node.type];
-                              if (!nodeColor) return null;
-                              return (
-                                <Circle
-                                  key={node.id}
-                                  cx={x}
-                                  cy={y}
-                                  r={12}
-                                  fill={nodeColor.fill}
-                                  stroke="white"
-                                  strokeWidth={2}
-                                  opacity={0.9}
-                                />
-                              );
-                            })}
+                            {renderSpecialNodeCircles()}
                           </Svg>
                         </View>
                       )}
@@ -2494,24 +2480,7 @@ export default function MapScreen() {
                   return (
                     <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet">
                       <FloorPlanComponent width={bounds.width} height={bounds.height} />
-                      {specialNodes.map((node) => {
-                        const x = (node.x * bounds.width) / graphBounds.width;
-                        const y = (node.y * bounds.height) / graphBounds.height;
-                        const nodeColor = SPECIAL_NODE_COLORS[node.type];
-                        if (!nodeColor) return null;
-                        return (
-                          <Circle
-                            key={node.id}
-                            cx={x}
-                            cy={y}
-                            r={12}
-                            fill={nodeColor.fill}
-                            stroke="white"
-                            strokeWidth={2}
-                            opacity={0.9}
-                          />
-                        );
-                      })}
+                      {renderSpecialNodeCircles()}
                     </Svg>
                   );
                 }
