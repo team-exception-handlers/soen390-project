@@ -18,6 +18,7 @@ import {
   PanResponder,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -44,6 +45,10 @@ import {
   type IndoorRoute,
 } from "../../utils/indoorDirections";
 
+import {
+  getFloorPlanLabelForKey,
+  getFloorPlanOptionsForBuilding,
+} from "../../utils/floorPlanCatalog";
 import {
   findUserBuilding,
   getInitialLocationFix,
@@ -186,6 +191,12 @@ export default function MapScreen() {
   );
   const [floorPlanModalVisible, setFloorPlanModalVisible] = useState(false);
   const [activeFloorPlan, setActiveFloorPlan] = useState<any>(null);
+  const [floorPlanModalOptions, setFloorPlanModalOptions] = useState<
+    { key: string; label: string }[]
+  >([]);
+  const [selectedFloorPlanKey, setSelectedFloorPlanKey] = useState<string | null>(
+    null,
+  );
   const { toBuilding, toRoom } = useLocalSearchParams<{
     toBuilding?: string;
     toRoom?: string;
@@ -2083,6 +2094,36 @@ export default function MapScreen() {
   const hasIndoorRoute =
     indoorRoute === undefined ? undefined : indoorRoute !== null;
 
+  const selectedBuildingFloorPlans = useMemo(
+    () => getFloorPlanOptionsForBuilding(selectedBuilding),
+    [selectedBuilding],
+  );
+
+  const openFloorPlanModal = useCallback((floorKey: string) => {
+    setFloorPlanModalOptions([
+      { key: floorKey, label: getFloorPlanLabelForKey(floorKey) },
+    ]);
+    setSelectedFloorPlanKey(floorKey);
+    setActiveFloorPlan(getFloorPlanAsset(floorKey));
+    setFloorPlanModalVisible(true);
+  }, []);
+
+  const openBuildingFloorPlansFromMap = useCallback(() => {
+    if (!selectedBuilding) return;
+    const opts = getFloorPlanOptionsForBuilding(selectedBuilding);
+    if (opts.length === 0) return;
+    setFloorPlanModalOptions([...opts]);
+    setSelectedFloorPlanKey(opts[0].key);
+    setActiveFloorPlan(getFloorPlanAsset(opts[0].key));
+    setFloorPlanModalVisible(true);
+  }, [selectedBuilding]);
+
+  const closeFloorPlanModal = useCallback(() => {
+    setFloorPlanModalVisible(false);
+    setFloorPlanModalOptions([]);
+    setSelectedFloorPlanKey(null);
+  }, []);
+
   return (
     <View style={styles.container}>
       <AppHeader
@@ -2162,8 +2203,7 @@ export default function MapScreen() {
         setOriginRoom={setOriginRoom}
         destinationRoom={destinationRoom}
         setDestinationRoom={setDestinationRoom}
-        setActiveFloorPlan={setActiveFloorPlan}
-        setFloorPlanModalVisible={setFloorPlanModalVisible}
+        openFloorPlanModal={openFloorPlanModal}
         getRoomDetails={getRoomDetails}
         getFloorPlanAsset={getFloorPlanAsset}
         onShowIndoorDirections={() => setIndoorDirectionsModalVisible(true)}
@@ -2320,6 +2360,8 @@ export default function MapScreen() {
         buildingInfo={buildingInfo}
         buildingPhotoLink={buildingPhotoLink}
         editingField={editingField}
+        floorPlanOptions={selectedBuildingFloorPlans}
+        onOpenFloorPlans={openBuildingFloorPlansFromMap}
         onSelectDestination={(code: string) => {
           if (editingField === "from") {
             originModeRef.current = "manual";
@@ -2336,43 +2378,82 @@ export default function MapScreen() {
         visible={floorPlanModalVisible}
         animationType="fade"
         transparent={true}
+        onRequestClose={closeFloorPlanModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Pressable
               style={styles.modalCloseButton}
-              onPress={() => setFloorPlanModalVisible(false)}
+              onPress={closeFloorPlanModal}
             >
               <X size={24} color="#1F1F24" strokeWidth={2.5} />
             </Pressable>
 
-            {activeFloorPlan && (
-              Platform.OS === "web" ? (
-                <Image
-                  source={activeFloorPlan}
-                  style={styles.floorPlanImage}
-                  resizeMode="contain"
-                />
-              ) : typeof activeFloorPlan === "number" ? (
-                <Image
-                  source={activeFloorPlan}
-                  style={styles.floorPlanImage}
-                  resizeMode="contain"
-                />
-              ) : (
-                (() => {
-                  const FloorPlanComponent = activeFloorPlan as React.ComponentType<{
-                    width?: string | number;
-                    height?: string | number;
-                  }>;
+            {floorPlanModalOptions.length > 1 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.floorPlanModalChipScroll}
+                contentContainerStyle={styles.floorPlanModalChipScrollContent}
+              >
+                {floorPlanModalOptions.map((opt) => {
+                  const active = opt.key === selectedFloorPlanKey;
                   return (
-                    <Svg width="100%" height="100%" viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid meet">
-                      <FloorPlanComponent width={1024} height={1024} />
-                    </Svg>
+                    <Pressable
+                      key={opt.key}
+                      testID={`floor-plan-chip-${opt.key}`}
+                      onPress={() => {
+                        setSelectedFloorPlanKey(opt.key);
+                        setActiveFloorPlan(getFloorPlanAsset(opt.key));
+                      }}
+                      style={[
+                        styles.floorPlanModalChip,
+                        active && styles.floorPlanModalChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.floorPlanModalChipText,
+                          active && styles.floorPlanModalChipTextActive,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </Pressable>
                   );
-                })()
-              )
-            )}
+                })}
+              </ScrollView>
+            ) : null}
+
+            <View style={styles.floorPlanModalBody}>
+              {activeFloorPlan && (
+                Platform.OS === "web" ? (
+                  <Image
+                    source={activeFloorPlan}
+                    style={styles.floorPlanImage}
+                    resizeMode="contain"
+                  />
+                ) : typeof activeFloorPlan === "number" ? (
+                  <Image
+                    source={activeFloorPlan}
+                    style={styles.floorPlanImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  (() => {
+                    const FloorPlanComponent = activeFloorPlan as React.ComponentType<{
+                      width?: string | number;
+                      height?: string | number;
+                    }>;
+                    return (
+                      <Svg width="100%" height="100%" viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid meet">
+                        <FloorPlanComponent width={1024} height={1024} />
+                      </Svg>
+                    );
+                  })()
+                )
+              )}
+            </View>
           </View>
         </View>
       </Modal>

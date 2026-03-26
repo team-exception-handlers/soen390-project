@@ -27,8 +27,7 @@ type RoomInputGroupProps = Readonly<{
     roomNumber: string,
   ) => RoomRecord | undefined;
   getFloorPlanAsset: GetFloorPlanAsset;
-  setActiveFloorPlan: (asset: FloorPlanAsset) => void;
-  setFloorPlanModalVisible: (visible: boolean) => void;
+  openFloorPlanModal: (floorKey: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
 }>;
@@ -41,8 +40,7 @@ function RoomInputGroup({
   styles,
   getRoomDetails,
   getFloorPlanAsset,
-  setActiveFloorPlan,
-  setFloorPlanModalVisible,
+  openFloorPlanModal,
   onFocus,
   onBlur,
 }: RoomInputGroupProps) {
@@ -75,9 +73,7 @@ function RoomInputGroup({
         accessibilityLabel="View Floor Plan"
         onPress={() => {
           if (floorKey) {
-            const asset = getFloorPlanAsset(floorKey);
-            setActiveFloorPlan(asset);
-            setFloorPlanModalVisible(true);
+            openFloorPlanModal(floorKey);
           }
         }}
       >
@@ -276,8 +272,7 @@ type DirectionsPanelProps = Readonly<{
   setOriginRoom: Dispatch<SetStateAction<string>>;
   destinationRoom: string;
   setDestinationRoom: Dispatch<SetStateAction<string>>;
-  setActiveFloorPlan: (asset: FloorPlanAsset) => void;
-  setFloorPlanModalVisible: (visible: boolean) => void;
+  openFloorPlanModal: (floorKey: string) => void;
   getRoomDetails: (
     buildingCode: string,
     roomNumber: string,
@@ -314,8 +309,7 @@ export default function DirectionsPanel({
   setOriginRoom,
   destinationRoom,
   setDestinationRoom,
-  setActiveFloorPlan,
-  setFloorPlanModalVisible,
+  openFloorPlanModal,
   getRoomDetails,
   getFloorPlanAsset,
   onShowIndoorDirections,
@@ -376,8 +370,7 @@ export default function DirectionsPanel({
             styles={styles}
             getRoomDetails={getRoomDetails}
             getFloorPlanAsset={getFloorPlanAsset}
-            setActiveFloorPlan={setActiveFloorPlan}
-            setFloorPlanModalVisible={setFloorPlanModalVisible}
+            openFloorPlanModal={openFloorPlanModal}
             onFocus={() => setFocusedRoom?.("from")}
             onBlur={() =>
               setTimeout(
@@ -430,8 +423,7 @@ export default function DirectionsPanel({
             styles={styles}
             getRoomDetails={getRoomDetails}
             getFloorPlanAsset={getFloorPlanAsset}
-            setActiveFloorPlan={setActiveFloorPlan}
-            setFloorPlanModalVisible={setFloorPlanModalVisible}
+            openFloorPlanModal={openFloorPlanModal}
             onFocus={() => setFocusedRoom?.("to")}
             onBlur={() =>
               setTimeout(
