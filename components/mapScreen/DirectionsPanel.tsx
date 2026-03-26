@@ -19,7 +19,6 @@ type GetFloorPlanAsset = (key: string) => FloorPlanAsset;
 type RoomInputGroupProps = Readonly<{
   building: BuildingRecord | null;
   room: string;
-  roomInputTestID?: string;
   setRoom: Dispatch<SetStateAction<string>>;
   roomInputTestID?: string;
   styles: MapScreenStyles;
@@ -39,7 +38,6 @@ function RoomInputGroup({
   room,
   roomInputTestID,
   setRoom,
-  roomInputTestID,
   styles,
   getRoomDetails,
   getFloorPlanAsset,
@@ -66,7 +64,6 @@ function RoomInputGroup({
         keyboardType="default"
         onFocus={onFocus}
         onBlur={onBlur}
-        testID={roomInputTestID}
       />
       <Pressable
         style={
@@ -372,7 +369,6 @@ export default function DirectionsPanel({
             room={originRoom}
             roomInputTestID="direction-from-room-input"
             setRoom={setOriginRoom}
-            roomInputTestID="search-room-from-input"
             styles={styles}
             getRoomDetails={getRoomDetails}
             getFloorPlanAsset={getFloorPlanAsset}
@@ -423,7 +419,6 @@ export default function DirectionsPanel({
             room={destinationRoom}
             roomInputTestID="direction-to-room-input"
             setRoom={setDestinationRoom}
-            roomInputTestID="search-room-to-input"
             styles={styles}
             getRoomDetails={getRoomDetails}
             getFloorPlanAsset={getFloorPlanAsset}
