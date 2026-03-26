@@ -4,26 +4,26 @@ import * as Location from "expo-location";
 import { useLocalSearchParams } from "expo-router";
 import { ChevronUp, X } from "lucide-react-native";
 import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
 } from "react";
 import {
-  Image,
-  Keyboard,
-  Linking,
-  Modal,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Image,
+    Keyboard,
+    Linking,
+    Modal,
+    PanResponder,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -39,53 +39,53 @@ import { createMapScreenStyles } from "../../styles/mapScreen.styles";
 import { parseLocationParts } from "../../utils/classLocation";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
-  findIndoorRoute,
-  getFloorBounds,
-  getGraphFloorBounds,
-  getSpecialNodesForFloor,
-  type IndoorRoute,
+    findIndoorRoute,
+    getFloorBounds,
+    getGraphFloorBounds,
+    getSpecialNodesForFloor,
+    type IndoorRoute,
 } from "../../utils/indoorDirections";
 
 import {
-  getFloorPlanLabelForKey,
-  getFloorPlanOptionsForBuilding,
+    getFloorPlanLabelForKey,
+    getFloorPlanOptionsForBuilding,
 } from "../../utils/floorPlanCatalog";
 import {
-  findUserBuilding,
-  getInitialLocationFix,
-  hasLocationPermission,
-  requestLocationPermission,
-  startWatchingLocation,
+    findUserBuilding,
+    getInitialLocationFix,
+    hasLocationPermission,
+    requestLocationPermission,
+    startWatchingLocation,
 } from "../../utils/locationUtils";
 import { getCampusRegion } from "../../utils/mapRegions";
 import {
-  NativeMapCallout,
-  NativeMapMarker,
-  NativeMapPolygon,
-  NativeMapPolyline,
-  NativeMapView,
+    NativeMapCallout,
+    NativeMapMarker,
+    NativeMapPolygon,
+    NativeMapPolyline,
+    NativeMapView,
 } from "../../utils/nativeMaps";
 import {
-  fetchOsrmRoute,
-  type RouteInstruction,
-  type RouteProfile,
+    fetchOsrmRoute,
+    type RouteInstruction,
+    type RouteProfile,
 } from "../../utils/osrmDirections";
 import {
-  getRoomDetails,
-  getRoomsForBuilding,
-  roomLabelMatchesSearchPrefix,
+    getRoomDetails,
+    getRoomsForBuilding,
+    roomLabelMatchesSearchPrefix,
 } from "../../utils/roomUtils";
 import {
-  calculateOsrmRouteHelper,
-  calculateShuttleRouteHelper,
-  calculateTransitRouteHelper,
-  RouteLoaderResult,
+    calculateOsrmRouteHelper,
+    calculateShuttleRouteHelper,
+    calculateTransitRouteHelper,
+    RouteLoaderResult,
 } from "../../utils/routeCalculators";
 import {
-  decodePolyline,
-  fetchTransitItineraries,
-  formatTime,
-  type TransitItinerary,
+    decodePolyline,
+    fetchTransitItineraries,
+    formatTime,
+    type TransitItinerary,
 } from "../../utils/transitousDirections";
 import { findNearestWashroomTarget } from "../../utils/washroomSearch";
 
