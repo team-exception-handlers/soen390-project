@@ -37,7 +37,7 @@ appId: com.anonymous.concordiaclassfinder
     id: "building-info-directions"
 
 - tapOn:
-    id: "direction-from-room-input"
+    id: "search-room-from-input"
 - inputText: "244"
 
 # TO: search "Hall building", confirm, then room 857
