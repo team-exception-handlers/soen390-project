@@ -813,6 +813,9 @@ export default function MapScreen() {
     [isWebPlatform, postToWebIframe, webMapReady],
   );
 
+  const transformCoordPair = (coords: Array<{ latitude: number; longitude: number }>) =>
+    coords.map((point) => [point.latitude, point.longitude]);
+
   const handleCampusChange = (nextCampus: Campus) => {
     if (isDirectionsMode) {
       setCampus(nextCampus);
@@ -1007,11 +1010,7 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (!isDirectionsMode || !destinationBuilding || !actualOriginPoint) {
-      resetRouteState();
-      setRouteCoordinates([]);
-      setRouteInstructions([]);
-      setShowRouteInstructions(false);
-      routeInstructionsDismissedRef.current = false;
+      clearRouteState();
       return;
     }
 
@@ -1377,30 +1376,11 @@ export default function MapScreen() {
               const polygonData = ${JSON.stringify(allPolygons)};
               const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               const routeMode = ${JSON.stringify(routeMode)};
-              const routeCoordinates = ${JSON.stringify(
-      routeCoordinates.map((point) => [
-        point.latitude,
-        point.longitude,
-      ]),
-    )};
-              const shuttleWalkToCoords = ${JSON.stringify(
-      shuttleWalkToCoords.map((point) => [
-        point.latitude,
-        point.longitude,
-      ]),
-    )};
-              const shuttleDriveCoords = ${JSON.stringify(
-      shuttleDriveCoords.map((point) => [
-        point.latitude,
-        point.longitude,
-      ]),
-    )};
-              const shuttleWalkFromCoords = ${JSON.stringify(
-      shuttleWalkFromCoords.map((point) => [
-        point.latitude,
-        point.longitude,
-      ]),
-    )};
+              const transformCoords = (coords) => coords.map((p) => [p.latitude, p.longitude]);
+              const routeCoordinates = ${JSON.stringify(transformCoordPair(routeCoordinates))};
+              const shuttleWalkToCoords = ${JSON.stringify(transformCoordPair(shuttleWalkToCoords))};
+              const shuttleDriveCoords = ${JSON.stringify(transformCoordPair(shuttleDriveCoords))};
+              const shuttleWalkFromCoords = ${JSON.stringify(transformCoordPair(shuttleWalkFromCoords))};
 
               // Per-leg transit segments for Leaflet
               const transitSegments = ${JSON.stringify(webTransitSegments)};
@@ -1604,6 +1584,21 @@ export default function MapScreen() {
               map.on('zoomend', updateMarkerVisibility);
               map.on('moveend', updateMarkerVisibility);
 
+              const deselectBuilding = () => {
+                  if (selectedPolygon) {
+                      resetPolygonStyle(selectedPolygon);
+                      selectedPolygon = null;
+                      window.selectedBuildingCode = null;
+                      window.selectedPolygon = null;
+                      notifyHost({ type: 'buildingDeselected' });
+                  }
+              };
+              const selectBuilding = (buildingCode, polygon) => {
+                  window.selectedBuildingCode = buildingCode;
+                  window.selectedPolygon = polygon;
+                  notifyHost({ type: 'buildingSelected', buildingCode: buildingCode });
+              };
+
               polygonData.features.forEach((feature) => {
                   const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
                   const buildingCode = feature.properties.code;
@@ -1617,9 +1612,7 @@ export default function MapScreen() {
                       if (selectedPolygon) resetPolygonStyle(selectedPolygon);
                       this.setStyle(selectedPolygonStyle);
                       selectedPolygon = this;
-                      window.selectedBuildingCode = buildingCode;
-                      window.selectedPolygon = selectedPolygon;
-                      notifyHost({ type: 'buildingSelected', buildingCode: buildingCode });
+                      selectBuilding(buildingCode, this);
                       L.DomEvent.stopPropagation(e);
                   });
 
@@ -1639,13 +1632,7 @@ export default function MapScreen() {
               }
 
               map.on('click', function() {
-                  if (selectedPolygon) {
-                      resetPolygonStyle(selectedPolygon);
-                      selectedPolygon = null;
-                      window.selectedBuildingCode = null;
-                      window.selectedPolygon = null;
-                      notifyHost({ type: 'buildingDeselected' });
-                  }
+                  deselectBuilding();
               });
 
               const createBuildingIcon = (code) => L.divIcon({
@@ -1679,22 +1666,14 @@ export default function MapScreen() {
                           if (selectedPolygon) resetPolygonStyle(selectedPolygon);
 
                           if (selectedPolygon === polygon) {
-                              resetPolygonStyle(selectedPolygon);
-                              selectedPolygon = null;
+                              deselectBuilding();
                           } else {
                               polygon.setStyle(selectedPolygonStyle);
                               selectedPolygon = polygon;
+                              selectBuilding(building.code, polygon);
                           }
-                      }
-
-                      if (selectedPolygon) {
-                        window.selectedBuildingCode = building.code;
-                        window.selectedPolygon = selectedPolygon;
-                        notifyHost({ type: 'buildingSelected', buildingCode: building.code });
                       } else {
-                        window.selectedBuildingCode = null;
-                        window.selectedPolygon = null;
-                        notifyHost({ type: 'buildingDeselected' });
+                          deselectBuilding();
                       }
 
                       L.DomEvent.stopPropagation(e);
