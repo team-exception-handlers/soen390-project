@@ -469,6 +469,10 @@ describe("components/IndoorDirectionsModal", () => {
     findByTestID(tree, "indoor-directions-settings-overlay").props.onPress();
     expect(mockStates[3]).toBe(false);
 
-    findByTestID(tree, "indoor-directions-settings-card").props.onPress();
+    const stopPropagation = jest.fn();
+    findByTestID(tree, "indoor-directions-settings-card").props.onPress({
+      stopPropagation,
+    });
+    expect(stopPropagation).toHaveBeenCalled();
   });
 });

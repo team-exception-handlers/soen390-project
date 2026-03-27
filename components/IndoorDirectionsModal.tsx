@@ -485,7 +485,7 @@ export default function IndoorDirectionsModal({
           <Pressable
             testID="indoor-directions-settings-card"
             style={styles.settingsCard}
-            onPress={() => { }}
+            onPress={(event) => event?.stopPropagation?.()}
           >
             <Text style={styles.settingsTitle}>Accessibility Settings</Text>
             <SettingsRow
@@ -537,13 +537,9 @@ function SettingsRow({
   return (
     <View style={styles.settingsRow}>
       <Text style={styles.settingsRowLabel}>{label}</Text>
-      {switchTestID != null ? (
-        <View testID={switchTestID} collapsable={false}>
-          {switchControl}
-        </View>
-      ) : (
-        switchControl
-      )}
+      <View testID={switchTestID} collapsable={false}>
+        {switchControl}
+      </View>
     </View>
   );
 }
