@@ -18,46 +18,16 @@ appId: com.anonymous.concordiaclassfinder
     id: "direction-go-button"
 
 # FROM: search "Hall building", confirm, then room 244
-- tapOn:
-    id: "direction-from-button"
-- tapOn:
-    id: "search-input"
-- inputText: "Hall building"
-- extendedWaitUntil:
-    visible:
-      id: "search-result-H"
-    timeout: 15000
-- tapOn:
-    id: "search-result-H"
-- extendedWaitUntil:
-    visible:
-      id: "building-info-directions"
-    timeout: 10000
-- tapOn:
-    id: "building-info-directions"
+- runFlow:
+    file: _search-from-hall.yml
 
 - tapOn:
     id: "search-room-from-input"
 - inputText: "244"
 
 # TO: search "Hall building", confirm, then room 857
-- tapOn:
-    id: "direction-to-button"
-- tapOn:
-    id: "search-input"
-- inputText: "Hall building"
-- extendedWaitUntil:
-    visible:
-      id: "search-result-H"
-    timeout: 15000
-- tapOn:
-    id: "search-result-H"
-- extendedWaitUntil:
-    visible:
-      id: "building-info-directions"
-    timeout: 10000
-- tapOn:
-    id: "building-info-directions"
+- runFlow:
+    file: _search-to-hall.yml
 
 - tapOn:
     id: "direction-to-room-input"
