@@ -62,6 +62,7 @@ appId: com.anonymous.concordiaclassfinder
 - tapOn:
     id: "direction-to-room-input"
 - inputText: "964"
+- pressKey: Enter
 
 - extendedWaitUntil:
     visible:
