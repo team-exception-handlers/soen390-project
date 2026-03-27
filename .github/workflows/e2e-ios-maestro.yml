@@ -261,6 +261,20 @@ jobs:
 
       - name: Boot iOS Simulator (after build to avoid memory pressure)
         run: |
+          # Fail fast if CoreSimulator cannot see any runtimes. This is an infra issue
+          # that leads to flaky "app crashed or stopped" failures later in Maestro.
+          if ! xcrun simctl list runtimes | grep -q "iOS"; then
+            echo "::error::CoreSimulator has no visible iOS runtimes"
+            xcrun simctl list runtimes || true
+            xcrun simctl list devices available || true
+            exit 1
+          fi
+
+          # Reset stale simulator services before booting.
+          killall -9 Simulator 2>/dev/null || true
+          killall -9 com.apple.CoreSimulator.CoreSimulatorService 2>/dev/null || true
+          sleep 2
+
           # Boot now that xcodebuild has released memory. The runner has only 14 GB RAM and
           # running the simulator during the build caused silent OOM boot failures.
           xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
@@ -300,6 +314,20 @@ jobs:
             sleep 3
             WAITED=$((WAITED + 3))
           done
+
+          # Lightweight health probe. If this fails, the device may be booted but unhealthy.
+          if ! xcrun simctl io "$DEVICE_UDID" screenshot /tmp/e2e-sim-healthcheck.png >/dev/null 2>&1; then
+            echo "::warning::Simulator health probe failed; rebooting once before tests..."
+            xcrun simctl shutdown "$DEVICE_UDID" 2>/dev/null || true
+            sleep 5
+            xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
+            open -a Simulator
+            sleep 10
+            if ! xcrun simctl io "$DEVICE_UDID" screenshot /tmp/e2e-sim-healthcheck-retry.png >/dev/null 2>&1; then
+              echo "::error::Simulator remains unhealthy after one reboot"
+              exit 1
+            fi
+          fi
 
           # Open the Simulator.app GUI — required on macOS 15 / Xcode 16 for Maestro's XCTest
           # driver to complete its port handshake. Without this the driver times out even though
@@ -389,6 +417,10 @@ jobs:
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
           export MAESTRO_DRIVER_STARTUP_TIMEOUT=600000
+          # Request more verbose CLI/driver logging when supported by the
+          # current Maestro version (ignored if unsupported).
+          export MAESTRO_CLI_LOG_LEVEL=debug
+          export MAESTRO_DRIVER_LOG_LEVEL=debug
           echo "MAESTRO_DRIVER_STARTUP_TIMEOUT=$MAESTRO_DRIVER_STARTUP_TIMEOUT"
           mkdir -p .maestro/output .maestro/debug
           mkdir -p .maestro/recordings
@@ -403,7 +435,14 @@ jobs:
           JUNIT_FILE=".maestro/output/${FLOW_BASE}.xml"
           DEBUG_DIR=".maestro/debug/${FLOW_BASE}"
           LOG_FILE=".maestro/output/${FLOW_BASE}.log"
+          INFRA_MARKER_FILE=".maestro/output/${FLOW_BASE}.infra-instability.txt"
+          RAW_STDOUT_FILE=".maestro/output/${FLOW_BASE}.stdout.log"
+          RAW_STDERR_FILE=".maestro/output/${FLOW_BASE}.stderr.log"
+          RETRY_STDOUT_FILE=".maestro/output/${FLOW_BASE}.retry.stdout.log"
+          RETRY_STDERR_FILE=".maestro/output/${FLOW_BASE}.retry.stderr.log"
+          SIM_LOG_FILE=".maestro/output/${FLOW_BASE}.simulator.log"
           mkdir -p "$DEBUG_DIR"
+          touch "$DEBUG_DIR/.keep" "$RAW_STDOUT_FILE" "$RAW_STDERR_FILE" "$SIM_LOG_FILE"
 
           xcrun simctl io "$DEVICE_UDID" recordVideo --codec=h264 "$VIDEO_FILE" >/tmp/simctl-record-video-${FLOW_BASE}.log 2>&1 &
           REC_PID=$!
@@ -412,15 +451,56 @@ jobs:
             echo "::warning::Failed to start simulator recording for suite run. Check /tmp/simctl-record-video-${FLOW_BASE}.log"
           fi
 
+          # Capture simulator system logs alongside Maestro output for crash/hang triage.
+          xcrun simctl spawn "$DEVICE_UDID" log stream --style compact --level debug --color none >"$SIM_LOG_FILE" 2>&1 &
+          SIMLOG_PID=$!
+          sleep 2
+          if ! kill -0 "$SIMLOG_PID" 2>/dev/null; then
+            echo "::warning::Failed to start simulator log stream"
+          fi
+
           set +e
-          maestro --device "$DEVICE_UDID" test "$SUITE_FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >"$LOG_FILE" 2>&1
+          maestro --device "$DEVICE_UDID" test "$SUITE_FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >"$RAW_STDOUT_FILE" 2>"$RAW_STDERR_FILE"
           FLOW_EXIT=$?
           set -e
+          {
+            echo "==== Maestro stdout (attempt 1) ===="
+            cat "$RAW_STDOUT_FILE" 2>/dev/null || true
+            echo
+            echo "==== Maestro stderr (attempt 1) ===="
+            cat "$RAW_STDERR_FILE" 2>/dev/null || true
+          } > "$LOG_FILE"
           cat "$LOG_FILE"
 
+          SHOULD_RETRY=0
+          RETRY_REASON="none"
           if [ $FLOW_EXIT -ne 0 ] && grep -q "iOS driver not ready in time" "$LOG_FILE"; then
-            echo "::warning::Driver startup timeout for suite run. Retrying once..."
-            # Re-open Simulator.app (may have lost focus) and re-confirm SpringBoard is up
+            SHOULD_RETRY=1
+            RETRY_REASON="driver-timeout"
+          fi
+          if [ $FLOW_EXIT -ne 0 ] && grep -Eq "App crashed or stopped while executing flow|Unable to lookup in current state: Shutting Down|No such process" "$LOG_FILE"; then
+            SHOULD_RETRY=1
+            RETRY_REASON="simulator-instability"
+          fi
+
+          if [ $FLOW_EXIT -ne 0 ] && [ "$SHOULD_RETRY" -eq 1 ]; then
+            echo "::warning::Detected simulator/driver instability signature. Retrying suite once..."
+            if [ "$RETRY_REASON" = "simulator-instability" ]; then
+              {
+                echo "Infra instability marker"
+                echo "reason=simulator-instability"
+                echo "run_id=${GITHUB_RUN_ID}"
+                echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+                echo "timestamp_utc=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+                echo "device_udid=${DEVICE_UDID}"
+                echo "signals=App crashed or stopped / simulator Shutting Down / No such process"
+              } > "$INFRA_MARKER_FILE"
+              echo "::notice::Infra instability marker written: $INFRA_MARKER_FILE"
+            fi
+            # Re-open Simulator.app (may have lost focus), bounce the device, and re-confirm UI readiness.
+            xcrun simctl shutdown "$DEVICE_UDID" 2>/dev/null || true
+            sleep 5
+            xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
             open -a Simulator
             for _i in $(seq 1 20); do
               xcrun simctl spawn "$DEVICE_UDID" launchctl list 2>/dev/null | grep -q "com.apple.SpringBoard" && break
@@ -428,10 +508,23 @@ jobs:
             done
             sleep 10
             set +e
-            maestro --device "$DEVICE_UDID" test "$SUITE_FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >>"$LOG_FILE" 2>&1
+            maestro --device "$DEVICE_UDID" test "$SUITE_FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >"$RETRY_STDOUT_FILE" 2>"$RETRY_STDERR_FILE"
             FLOW_EXIT=$?
             set -e
+            {
+              echo
+              echo "==== Maestro stdout (attempt 2) ===="
+              cat "$RETRY_STDOUT_FILE" 2>/dev/null || true
+              echo
+              echo "==== Maestro stderr (attempt 2) ===="
+              cat "$RETRY_STDERR_FILE" 2>/dev/null || true
+            } >> "$LOG_FILE"
             cat "$LOG_FILE"
+          fi
+
+          if kill -0 "$SIMLOG_PID" 2>/dev/null; then
+            kill -INT "$SIMLOG_PID" 2>/dev/null || true
+            wait "$SIMLOG_PID" 2>/dev/null || true
           fi
 
           if kill -0 "$REC_PID" 2>/dev/null; then
@@ -468,10 +561,6 @@ jobs:
         run: |
           mkdir -p maestro-e2e-logs/diagnostic-reports
           DIAG_DIR="${HOME}/Library/Logs/DiagnosticReports"
-          if [ ! -d "$DIAG_DIR" ]; then
-            echo "No DiagnosticReports directory at $DIAG_DIR"
-            exit 0
-          fi
           # Only reports from this workflow run onward (github.run_started_at), not the runner's
           # full history. Fallback if the timestamp is missing (rare).
           REF="${RUNNER_TEMP}/e2e-diag-cutoff"
@@ -484,13 +573,74 @@ jobs:
             TIME_PRED=( -mmin -120 )
           fi
           FOUND=0
-          while IFS= read -r -d '' f; do
-            if cp "$f" maestro-e2e-logs/diagnostic-reports/ 2>/dev/null; then
-              FOUND=$((FOUND + 1))
-            fi
-          done < <(find "$DIAG_DIR" -maxdepth 2 -type f \( -name "*.ips" -o -name "*.crash" \) "${TIME_PRED[@]}" -print0 2>/dev/null)
-          echo "Copied $FOUND diagnostic report(s) from $DIAG_DIR"
+          if [ -d "$DIAG_DIR" ]; then
+            while IFS= read -r -d '' f; do
+              if cp "$f" maestro-e2e-logs/diagnostic-reports/ 2>/dev/null; then
+                FOUND=$((FOUND + 1))
+              fi
+            done < <(find "$DIAG_DIR" -maxdepth 2 -type f \( -name "*.ips" -o -name "*.crash" -o -name "*.hang" -o -name "*.spin" -o -name "*.diag" \) "${TIME_PRED[@]}" -print0 2>/dev/null)
+          else
+            echo "No DiagnosticReports directory at $DIAG_DIR"
+          fi
+
+          # Broaden failure diagnostics: include recent CoreSimulator logs.
+          SIM_LOGS_DIR="${HOME}/Library/Logs/CoreSimulator"
+          if [ -d "$SIM_LOGS_DIR" ]; then
+            mkdir -p maestro-e2e-logs/diagnostic-reports/core-simulator
+            while IFS= read -r -d '' f; do
+              if cp "$f" maestro-e2e-logs/diagnostic-reports/core-simulator/ 2>/dev/null; then
+                FOUND=$((FOUND + 1))
+              fi
+            done < <(find "$SIM_LOGS_DIR" -type f \( -name "*.log" -o -name "*.tracev3" \) "${TIME_PRED[@]}" -print0 2>/dev/null)
+          else
+            echo "No CoreSimulator logs directory at $SIM_LOGS_DIR"
+          fi
+
+          echo "Copied $FOUND diagnostic artifact(s) from system log directories"
           ls -la maestro-e2e-logs/diagnostic-reports 2>/dev/null || true
+
+      - name: Build Maestro artifact index on failure
+        if: failure()
+        run: |
+          INDEX_FILE="maestro-e2e-logs/artifact-index.txt"
+          mkdir -p maestro-e2e-logs
+          {
+            echo "Maestro E2E Failure Artifact Index"
+            echo "Generated at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo
+
+            echo "== .maestro/output =="
+            if [ -d "maestro-e2e-logs/output" ]; then
+              find "maestro-e2e-logs/output" -type f | sort
+            else
+              echo "(missing)"
+            fi
+            echo
+
+            echo "== .maestro/debug =="
+            if [ -d "maestro-e2e-logs/debug" ]; then
+              find "maestro-e2e-logs/debug" -type f | sort
+            else
+              echo "(missing)"
+            fi
+            echo
+
+            echo "== .maestro/recordings =="
+            if [ -d "maestro-e2e-logs/recordings" ]; then
+              find "maestro-e2e-logs/recordings" -type f | sort
+            else
+              echo "(missing)"
+            fi
+            echo
+
+            echo "== diagnostic-reports =="
+            if [ -d "maestro-e2e-logs/diagnostic-reports" ]; then
+              find "maestro-e2e-logs/diagnostic-reports" -type f | sort
+            else
+              echo "(missing)"
+            fi
+          } > "$INDEX_FILE"
+          echo "Wrote artifact index at $INDEX_FILE"
 
       - name: Upload Maestro artifacts on failure
         if: failure()

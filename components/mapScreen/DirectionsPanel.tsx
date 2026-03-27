@@ -20,8 +20,8 @@ type RoomInputGroupProps = Readonly<{
   building: BuildingRecord | null;
   room: string;
   setRoom: Dispatch<SetStateAction<string>>;
-  roomInputTestID?: string;
   styles: MapScreenStyles;
+  roomInputTestID?: string;
   getRoomDetails: (
     buildingCode: string,
     roomNumber: string,
@@ -36,8 +36,8 @@ type RoomInputGroupProps = Readonly<{
 function RoomInputGroup({
   building,
   room,
-  setRoom,
   roomInputTestID,
+  setRoom,
   styles,
   getRoomDetails,
   getFloorPlanAsset,
@@ -55,6 +55,7 @@ function RoomInputGroup({
   return (
     <View style={styles.roomInputContainer}>
       <TextInput
+        testID={roomInputTestID}
         style={styles.roomInput}
         placeholder="Room #"
         placeholderTextColor="rgba(255,255,255,0.4)"
@@ -63,7 +64,6 @@ function RoomInputGroup({
         keyboardType="default"
         onFocus={onFocus}
         onBlur={onBlur}
-        testID={roomInputTestID}
       />
       <Pressable
         style={
@@ -368,7 +368,11 @@ export default function DirectionsPanel({
             building={originBuilding}
             room={originRoom}
             setRoom={setOriginRoom}
-            roomInputTestID="search-room-from-input"
+            roomInputTestID={
+              isDirectionsMode
+                ? "direction-from-room-input"
+                : "search-room-from-input"
+            }
             styles={styles}
             getRoomDetails={getRoomDetails}
             getFloorPlanAsset={getFloorPlanAsset}
@@ -418,7 +422,11 @@ export default function DirectionsPanel({
             building={destinationBuilding}
             room={destinationRoom}
             setRoom={setDestinationRoom}
-            roomInputTestID="search-room-to-input"
+            roomInputTestID={
+              isDirectionsMode
+                ? "direction-to-room-input"
+                : "search-room-to-input"
+            }
             styles={styles}
             getRoomDetails={getRoomDetails}
             getFloorPlanAsset={getFloorPlanAsset}

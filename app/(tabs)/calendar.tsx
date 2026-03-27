@@ -258,7 +258,7 @@ export default function CalendarScreen() {
     };
 
     restoreToken();
-  }, []);
+  }, [isE2EMode]);
 
   const handleTokenExpired = useCallback(async () => {
     setAccessToken(null);

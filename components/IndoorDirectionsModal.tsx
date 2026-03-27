@@ -310,6 +310,7 @@ export default function IndoorDirectionsModal({
             </View>
             <View style={styles.headerRight}>
               <Pressable
+                testID="indoor-directions-settings-button"
                 style={styles.headerIconButton}
                 onPress={() => setSettingsVisible(true)}
                 accessibilityLabel="Accessibility settings"
@@ -476,12 +477,35 @@ export default function IndoorDirectionsModal({
         animationType="fade"
         onRequestClose={() => setSettingsVisible(false)}
       >
-        <Pressable style={styles.settingsOverlay} onPress={() => setSettingsVisible(false)}>
-          <Pressable style={styles.settingsCard} onPress={() => { }}>
+        <Pressable
+          testID="indoor-directions-settings-overlay"
+          style={styles.settingsOverlay}
+          onPress={() => setSettingsVisible(false)}
+        >
+          <Pressable
+            testID="indoor-directions-settings-card"
+            style={styles.settingsCard}
+            onPress={(event) => event?.stopPropagation?.()}
+          >
             <Text style={styles.settingsTitle}>Accessibility Settings</Text>
-            <SettingsRow label="Stairs" value={stairsEnabled} onChange={setStairsEnabled} />
-            <SettingsRow label="Escalators" value={escalatorsEnabled} onChange={setEscalatorsEnabled} />
-            <SettingsRow label="Elevators" value={elevatorsEnabled} onChange={setElevatorsEnabled} />
+            <SettingsRow
+              label="Stairs"
+              value={stairsEnabled}
+              onChange={setStairsEnabled}
+              switchTestID="indoor-directions-settings-stairs"
+            />
+            <SettingsRow
+              label="Escalators"
+              value={escalatorsEnabled}
+              onChange={setEscalatorsEnabled}
+              switchTestID="indoor-directions-settings-escalators"
+            />
+            <SettingsRow
+              label="Elevators"
+              value={elevatorsEnabled}
+              onChange={setElevatorsEnabled}
+              switchTestID="indoor-directions-settings-elevators"
+            />
           </Pressable>
         </Pressable>
       </Modal>
@@ -493,17 +517,29 @@ function SettingsRow({
   label,
   value,
   onChange,
-}: Readonly<{ label: string; value: boolean; onChange: (v: boolean) => void }>) {
+  switchTestID,
+}: Readonly<{
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  switchTestID?: string;
+}>) {
+  const switchControl = (
+    <Switch
+      value={value}
+      onValueChange={onChange}
+      trackColor={{ false: "#D1D5DB", true: "#34C759" }}
+      thumbColor="#FFFFFF"
+      ios_backgroundColor="#D1D5DB"
+    />
+  );
+
   return (
     <View style={styles.settingsRow}>
       <Text style={styles.settingsRowLabel}>{label}</Text>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        trackColor={{ false: "#D1D5DB", true: "#34C759" }}
-        thumbColor="#FFFFFF"
-        ios_backgroundColor="#D1D5DB"
-      />
+      <View testID={switchTestID} collapsable={false}>
+        {switchControl}
+      </View>
     </View>
   );
 }

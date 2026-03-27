@@ -15,7 +15,7 @@ appId: com.anonymous.concordiaclassfinder
 - extendedWaitUntil:
     visible:
       id: "header-title"
-    timeout: 45000
+    timeout: 25000
 - assertVisible:
     id: "campus-toggle-sgw"
 - assertVisible:
