@@ -389,6 +389,10 @@ jobs:
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
           export MAESTRO_DRIVER_STARTUP_TIMEOUT=600000
+          # Request more verbose CLI/driver logging when supported by the
+          # current Maestro version (ignored if unsupported).
+          export MAESTRO_CLI_LOG_LEVEL=debug
+          export MAESTRO_DRIVER_LOG_LEVEL=debug
           echo "MAESTRO_DRIVER_STARTUP_TIMEOUT=$MAESTRO_DRIVER_STARTUP_TIMEOUT"
           mkdir -p .maestro/output .maestro/debug
           mkdir -p .maestro/recordings
@@ -403,7 +407,13 @@ jobs:
           JUNIT_FILE=".maestro/output/${FLOW_BASE}.xml"
           DEBUG_DIR=".maestro/debug/${FLOW_BASE}"
           LOG_FILE=".maestro/output/${FLOW_BASE}.log"
+          RAW_STDOUT_FILE=".maestro/output/${FLOW_BASE}.stdout.log"
+          RAW_STDERR_FILE=".maestro/output/${FLOW_BASE}.stderr.log"
+          RETRY_STDOUT_FILE=".maestro/output/${FLOW_BASE}.retry.stdout.log"
+          RETRY_STDERR_FILE=".maestro/output/${FLOW_BASE}.retry.stderr.log"
+          SIM_LOG_FILE=".maestro/output/${FLOW_BASE}.simulator.log"
           mkdir -p "$DEBUG_DIR"
+          touch "$DEBUG_DIR/.keep" "$RAW_STDOUT_FILE" "$RAW_STDERR_FILE" "$SIM_LOG_FILE"
 
           xcrun simctl io "$DEVICE_UDID" recordVideo --codec=h264 "$VIDEO_FILE" >/tmp/simctl-record-video-${FLOW_BASE}.log 2>&1 &
           REC_PID=$!
@@ -412,10 +422,25 @@ jobs:
             echo "::warning::Failed to start simulator recording for suite run. Check /tmp/simctl-record-video-${FLOW_BASE}.log"
           fi
 
+          # Capture simulator system logs alongside Maestro output for crash/hang triage.
+          xcrun simctl spawn "$DEVICE_UDID" log stream --style compact --level debug --color none >"$SIM_LOG_FILE" 2>&1 &
+          SIMLOG_PID=$!
+          sleep 2
+          if ! kill -0 "$SIMLOG_PID" 2>/dev/null; then
+            echo "::warning::Failed to start simulator log stream"
+          fi
+
           set +e
-          maestro --device "$DEVICE_UDID" test "$SUITE_FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >"$LOG_FILE" 2>&1
+          maestro --device "$DEVICE_UDID" test "$SUITE_FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >"$RAW_STDOUT_FILE" 2>"$RAW_STDERR_FILE"
           FLOW_EXIT=$?
           set -e
+          {
+            echo "==== Maestro stdout (attempt 1) ===="
+            cat "$RAW_STDOUT_FILE" 2>/dev/null || true
+            echo
+            echo "==== Maestro stderr (attempt 1) ===="
+            cat "$RAW_STDERR_FILE" 2>/dev/null || true
+          } > "$LOG_FILE"
           cat "$LOG_FILE"
 
           if [ $FLOW_EXIT -ne 0 ] && grep -q "iOS driver not ready in time" "$LOG_FILE"; then
@@ -428,10 +453,23 @@ jobs:
             done
             sleep 10
             set +e
-            maestro --device "$DEVICE_UDID" test "$SUITE_FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >>"$LOG_FILE" 2>&1
+            maestro --device "$DEVICE_UDID" test "$SUITE_FLOW" --format junit --output "$JUNIT_FILE" --debug-output "$DEBUG_DIR" >"$RETRY_STDOUT_FILE" 2>"$RETRY_STDERR_FILE"
             FLOW_EXIT=$?
             set -e
+            {
+              echo
+              echo "==== Maestro stdout (attempt 2) ===="
+              cat "$RETRY_STDOUT_FILE" 2>/dev/null || true
+              echo
+              echo "==== Maestro stderr (attempt 2) ===="
+              cat "$RETRY_STDERR_FILE" 2>/dev/null || true
+            } >> "$LOG_FILE"
             cat "$LOG_FILE"
+          fi
+
+          if kill -0 "$SIMLOG_PID" 2>/dev/null; then
+            kill -INT "$SIMLOG_PID" 2>/dev/null || true
+            wait "$SIMLOG_PID" 2>/dev/null || true
           fi
 
           if kill -0 "$REC_PID" 2>/dev/null; then
@@ -468,10 +506,6 @@ jobs:
         run: |
           mkdir -p maestro-e2e-logs/diagnostic-reports
           DIAG_DIR="${HOME}/Library/Logs/DiagnosticReports"
-          if [ ! -d "$DIAG_DIR" ]; then
-            echo "No DiagnosticReports directory at $DIAG_DIR"
-            exit 0
-          fi
           # Only reports from this workflow run onward (github.run_started_at), not the runner's
           # full history. Fallback if the timestamp is missing (rare).
           REF="${RUNNER_TEMP}/e2e-diag-cutoff"
@@ -484,13 +518,74 @@ jobs:
             TIME_PRED=( -mmin -120 )
           fi
           FOUND=0
-          while IFS= read -r -d '' f; do
-            if cp "$f" maestro-e2e-logs/diagnostic-reports/ 2>/dev/null; then
-              FOUND=$((FOUND + 1))
-            fi
-          done < <(find "$DIAG_DIR" -maxdepth 2 -type f \( -name "*.ips" -o -name "*.crash" \) "${TIME_PRED[@]}" -print0 2>/dev/null)
-          echo "Copied $FOUND diagnostic report(s) from $DIAG_DIR"
+          if [ -d "$DIAG_DIR" ]; then
+            while IFS= read -r -d '' f; do
+              if cp "$f" maestro-e2e-logs/diagnostic-reports/ 2>/dev/null; then
+                FOUND=$((FOUND + 1))
+              fi
+            done < <(find "$DIAG_DIR" -maxdepth 2 -type f \( -name "*.ips" -o -name "*.crash" -o -name "*.hang" -o -name "*.spin" -o -name "*.diag" \) "${TIME_PRED[@]}" -print0 2>/dev/null)
+          else
+            echo "No DiagnosticReports directory at $DIAG_DIR"
+          fi
+
+          # Broaden failure diagnostics: include recent CoreSimulator logs.
+          SIM_LOGS_DIR="${HOME}/Library/Logs/CoreSimulator"
+          if [ -d "$SIM_LOGS_DIR" ]; then
+            mkdir -p maestro-e2e-logs/diagnostic-reports/core-simulator
+            while IFS= read -r -d '' f; do
+              if cp "$f" maestro-e2e-logs/diagnostic-reports/core-simulator/ 2>/dev/null; then
+                FOUND=$((FOUND + 1))
+              fi
+            done < <(find "$SIM_LOGS_DIR" -type f \( -name "*.log" -o -name "*.tracev3" \) "${TIME_PRED[@]}" -print0 2>/dev/null)
+          else
+            echo "No CoreSimulator logs directory at $SIM_LOGS_DIR"
+          fi
+
+          echo "Copied $FOUND diagnostic artifact(s) from system log directories"
           ls -la maestro-e2e-logs/diagnostic-reports 2>/dev/null || true
+
+      - name: Build Maestro artifact index on failure
+        if: failure()
+        run: |
+          INDEX_FILE="maestro-e2e-logs/artifact-index.txt"
+          mkdir -p maestro-e2e-logs
+          {
+            echo "Maestro E2E Failure Artifact Index"
+            echo "Generated at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo
+
+            echo "== .maestro/output =="
+            if [ -d "maestro-e2e-logs/output" ]; then
+              find "maestro-e2e-logs/output" -type f | sort
+            else
+              echo "(missing)"
+            fi
+            echo
+
+            echo "== .maestro/debug =="
+            if [ -d "maestro-e2e-logs/debug" ]; then
+              find "maestro-e2e-logs/debug" -type f | sort
+            else
+              echo "(missing)"
+            fi
+            echo
+
+            echo "== .maestro/recordings =="
+            if [ -d "maestro-e2e-logs/recordings" ]; then
+              find "maestro-e2e-logs/recordings" -type f | sort
+            else
+              echo "(missing)"
+            fi
+            echo
+
+            echo "== diagnostic-reports =="
+            if [ -d "maestro-e2e-logs/diagnostic-reports" ]; then
+              find "maestro-e2e-logs/diagnostic-reports" -type f | sort
+            else
+              echo "(missing)"
+            fi
+          } > "$INDEX_FILE"
+          echo "Wrote artifact index at $INDEX_FILE"
 
       - name: Upload Maestro artifacts on failure
         if: failure()
