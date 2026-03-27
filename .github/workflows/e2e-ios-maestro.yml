@@ -261,6 +261,20 @@ jobs:
 
       - name: Boot iOS Simulator (after build to avoid memory pressure)
         run: |
+          # Fail fast if CoreSimulator cannot see any runtimes. This is an infra issue
+          # that leads to flaky "app crashed or stopped" failures later in Maestro.
+          if ! xcrun simctl list runtimes | grep -q "iOS"; then
+            echo "::error::CoreSimulator has no visible iOS runtimes"
+            xcrun simctl list runtimes || true
+            xcrun simctl list devices available || true
+            exit 1
+          fi
+
+          # Reset stale simulator services before booting.
+          killall -9 Simulator 2>/dev/null || true
+          killall -9 com.apple.CoreSimulator.CoreSimulatorService 2>/dev/null || true
+          sleep 2
+
           # Boot now that xcodebuild has released memory. The runner has only 14 GB RAM and
           # running the simulator during the build caused silent OOM boot failures.
           xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
@@ -300,6 +314,20 @@ jobs:
             sleep 3
             WAITED=$((WAITED + 3))
           done
+
+          # Lightweight health probe. If this fails, the device may be booted but unhealthy.
+          if ! xcrun simctl io "$DEVICE_UDID" screenshot /tmp/e2e-sim-healthcheck.png >/dev/null 2>&1; then
+            echo "::warning::Simulator health probe failed; rebooting once before tests..."
+            xcrun simctl shutdown "$DEVICE_UDID" 2>/dev/null || true
+            sleep 5
+            xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
+            open -a Simulator
+            sleep 10
+            if ! xcrun simctl io "$DEVICE_UDID" screenshot /tmp/e2e-sim-healthcheck-retry.png >/dev/null 2>&1; then
+              echo "::error::Simulator remains unhealthy after one reboot"
+              exit 1
+            fi
+          fi
 
           # Open the Simulator.app GUI — required on macOS 15 / Xcode 16 for Maestro's XCTest
           # driver to complete its port handshake. Without this the driver times out even though
@@ -407,6 +435,7 @@ jobs:
           JUNIT_FILE=".maestro/output/${FLOW_BASE}.xml"
           DEBUG_DIR=".maestro/debug/${FLOW_BASE}"
           LOG_FILE=".maestro/output/${FLOW_BASE}.log"
+          INFRA_MARKER_FILE=".maestro/output/${FLOW_BASE}.infra-instability.txt"
           RAW_STDOUT_FILE=".maestro/output/${FLOW_BASE}.stdout.log"
           RAW_STDERR_FILE=".maestro/output/${FLOW_BASE}.stderr.log"
           RETRY_STDOUT_FILE=".maestro/output/${FLOW_BASE}.retry.stdout.log"
@@ -443,9 +472,35 @@ jobs:
           } > "$LOG_FILE"
           cat "$LOG_FILE"
 
+          SHOULD_RETRY=0
+          RETRY_REASON="none"
           if [ $FLOW_EXIT -ne 0 ] && grep -q "iOS driver not ready in time" "$LOG_FILE"; then
-            echo "::warning::Driver startup timeout for suite run. Retrying once..."
-            # Re-open Simulator.app (may have lost focus) and re-confirm SpringBoard is up
+            SHOULD_RETRY=1
+            RETRY_REASON="driver-timeout"
+          fi
+          if [ $FLOW_EXIT -ne 0 ] && grep -Eq "App crashed or stopped while executing flow|Unable to lookup in current state: Shutting Down|No such process" "$LOG_FILE"; then
+            SHOULD_RETRY=1
+            RETRY_REASON="simulator-instability"
+          fi
+
+          if [ $FLOW_EXIT -ne 0 ] && [ "$SHOULD_RETRY" -eq 1 ]; then
+            echo "::warning::Detected simulator/driver instability signature. Retrying suite once..."
+            if [ "$RETRY_REASON" = "simulator-instability" ]; then
+              {
+                echo "Infra instability marker"
+                echo "reason=simulator-instability"
+                echo "run_id=${GITHUB_RUN_ID}"
+                echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+                echo "timestamp_utc=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+                echo "device_udid=${DEVICE_UDID}"
+                echo "signals=App crashed or stopped / simulator Shutting Down / No such process"
+              } > "$INFRA_MARKER_FILE"
+              echo "::notice::Infra instability marker written: $INFRA_MARKER_FILE"
+            fi
+            # Re-open Simulator.app (may have lost focus), bounce the device, and re-confirm UI readiness.
+            xcrun simctl shutdown "$DEVICE_UDID" 2>/dev/null || true
+            sleep 5
+            xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
             open -a Simulator
             for _i in $(seq 1 20); do
               xcrun simctl spawn "$DEVICE_UDID" launchctl list 2>/dev/null | grep -q "com.apple.SpringBoard" && break
