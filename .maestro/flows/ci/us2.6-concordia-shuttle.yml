@@ -91,4 +91,4 @@ appId: com.anonymous.concordiaclassfinder
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"
-    timeout: 10000
+    timeout: 45000

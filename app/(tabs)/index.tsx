@@ -735,7 +735,15 @@ export default function MapScreen() {
   };
 
   const resetRouteGeometryState = () => {
-    clearRouteState();
+    setRouteCoordinates([]);
+    setRouteInstructions([]);
+    setTransitItineraries([]);
+    setSelectedItineraryIndex(0);
+    setExpandedItineraries([]);
+    setExpandedIntermediateStops(new Set());
+    setShuttleWalkToCoords([]);
+    setShuttleDriveCoords([]);
+    setShuttleWalkFromCoords([]);
   };
 
   const exitDirectionsMode = () => {
