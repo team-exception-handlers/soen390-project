@@ -20,12 +20,12 @@ appId: com.anonymous.concordiaclassfinder
     id: "route-steps-close-button"
 
 - extendedWaitUntil:
-    visible:
-      id: "route-steps-collapsed-tab"
+    notVisible:
+      id: "route-steps-popup"
     timeout: 10000
 
-- assertVisible:
-    id: "route-steps-collapsed-tab"
+- assertNotVisible:
+    id: "route-steps-popup"
 
 # Walking mode (default)
 - assertVisible:
@@ -44,10 +44,11 @@ appId: com.anonymous.concordiaclassfinder
     id: "route-mode-transit"
 - tapOn:
     id: "route-mode-transit"
-- tapOn:
-    id: "route-steps-collapsed-tab"
 
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"
     timeout: 10000
+
+- assertVisible:
+    id: "route-steps-popup"

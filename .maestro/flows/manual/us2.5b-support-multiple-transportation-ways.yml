@@ -81,12 +81,12 @@ appId: host.exp.Exponent
     id: "route-steps-close-button"
 
 - extendedWaitUntil:
-    visible:
-      id: "route-steps-collapsed-tab"
+    notVisible:
+      id: "route-steps-popup"
     timeout: 10000
 
-- assertVisible:
-    id: "route-steps-collapsed-tab"
+- assertNotVisible:
+    id: "route-steps-popup"
 
 # Bike mode (internal walking profile)
 - assertVisible:
@@ -105,10 +105,11 @@ appId: host.exp.Exponent
     id: "route-mode-transit"
 - tapOn:
     id: "route-mode-transit"
-- tapOn:
-    id: "route-steps-collapsed-tab"
 
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"
     timeout: 10000
+
+- assertVisible:
+    id: "route-steps-popup"
