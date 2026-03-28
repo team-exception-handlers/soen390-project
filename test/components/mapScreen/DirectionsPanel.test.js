@@ -125,33 +125,75 @@ const destinationBuilding = {
 };
 
 function createProps(overrides = {}) {
-  return {
-    setSearchText: jest.fn(),
-    setEditingField: jest.fn(),
+  const state = {
     searchInputRef: { current: { focus: jest.fn() } },
     editingField: undefined,
     originBuilding,
     destinationBuilding,
-    clearDirections: jest.fn(),
     isDirectionsMode: false,
     isSameCampus: false,
     routeMode: "walking",
-    setRouteMode: jest.fn(),
     modeDurations: { walking: 12, driving: 7, transit: 18 },
-    setRouteStarted: jest.fn(),
-    routeInstructionsDismissedRef: { current: true },
-    setShowRouteInstructions: jest.fn(),
-    styles: createStyles(),
-    formatDuration: (minutes) => `${minutes} min`,
     originRoom: "801",
-    setOriginRoom: jest.fn(),
     destinationRoom: "102",
+    focusedRoom: null,
+    roomSuggestions: [],
+    hasIndoorRoute: undefined,
+  };
+  const actions = {
+    setSearchText: jest.fn(),
+    setEditingField: jest.fn(),
+    clearDirections: jest.fn(),
+    setRouteMode: jest.fn(),
+    setRouteStarted: jest.fn(),
+    showRouteInstructions: jest.fn(),
+    setOriginRoom: jest.fn(),
     setDestinationRoom: jest.fn(),
     setActiveFloorPlan: jest.fn(),
     setFloorPlanModalVisible: jest.fn(),
+    setFocusedRoom: undefined,
+    onRoomSuggestionPressIn: undefined,
+    onRoomSuggestionSelect: undefined,
+  };
+  const helpers = {
     getRoomDetails: jest.fn(),
     getFloorPlanAsset: jest.fn(),
-    ...overrides,
+    formatDuration: (minutes) => `${minutes} min`,
+  };
+  let styles = createStyles();
+  let onShowIndoorDirections;
+
+  Object.entries(overrides).forEach(([key, value]) => {
+    if (key === "styles") {
+      styles = value;
+      return;
+    }
+    if (key === "onShowIndoorDirections") {
+      onShowIndoorDirections = value;
+      return;
+    }
+    if (key in state) {
+      state[key] = value;
+      return;
+    }
+    if (key in actions) {
+      actions[key] = value;
+      return;
+    }
+    if (key in helpers) {
+      helpers[key] = value;
+    }
+  });
+
+  return {
+    state,
+    actions,
+    helpers,
+    styles,
+    onShowIndoorDirections,
+    ...state,
+    ...actions,
+    ...helpers,
   };
 }
 
@@ -316,8 +358,7 @@ describe("components/mapScreen/DirectionsPanel", () => {
 
     findByTestID(el, "direction-start-button").props.onPress();
     expect(props.setRouteStarted).toHaveBeenCalledWith(true);
-    expect(props.routeInstructionsDismissedRef.current).toBe(false);
-    expect(props.setShowRouteInstructions).toHaveBeenCalledWith(true);
+    expect(props.showRouteInstructions).toHaveBeenCalled();
   });
 
   test("renders active editing field styles", () => {

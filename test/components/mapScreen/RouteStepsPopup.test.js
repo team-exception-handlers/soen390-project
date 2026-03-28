@@ -9,12 +9,18 @@ jest.mock("lucide-react-native", () => {
 
 jest.mock("../../../components/ShuttleDirections", () => {
   const React = require("react");
-  return (props) => React.createElement("ShuttleDirections", props);
+  const ShuttleDirectionsMock = (props) =>
+    React.createElement("ShuttleDirections", props);
+  ShuttleDirectionsMock.displayName = "ShuttleDirectionsMock";
+  return ShuttleDirectionsMock;
 });
 
 jest.mock("../../../components/TransitLegTimeline", () => {
   const React = require("react");
-  return (props) => React.createElement("TransitLegTimeline", props);
+  const TransitLegTimelineMock = (props) =>
+    React.createElement("TransitLegTimeline", props);
+  TransitLegTimelineMock.displayName = "TransitLegTimelineMock";
+  return TransitLegTimelineMock;
 });
 
 jest.mock("react-native", () => {
@@ -158,12 +164,10 @@ const itinerary = {
 };
 
 function createProps(overrides = {}) {
-  return {
-    styles: createStyles(),
-    routeSheetPanResponder: { panHandlers: { onStartShouldSetResponder: jest.fn() } },
-    formatTime: jest.fn(() => "10:00"),
-    routeInstructionsDismissedRef: { current: false },
-    setShowRouteInstructions: jest.fn(),
+  const state = {
+    routeSheetPanResponder: {
+      panHandlers: { onStartShouldSetResponder: jest.fn() },
+    },
     routeMode: "walking",
     actualOriginPoint: { latitude: 45.5, longitude: -73.57 },
     destinationBuilding: {
@@ -175,19 +179,54 @@ function createProps(overrides = {}) {
     routeStarted: false,
     selectedItineraryIndex: 0,
     expandedItineraries: [],
-    setSelectedItineraryIndex: jest.fn(),
-    setRouteDurationMinutes: jest.fn(),
-    setRouteDistanceMeters: jest.fn(),
-    setRouteInstructions: jest.fn(),
-    setExpandedItineraries: jest.fn(),
     expandedIntermediateStops: new Set(),
-    setExpandedIntermediateStops: jest.fn(),
     routeInstructions: [
       { text: "Head north", distanceMeters: 100 },
       { text: "Turn right", distanceMeters: 200 },
     ],
     selectedShuttleDeparture: null,
+  };
+  const actions = {
+    hideInstructions: jest.fn(),
+    setSelectedItineraryIndex: jest.fn(),
+    setRouteDurationMinutes: jest.fn(),
+    setRouteDistanceMeters: jest.fn(),
+    setRouteInstructions: jest.fn(),
+    setExpandedItineraries: jest.fn(),
+    setExpandedIntermediateStops: jest.fn(),
     setSelectedShuttleDeparture: jest.fn(),
+  };
+  const helpers = {
+    formatTime: jest.fn(() => "10:00"),
+  };
+  let styles = createStyles();
+
+  Object.entries(overrides).forEach(([key, value]) => {
+    if (key === "styles") {
+      styles = value;
+      return;
+    }
+    if (key in state) {
+      state[key] = value;
+      return;
+    }
+    if (key in actions) {
+      actions[key] = value;
+      return;
+    }
+    if (key in helpers) {
+      helpers[key] = value;
+    }
+  });
+
+  return {
+    state,
+    actions,
+    helpers,
+    styles,
+    ...state,
+    ...actions,
+    ...helpers,
     ...overrides,
   };
 }
@@ -202,17 +241,14 @@ describe("components/mapScreen/RouteStepsPopup", () => {
     const el = renderTree(RouteStepsPopup(props));
 
     findByTestID(el, "route-steps-close-button").props.onPress();
-    expect(props.routeInstructionsDismissedRef.current).toBe(true);
-    expect(props.setShowRouteInstructions).toHaveBeenCalledWith(false);
+    expect(props.hideInstructions).toHaveBeenCalledTimes(1);
 
-    props.routeInstructionsDismissedRef.current = false;
     const handle = findAll(
       el,
       (node) => node?.props?.style === props.styles.routeStepsHandle,
     )[0];
     handle.props.onPress();
-    expect(props.routeInstructionsDismissedRef.current).toBe(true);
-    expect(props.setShowRouteInstructions).toHaveBeenCalledTimes(2);
+    expect(props.hideInstructions).toHaveBeenCalledTimes(2);
   });
 
   test("renders shuttle directions and forwards departure selection", () => {
