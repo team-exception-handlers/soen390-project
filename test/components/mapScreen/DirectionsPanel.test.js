@@ -279,7 +279,7 @@ describe("components/mapScreen/DirectionsPanel", () => {
     expect(findByTestID(el, "route-mode-driving")).toBeNull();
   });
 
-  test("renders same-campus transport controls", () => {
+  test("renders same-campus transport controls without a separate exit button", () => {
     const props = createProps({
       isDirectionsMode: true,
       isSameCampus: true,
@@ -288,9 +288,7 @@ describe("components/mapScreen/DirectionsPanel", () => {
 
     expect(findText(el, "Same campus")).toBeTruthy();
     expect(findByTestID(el, "route-mode-driving")).toBeNull();
-
-    findByTestID(el, "direction-exit-button").props.onPress();
-    expect(props.clearDirections).toHaveBeenCalled();
+    expect(findByTestID(el, "direction-exit-button")).toBeNull();
   });
 
   test("renders duration fallbacks and active styles across route modes", () => {
