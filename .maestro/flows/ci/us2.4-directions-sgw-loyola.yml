@@ -8,6 +8,11 @@ appId: com.anonymous.concordiaclassfinder
 - runFlow:
     file: _hook-select-mb-to-sp.yml
 
+- assertVisible:
+    id: "direction-start-button"
+- tapOn:
+    id: "direction-start-button"
+
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"

@@ -75,6 +75,11 @@ appId: host.exp.Exponent
       id: "direction-to-value-CL"
     timeout: 5000
 
+- assertVisible:
+    id: "direction-start-button"
+- tapOn:
+    id: "direction-start-button"
+
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"

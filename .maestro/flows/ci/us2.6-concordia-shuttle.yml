@@ -69,6 +69,11 @@ appId: com.anonymous.concordiaclassfinder
       id: "direction-to-value-RA"
     timeout: 5000
 
+- assertVisible:
+    id: "direction-start-button"
+- tapOn:
+    id: "direction-start-button"
+
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"
