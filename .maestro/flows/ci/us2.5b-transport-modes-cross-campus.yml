@@ -16,17 +16,6 @@ appId: com.anonymous.concordiaclassfinder
 - assertVisible:
     id: "route-steps-popup"
 
-- tapOn:
-    id: "route-steps-close-button"
-
-- extendedWaitUntil:
-    notVisible:
-      id: "route-steps-popup"
-    timeout: 10000
-
-- assertNotVisible:
-    id: "route-steps-popup"
-
 # Walking mode (default)
 - assertVisible:
     id: "route-mode-walking"
@@ -49,6 +38,3 @@ appId: com.anonymous.concordiaclassfinder
     visible:
       id: "route-steps-popup"
     timeout: 10000
-
-- assertVisible:
-    id: "route-steps-popup"

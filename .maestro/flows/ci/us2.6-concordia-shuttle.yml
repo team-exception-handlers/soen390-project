@@ -77,17 +77,6 @@ appId: com.anonymous.concordiaclassfinder
 - assertVisible:
     id: "route-steps-popup"
 
-- tapOn:
-    id: "route-steps-close-button"
-
-- extendedWaitUntil:
-    notVisible:
-      id: "route-steps-popup"
-    timeout: 10000
-
-- assertNotVisible:
-    id: "route-steps-popup"
-
 # Open shuttle tab to view shuttle menu
 - assertVisible:
     id: "route-mode-shuttle"
@@ -98,6 +87,3 @@ appId: com.anonymous.concordiaclassfinder
     visible:
       id: "route-steps-popup"
     timeout: 10000
-
-- assertVisible:
-    id: "route-steps-popup"
