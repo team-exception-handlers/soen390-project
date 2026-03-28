@@ -1,6 +1,5 @@
 import shuttleSchedule from '../assets/data/shuttleSchedule.json';
-
-export type Campus = 'LOY' | 'SGW';
+import type { Campus } from "../constants/buildings";
 
 export interface ShuttleInfo {
     nextDeparture: string | null;

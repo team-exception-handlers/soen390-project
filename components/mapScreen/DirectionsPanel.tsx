@@ -1,19 +1,17 @@
 import { Map, Navigation } from "lucide-react-native";
 import {
   type Dispatch,
-  type MutableRefObject,
   type RefObject,
   type SetStateAction,
 } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import type { BuildingRecord } from "../../constants/buildings";
 import type { MapScreenStyles } from "../../styles/mapScreen.styles";
+import type { RouteMode } from "../../types/map";
 import { RoomRecord } from "../../types/rooms";
-import type { RouteProfile } from "../../utils/osrmDirections";
+import type { FloorPlanAsset } from "./mapScreen.helpers";
 
-type RouteMode = RouteProfile | "transit" | "shuttle";
 type EditingField = "from" | "to" | undefined;
-type FloorPlanAsset = unknown | null;
 type GetFloorPlanAsset = (key: string) => FloorPlanAsset;
 
 type RoomInputGroupProps = Readonly<{
@@ -94,8 +92,7 @@ type TransportModeSelectorProps = Readonly<{
   setRouteMode: (routeMode: RouteMode) => void;
   modeDurations: Record<string, number | null>;
   setRouteStarted: (started: boolean) => void;
-  routeInstructionsDismissedRef: MutableRefObject<boolean>;
-  setShowRouteInstructions: (visible: boolean) => void;
+  showRouteInstructions: () => void;
   clearDirections: () => void;
   styles: MapScreenStyles;
   formatDuration: (minutes: number) => string;
@@ -108,8 +105,7 @@ function TransportModeSelector({
   setRouteMode,
   modeDurations,
   setRouteStarted,
-  routeInstructionsDismissedRef,
-  setShowRouteInstructions,
+  showRouteInstructions,
   clearDirections,
   styles,
   formatDuration,
@@ -191,15 +187,14 @@ function TransportModeSelector({
         </View>
         <Pressable
           testID="direction-start-button"
-          style={styles.modeActionButton}
-          onPress={() => {
-            setRouteStarted(true);
-            routeInstructionsDismissedRef.current = false;
-            setShowRouteInstructions(true);
-          }}
-        >
-          <Text style={styles.modeActionButtonText}>Start</Text>
-        </Pressable>
+        style={styles.modeActionButton}
+        onPress={() => {
+          setRouteStarted(true);
+          showRouteInstructions();
+        }}
+      >
+        <Text style={styles.modeActionButtonText}>Start</Text>
+      </Pressable>
       </View>
 
       <View style={styles.modeSelectorRow}>
@@ -254,78 +249,94 @@ function TransportModeSelector({
   );
 }
 
-type DirectionsPanelProps = Readonly<{
-  setSearchText: (text: string) => void;
-  setEditingField: Dispatch<SetStateAction<EditingField>>;
+export type DirectionsPanelState = Readonly<{
   searchInputRef: RefObject<TextInput | null>;
   editingField: EditingField;
   originBuilding: BuildingRecord | null;
   destinationBuilding: BuildingRecord | null;
-  clearDirections: () => void;
   isDirectionsMode: boolean;
   isSameCampus: boolean;
   routeMode: RouteMode;
-  setRouteMode: (routeMode: RouteMode) => void;
   modeDurations: Record<string, number | null>;
-  setRouteStarted: (started: boolean) => void;
-  routeInstructionsDismissedRef: MutableRefObject<boolean>;
-  setShowRouteInstructions: (visible: boolean) => void;
-  styles: MapScreenStyles;
-  formatDuration: (minutes: number) => string;
   originRoom: string;
-  setOriginRoom: Dispatch<SetStateAction<string>>;
   destinationRoom: string;
+  focusedRoom?: "from" | "to" | null;
+  roomSuggestions?: string[];
+  hasIndoorRoute?: boolean;
+}>;
+
+export type DirectionsPanelActions = Readonly<{
+  setSearchText: (text: string) => void;
+  setEditingField: Dispatch<SetStateAction<EditingField>>;
+  clearDirections: () => void;
+  setRouteMode: (routeMode: RouteMode) => void;
+  setRouteStarted: (started: boolean) => void;
+  showRouteInstructions: () => void;
+  setOriginRoom: Dispatch<SetStateAction<string>>;
   setDestinationRoom: Dispatch<SetStateAction<string>>;
   setActiveFloorPlan: (asset: FloorPlanAsset) => void;
   setFloorPlanModalVisible: (visible: boolean) => void;
+  setFocusedRoom?: Dispatch<SetStateAction<"from" | "to" | null>>;
+  onRoomSuggestionPressIn?: () => void;
+  onRoomSuggestionSelect?: (room: string, field: "from" | "to") => void;
+}>;
+
+export type DirectionsPanelHelpers = Readonly<{
   getRoomDetails: (
     buildingCode: string,
     roomNumber: string,
   ) => RoomRecord | undefined;
   getFloorPlanAsset: GetFloorPlanAsset;
+  formatDuration: (minutes: number) => string;
+}>;
+
+type DirectionsPanelProps = Readonly<{
+  state: DirectionsPanelState;
+  actions: DirectionsPanelActions;
+  helpers: DirectionsPanelHelpers;
+  styles: MapScreenStyles;
   onShowIndoorDirections?: () => void;
-  hasIndoorRoute?: boolean;
-  focusedRoom?: "from" | "to" | null;
-  setFocusedRoom?: Dispatch<SetStateAction<"from" | "to" | null>>;
-  roomSuggestions?: string[];
-  onRoomSuggestionPressIn?: () => void;
-  onRoomSuggestionSelect?: (room: string, field: "from" | "to") => void;
 }>;
 
 export default function DirectionsPanel({
-  setSearchText,
-  setEditingField,
-  searchInputRef,
-  editingField,
-  originBuilding,
-  destinationBuilding,
-  clearDirections,
-  isDirectionsMode,
-  isSameCampus,
-  routeMode,
-  setRouteMode,
-  modeDurations,
-  setRouteStarted,
-  routeInstructionsDismissedRef,
-  setShowRouteInstructions,
+  state,
+  actions,
+  helpers,
   styles,
-  formatDuration,
-  originRoom,
-  setOriginRoom,
-  destinationRoom,
-  setDestinationRoom,
-  setActiveFloorPlan,
-  setFloorPlanModalVisible,
-  getRoomDetails,
-  getFloorPlanAsset,
   onShowIndoorDirections,
-  hasIndoorRoute,
-  focusedRoom = null,
-  setFocusedRoom,
-  roomSuggestions = [],
-  onRoomSuggestionPressIn,
-  onRoomSuggestionSelect,
 }: DirectionsPanelProps) {
+  const {
+    searchInputRef,
+    editingField,
+    originBuilding,
+    destinationBuilding,
+    isDirectionsMode,
+    isSameCampus,
+    routeMode,
+    modeDurations,
+    originRoom,
+    destinationRoom,
+    focusedRoom = null,
+    roomSuggestions = [],
+    hasIndoorRoute,
+  } = state;
+  const {
+    setSearchText,
+    setEditingField,
+    clearDirections,
+    setRouteMode,
+    setRouteStarted,
+    showRouteInstructions,
+    setOriginRoom,
+    setDestinationRoom,
+    setActiveFloorPlan,
+    setFloorPlanModalVisible,
+    setFocusedRoom,
+    onRoomSuggestionPressIn,
+    onRoomSuggestionSelect,
+  } = actions;
+  const { getRoomDetails, getFloorPlanAsset, formatDuration } = helpers;
+
   const isSameBuilding =
     originBuilding?.code != null &&
     destinationBuilding?.code != null &&
@@ -514,8 +525,7 @@ export default function DirectionsPanel({
         setRouteMode={setRouteMode}
         modeDurations={modeDurations}
         setRouteStarted={setRouteStarted}
-        routeInstructionsDismissedRef={routeInstructionsDismissedRef}
-        setShowRouteInstructions={setShowRouteInstructions}
+        showRouteInstructions={showRouteInstructions}
         clearDirections={clearDirections}
         styles={styles}
         formatDuration={formatDuration}
