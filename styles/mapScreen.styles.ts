@@ -271,6 +271,11 @@ export function createMapScreenStyles({
       fontWeight: "700",
       fontSize: 13,
     },
+    searchResultCampusBadge: {
+      color: "#5D5D66",
+      fontWeight: "400",
+      fontSize: 11,
+    },
     searchResultName: {
       marginTop: 3,
       color: "#202124",
