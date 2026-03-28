@@ -128,13 +128,6 @@ function TransportModeSelector({
             </Text>
           </Pressable>
           <Text style={styles.sameCampusHint}>Same campus</Text>
-          <Pressable
-            testID="direction-exit-button"
-            style={styles.modeActionButton}
-            onPress={clearDirections}
-          >
-            <Text style={styles.modeActionButtonText}>Exit</Text>
-          </Pressable>
         </View>
       </View>
     );
@@ -237,13 +230,6 @@ function TransportModeSelector({
             </Text>
           </Pressable>
         </View>
-        <Pressable
-          testID="direction-exit-button"
-          style={styles.modeActionButton}
-          onPress={clearDirections}
-        >
-          <Text style={styles.modeActionButtonText}>Exit</Text>
-        </Pressable>
       </View>
     </View>
   );
