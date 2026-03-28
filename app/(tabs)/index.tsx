@@ -18,6 +18,7 @@ import {
   PanResponder,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -25,7 +26,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg from "react-native-svg";
+import Svg, { Circle } from "react-native-svg";
 import AppHeader, { Campus } from "../../components/AppHeader";
 import BuildingInformation from "../../components/BuildingInformation";
 import IndoorDirectionsModal from "../../components/IndoorDirectionsModal";
@@ -41,9 +42,14 @@ import {
   findIndoorRoute,
   getFloorBounds,
   getGraphFloorBounds,
+  getSpecialNodesForFloor,
   type IndoorRoute,
 } from "../../utils/indoorDirections";
 
+import {
+  getFloorPlanLabelForKey,
+  getFloorPlanOptionsForBuilding,
+} from "../../utils/floorPlanCatalog";
 import {
   findUserBuilding,
   getInitialLocationFix,
@@ -81,6 +87,7 @@ import {
   formatTime,
   type TransitItinerary,
 } from "../../utils/transitousDirections";
+import { findNearestWashroomTarget } from "../../utils/washroomSearch";
 
 let WebView: React.ComponentType<any> | null = null;
 if (Platform.OS !== "web") {
@@ -159,6 +166,23 @@ const getFloorPlanAsset = (key: string): any => {
   };
   return assets[key] ? assets[key]() : null;
 };
+
+const parseFloorPlanKey = (key: string): { building: string; floor: number } | null => {
+  // Parse floor plan keys like "H-1", "H-2", "MB-1", "MB--2"
+  const match = key.match(/^([A-Z]+)-(-?\d+)$/);
+  if (!match) return null;
+  const building = match[1];
+  const floor = parseInt(match[2], 10);
+  return { building, floor };
+};
+
+const SPECIAL_NODE_COLORS: Record<string, { fill: string; label: string }> = {
+  bathroom: { fill: "#2196F3", label: "Bathroom" }, // Blue
+  stairs: { fill: "#FF9800", label: "Stairs" }, // Orange
+  elevator: { fill: "#F44336", label: "Elevator" }, // Red
+  escalator: { fill: "#4CAF50", label: "Escalator" }, // Green
+};
+
 /* these make it so we can view selected campus and building from the map level */
 const getTransitColor = (mode: string, route?: string) => {
   if (mode === "WALK") return "#2E7D32";
@@ -185,6 +209,12 @@ export default function MapScreen() {
   );
   const [floorPlanModalVisible, setFloorPlanModalVisible] = useState(false);
   const [activeFloorPlan, setActiveFloorPlan] = useState<any>(null);
+  const [floorPlanModalOptions, setFloorPlanModalOptions] = useState<
+    { key: string; label: string }[]
+  >([]);
+  const [selectedFloorPlanKey, setSelectedFloorPlanKey] = useState<string | null>(
+    null,
+  );
   const { toBuilding, toRoom } = useLocalSearchParams<{
     toBuilding?: string;
     toRoom?: string;
@@ -683,7 +713,7 @@ export default function MapScreen() {
     };
   }, [actualOriginPoint, destinationBuilding, isSameCampus]);
 
-  const resetRouteState = () => {
+  const clearRouteState = () => {
     setRouteCoordinates([]);
     setRouteInstructions([]);
     setShowRouteInstructions(false);
@@ -692,10 +722,14 @@ export default function MapScreen() {
     setExpandedItineraries([]);
     setExpandedIntermediateStops(new Set());
     setRouteStarted(false);
-    routeInstructionsDismissedRef.current = false;
     setShuttleWalkToCoords([]);
     setShuttleDriveCoords([]);
     setShuttleWalkFromCoords([]);
+    routeInstructionsDismissedRef.current = false;
+  };
+
+  const resetRouteState = () => {
+    clearRouteState();
     setOriginRoom("");
     setDestinationRoom("");
   };
@@ -703,12 +737,10 @@ export default function MapScreen() {
   const resetRouteGeometryState = () => {
     setRouteCoordinates([]);
     setRouteInstructions([]);
-    setShowRouteInstructions(false);
     setTransitItineraries([]);
     setSelectedItineraryIndex(0);
     setExpandedItineraries([]);
     setExpandedIntermediateStops(new Set());
-    setRouteStarted(false);
     setShuttleWalkToCoords([]);
     setShuttleDriveCoords([]);
     setShuttleWalkFromCoords([]);
@@ -717,11 +749,80 @@ export default function MapScreen() {
   const exitDirectionsMode = () => {
     setIsDirectionsMode(false);
     resetRouteState();
-    setRouteCoordinates([]);
-    setRouteInstructions([]);
-    setShowRouteInstructions(false);
-    routeInstructionsDismissedRef.current = false;
   };
+
+  const setDestinationAndEnterDirectionsMode = (
+    building: string | null,
+    room?: string | null,
+    clearInputs = true,
+  ) => {
+    if (!building) return; // Safeguard: building is required
+    
+    setDestinationBuildingCode(building);
+    setDestinationRoom(room ?? "");
+    setIsDirectionsMode(true);
+    setEditingField(undefined);
+    if (clearInputs) {
+      setSelectedBuilding(null);
+      setSearchText("");
+    }
+    routeInstructionsDismissedRef.current = false;
+    setShowRouteInstructions(true);
+
+    const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
+    if (destinationRecord && destinationRecord.campus !== campus) {
+      setCampus(destinationRecord.campus);
+    }
+  };
+
+  const animateMapToRegion = useCallback(
+    (region: any, targetCampus: Campus) => {
+      setMapViewportRegion(region);
+
+      if (!isWebPlatform) {
+        mapRef.current?.animateToRegion?.(region, 450);
+      }
+
+      if (Platform.OS === "web") {
+        const minLat = region.latitude - region.latitudeDelta / 2;
+        const maxLat = region.latitude + region.latitudeDelta / 2;
+        const minLng = region.longitude - region.longitudeDelta / 2;
+        const maxLng = region.longitude + region.longitudeDelta / 2;
+        postToWebIframe({
+          type: "focusBounds",
+          bounds: [[minLat, minLng], [maxLat, maxLng]],
+          campus: targetCampus,
+          padding: [20, 20],
+        });
+      }
+
+      if (webViewRef.current && webMapReady) {
+        const bounds: [number, number][] = [
+          [
+            region.latitude - region.latitudeDelta / 2,
+            region.longitude - region.longitudeDelta / 2,
+          ],
+          [
+            region.latitude + region.latitudeDelta / 2,
+            region.longitude + region.longitudeDelta / 2,
+          ],
+        ];
+        const script = `
+          (function() {
+            if (window.setMapBounds) {
+              window.setMapBounds(${JSON.stringify(bounds)}, [20, 20], ${JSON.stringify(targetCampus)});
+            }
+          })();
+          true;
+        `;
+        webViewRef.current.injectJavaScript(script);
+      }
+    },
+    [isWebPlatform, postToWebIframe, webMapReady],
+  );
+
+  const transformCoordPair = (coords: Array<{ latitude: number; longitude: number }>) =>
+    coords.map((point) => [point.latitude, point.longitude]);
 
   const handleCampusChange = (nextCampus: Campus) => {
     if (isDirectionsMode) {
@@ -729,46 +830,7 @@ export default function MapScreen() {
       const polygons =
         nextCampus === "SGW" ? SGW_POLYGONS.features : LOY_POLYGONS.features;
       const newRegion = getCampusRegion(nextCampus, polygons);
-      setMapViewportRegion(newRegion);
-      if (!isWebPlatform && mapRef.current?.animateToRegion) {
-        mapRef.current.animateToRegion(newRegion, 450);
-      }
-      if (Platform.OS === "web") {
-        const minLat = newRegion.latitude - newRegion.latitudeDelta / 2;
-        const maxLat = newRegion.latitude + newRegion.latitudeDelta / 2;
-        const minLng = newRegion.longitude - newRegion.longitudeDelta / 2;
-        const maxLng = newRegion.longitude + newRegion.longitudeDelta / 2;
-        postToWebIframe({
-          type: "focusBounds",
-          bounds: [
-            [minLat, minLng],
-            [maxLat, maxLng],
-          ],
-          campus: nextCampus,
-          padding: [20, 20],
-        });
-      }
-      if (webViewRef.current && webMapReady) {
-        const bounds: [number, number][] = [
-          [
-            newRegion.latitude - newRegion.latitudeDelta / 2,
-            newRegion.longitude - newRegion.longitudeDelta / 2,
-          ],
-          [
-            newRegion.latitude + newRegion.latitudeDelta / 2,
-            newRegion.longitude + newRegion.longitudeDelta / 2,
-          ],
-        ];
-        const script = `
-          (function() {
-            if (window.setMapBounds) {
-              window.setMapBounds(${JSON.stringify(bounds)}, [20, 20], ${JSON.stringify(nextCampus)});
-            }
-          })();
-          true;
-        `;
-        webViewRef.current.injectJavaScript(script);
-      }
+      animateMapToRegion(newRegion, nextCampus);
       return;
     }
     setCampus(nextCampus);
@@ -805,23 +867,10 @@ export default function MapScreen() {
         return;
       }
 
-      setDestinationBuildingCode(building);
-      setDestinationRoom(room ?? "");
-      setIsDirectionsMode(true);
-      setEditingField(undefined);
-      setSelectedBuilding(null);
-      setSearchText("");
-      routeInstructionsDismissedRef.current = false;
-      setShowRouteInstructions(true);
-
-      const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
-      if (destinationRecord && destinationRecord.campus !== campus) {
-        setCampus(destinationRecord.campus);
-      }
-
       const className = nextEvent.summary ?? "your next class";
       const location = room ? `${building}-${room}` : building;
 
+      setDestinationAndEnterDirectionsMode(building, room);
       setNextClassMessage(`Directions set to ${className} (${location}).`);
     } catch (error) {
       console.error("Failed to get next class directions:", error);
@@ -891,9 +940,74 @@ export default function MapScreen() {
       .slice(0, 8);
   }, [campusBuildings, searchText]);
 
+  const washroomSearchResults = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+    const isWashroomQuery =
+      query.includes("washroom") || query.includes("bathroom");
+    if (!isWashroomQuery) return [];
+
+    const washroomParams = {
+      campusBuildings,
+      actualOriginPoint,
+      originBuildingCode: originBuilding?.code ?? null,
+      originRoom,
+      destinationBuildingCode: destinationBuilding?.code ?? null,
+      destinationRoom,
+    };
+
+    const maleWashroomTarget = findNearestWashroomTarget(
+      "male_washroom",
+      washroomParams,
+    );
+    const femaleWashroomTarget = findNearestWashroomTarget(
+      "female_washroom",
+      washroomParams,
+    );
+
+    return [
+      maleWashroomTarget
+        ? {
+          key: "nearest-male-washroom",
+          label: "Nearest male washroom",
+          building: maleWashroomTarget.building,
+          roomLabel: maleWashroomTarget.roomLabel,
+        }
+        : null,
+      femaleWashroomTarget
+        ? {
+          key: "nearest-female-washroom",
+          label: "Nearest female washroom",
+          building: femaleWashroomTarget.building,
+          roomLabel: femaleWashroomTarget.roomLabel,
+        }
+        : null,
+    ].filter((result): result is {
+      key: string;
+      label: string;
+      building: BuildingRecord;
+      roomLabel: string;
+    } => result !== null);
+  }, [
+    actualOriginPoint,
+    campusBuildings,
+    destinationBuilding?.code,
+    destinationRoom,
+    originBuilding?.code,
+    originRoom,
+    searchText,
+  ]);
+
   const handleSearchResultPress = (building: BuildingRecord) => {
     setSelectedBuilding(building.code);
     setSearchText("");
+    Keyboard.dismiss();
+  };
+
+  const handleWashroomSearchResultPress = (
+    building: BuildingRecord,
+    roomLabel: string,
+  ) => {
+    setDestinationAndEnterDirectionsMode(building.code, roomLabel, true);
     Keyboard.dismiss();
   };
 
@@ -904,11 +1018,7 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (!isDirectionsMode || !destinationBuilding || !actualOriginPoint) {
-      resetRouteState();
-      setRouteCoordinates([]);
-      setRouteInstructions([]);
-      setShowRouteInstructions(false);
-      routeInstructionsDismissedRef.current = false;
+      clearRouteState();
       return;
     }
 
@@ -1092,43 +1202,8 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (isDirectionsMode) return;
-
-    setMapViewportRegion(region);
-
-    if (!isWebPlatform) {
-      mapRef.current?.animateToRegion?.(region, 450);
-    }
-
-    if (Platform.OS === "web") {
-      postToWebIframe({
-        type: "focusBounds",
-        bounds: campusBounds,
-        campus,
-        padding: [20, 20],
-      });
-      return;
-    }
-
-    if (webViewRef.current && webMapReady) {
-      const script = `
-        (function() {
-          if (window.setMapBounds) {
-            window.setMapBounds(${JSON.stringify(campusBounds)}, [20, 20], ${JSON.stringify(campus)});
-          }
-        })();
-        true;
-      `;
-      webViewRef.current.injectJavaScript(script);
-    }
-  }, [
-    campus,
-    campusBounds,
-    isDirectionsMode,
-    isWebPlatform,
-    postToWebIframe,
-    region,
-    webMapReady,
-  ]);
+    animateMapToRegion(region, campus);
+  }, [campus, isDirectionsMode, region, animateMapToRegion]);
 
   useEffect(() => {
     if (Platform.OS === "web" || !webViewRef.current || !webMapReady) return;
@@ -1309,30 +1384,11 @@ export default function MapScreen() {
               const polygonData = ${JSON.stringify(allPolygons)};
               const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
               const routeMode = ${JSON.stringify(routeMode)};
-              const routeCoordinates = ${JSON.stringify(
-      routeCoordinates.map((point) => [
-        point.latitude,
-        point.longitude,
-      ]),
-    )};
-              const shuttleWalkToCoords = ${JSON.stringify(
-      shuttleWalkToCoords.map((point) => [
-        point.latitude,
-        point.longitude,
-      ]),
-    )};
-              const shuttleDriveCoords = ${JSON.stringify(
-      shuttleDriveCoords.map((point) => [
-        point.latitude,
-        point.longitude,
-      ]),
-    )};
-              const shuttleWalkFromCoords = ${JSON.stringify(
-      shuttleWalkFromCoords.map((point) => [
-        point.latitude,
-        point.longitude,
-      ]),
-    )};
+              const transformCoords = (coords) => coords.map((p) => [p.latitude, p.longitude]);
+              const routeCoordinates = ${JSON.stringify(transformCoordPair(routeCoordinates))};
+              const shuttleWalkToCoords = ${JSON.stringify(transformCoordPair(shuttleWalkToCoords))};
+              const shuttleDriveCoords = ${JSON.stringify(transformCoordPair(shuttleDriveCoords))};
+              const shuttleWalkFromCoords = ${JSON.stringify(transformCoordPair(shuttleWalkFromCoords))};
 
               // Per-leg transit segments for Leaflet
               const transitSegments = ${JSON.stringify(webTransitSegments)};
@@ -1404,6 +1460,20 @@ export default function MapScreen() {
                   updateMarkerVisibility();
               };
 
+              const fitRouteBounds = (bounds) => {
+                  if (bounds) map.fitBounds(bounds, { padding: [50, 50] });
+              };
+
+              const addRouteMarker = (coordinate, color, fillColor) => {
+                  return L.circleMarker(coordinate, {
+                      radius: 6,
+                      color,
+                      fillColor,
+                      fillOpacity: 1,
+                      weight: 2
+                  }).addTo(map);
+              };
+
              const segmentColor = (mode, route) => {
                   if (mode === "WALK") return "#2E7D32";
                   if (mode === "BUS") return "#007AFF";    
@@ -1445,7 +1515,7 @@ export default function MapScreen() {
                 if (routeLayers.length) {
                   hasAnyRoute = true;
                   const group = L.featureGroup(routeLayers);
-                  map.fitBounds(group.getBounds(), { padding: [50, 50] });
+                  fitRouteBounds(group.getBounds());
                 }
               }
 
@@ -1475,7 +1545,7 @@ export default function MapScreen() {
                   }
 
                   const group = L.featureGroup(routeLayers);
-                  map.fitBounds(group.getBounds(), { padding: [50, 50] });
+                  fitRouteBounds(group.getBounds());
                   hasAnyRoute = true;
               }
 
@@ -1496,21 +1566,8 @@ export default function MapScreen() {
                   const routePolyline = L.polyline(routeCoordinates, routeStyle).addTo(map);
                   routeLayers.push(routePolyline);
 
-                  L.circleMarker(routeCoordinates[0], {
-                      radius: 6,
-                      color: '#14532D',
-                      fillColor: '#22C55E',
-                      fillOpacity: 1,
-                      weight: 2
-                  }).addTo(map);
-
-                  L.circleMarker(routeCoordinates[routeCoordinates.length - 1], {
-                      radius: 6,
-                      color: '#7F1D1D',
-                      fillColor: '#EF4444',
-                      fillOpacity: 1,
-                      weight: 2
-                  }).addTo(map);
+                  addRouteMarker(routeCoordinates[0], '#14532D', '#22C55E');
+                  addRouteMarker(routeCoordinates[routeCoordinates.length - 1], '#7F1D1D', '#EF4444');
 
                   map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
                   hasAnyRoute = true;
@@ -1536,6 +1593,33 @@ export default function MapScreen() {
               map.on('zoomend', updateMarkerVisibility);
               map.on('moveend', updateMarkerVisibility);
 
+              const deselectBuilding = () => {
+                  if (selectedPolygon) {
+                      resetPolygonStyle(selectedPolygon);
+                      selectedPolygon = null;
+                      window.selectedBuildingCode = null;
+                      window.selectedPolygon = null;
+                      notifyHost({ type: 'buildingDeselected' });
+                  }
+              };
+              const selectBuilding = (buildingCode, polygon) => {
+                  window.selectedBuildingCode = buildingCode;
+                  window.selectedPolygon = polygon;
+                  notifyHost({ type: 'buildingSelected', buildingCode: buildingCode });
+              };
+
+              const handlePolygonSelect = (polygon, buildingCode) => {
+                  if (selectedPolygon) resetPolygonStyle(selectedPolygon);
+
+                  if (selectedPolygon === polygon) {
+                      deselectBuilding();
+                  } else {
+                      polygon.setStyle(selectedPolygonStyle);
+                      selectedPolygon = polygon;
+                      selectBuilding(buildingCode, polygon);
+                  }
+              };
+
               polygonData.features.forEach((feature) => {
                   const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
                   const buildingCode = feature.properties.code;
@@ -1546,12 +1630,7 @@ export default function MapScreen() {
                   polygon.__buildingCode = buildingCode;
 
                   polygon.on('click', function(e) {
-                      if (selectedPolygon) resetPolygonStyle(selectedPolygon);
-                      this.setStyle(selectedPolygonStyle);
-                      selectedPolygon = this;
-                      window.selectedBuildingCode = buildingCode;
-                      window.selectedPolygon = selectedPolygon;
-                      notifyHost({ type: 'buildingSelected', buildingCode: buildingCode });
+                      handlePolygonSelect(this, buildingCode);
                       L.DomEvent.stopPropagation(e);
                   });
 
@@ -1571,13 +1650,7 @@ export default function MapScreen() {
               }
 
               map.on('click', function() {
-                  if (selectedPolygon) {
-                      resetPolygonStyle(selectedPolygon);
-                      selectedPolygon = null;
-                      window.selectedBuildingCode = null;
-                      window.selectedPolygon = null;
-                      notifyHost({ type: 'buildingDeselected' });
-                  }
+                  deselectBuilding();
               });
 
               const createBuildingIcon = (code) => L.divIcon({
@@ -1608,25 +1681,9 @@ export default function MapScreen() {
                       }
 
                       if (polygon) {
-                          if (selectedPolygon) resetPolygonStyle(selectedPolygon);
-
-                          if (selectedPolygon === polygon) {
-                              resetPolygonStyle(selectedPolygon);
-                              selectedPolygon = null;
-                          } else {
-                              polygon.setStyle(selectedPolygonStyle);
-                              selectedPolygon = polygon;
-                          }
-                      }
-
-                      if (selectedPolygon) {
-                        window.selectedBuildingCode = building.code;
-                        window.selectedPolygon = selectedPolygon;
-                        notifyHost({ type: 'buildingSelected', buildingCode: building.code });
+                          handlePolygonSelect(polygon, building.code);
                       } else {
-                        window.selectedBuildingCode = null;
-                        window.selectedPolygon = null;
-                        notifyHost({ type: 'buildingDeselected' });
+                          deselectBuilding();
                       }
 
                       L.DomEvent.stopPropagation(e);
@@ -1822,35 +1879,40 @@ export default function MapScreen() {
           }
 
           if (routeMode === "shuttle") {
+            const shuttleWalkStyle = {
+              strokeColor: "#2E7D32",
+              strokeWidth: 6,
+              lineDashPattern: [2, 12],
+              lineCap: "round" as const,
+            };
+
+            const shuttleDriveStyle = {
+              strokeColor: "#912338",
+              strokeWidth: 6,
+              lineCap: "round" as const,
+            };
+
             return (
               <>
                 {shuttleWalkToCoords.length > 1 && (
                   <MapPolylineComponent
                     testID="route-polyline-shuttle-walk-to"
                     coordinates={shuttleWalkToCoords}
-                    strokeColor="#2E7D32"
-                    strokeWidth={6}
-                    lineDashPattern={[2, 12]}
-                    lineCap="round"
+                    {...shuttleWalkStyle}
                   />
                 )}
                 {shuttleDriveCoords.length > 1 && (
                   <MapPolylineComponent
                     testID="route-polyline-shuttle-drive"
                     coordinates={shuttleDriveCoords}
-                    strokeColor="#912338"
-                    strokeWidth={6}
-                    lineCap="round"
+                    {...shuttleDriveStyle}
                   />
                 )}
                 {shuttleWalkFromCoords.length > 1 && (
                   <MapPolylineComponent
                     testID="route-polyline-shuttle-walk-from"
                     coordinates={shuttleWalkFromCoords}
-                    strokeColor="#2E7D32"
-                    strokeWidth={6}
-                    lineDashPattern={[2, 12]}
-                    lineCap="round"
+                    {...shuttleWalkStyle}
                   />
                 )}
               </>
@@ -1886,34 +1948,18 @@ export default function MapScreen() {
           const isCurrent = currentBuilding === buildingCode;
 
           let strokeColor = "#A32638";
-          let fillColor = "#A32638";
+          let fillColor = "rgba(163, 38, 56, 0.2)";
           let strokeWidth = 2;
-          let fillOpacity = 0.2;
 
           if (isSelected) {
             strokeColor = "#238c51";
-            fillColor = "#238c51";
+            fillColor = "rgba(35, 140, 81, 0.5)";
             strokeWidth = 3;
-            fillOpacity = 0.5;
           } else if (isCurrent) {
             strokeColor = "#FFA500";
-            fillColor = "#FFA500";
+            fillColor = "rgba(255, 165, 0, 0.5)";
             strokeWidth = 3;
-            fillOpacity = 0.5;
           }
-
-          const fillColorWithOpacity =
-            fillColor.startsWith("#") && fillColor.length === 7
-              ? (() => {
-                  const cleaned = fillColor.slice(1);
-                  const intValue = Number.parseInt(cleaned, 16);
-                  const r = (intValue >> 16) & 255;
-                  const g = (intValue >> 8) & 255;
-                  const b = intValue & 255;
-                  const a = Math.max(0, Math.min(1, fillOpacity));
-                  return `rgba(${r}, ${g}, ${b}, ${a})`;
-                })()
-              : fillColor;
 
           return (
             <MapPolygonComponent
@@ -1921,7 +1967,7 @@ export default function MapScreen() {
               testID={`polygon-${buildingCode}`}
               coordinates={coordinates}
               strokeColor={strokeColor}
-              fillColor={fillColorWithOpacity}
+              fillColor={fillColor}
               strokeWidth={strokeWidth}
               tappable
               onPress={() =>
@@ -2015,6 +2061,36 @@ export default function MapScreen() {
   const hasIndoorRoute =
     indoorRoute === undefined ? undefined : indoorRoute !== null;
 
+  const selectedBuildingFloorPlans = useMemo(
+    () => getFloorPlanOptionsForBuilding(selectedBuilding),
+    [selectedBuilding],
+  );
+
+  const openFloorPlanModal = useCallback((floorKey: string) => {
+    setFloorPlanModalOptions([
+      { key: floorKey, label: getFloorPlanLabelForKey(floorKey) },
+    ]);
+    setSelectedFloorPlanKey(floorKey);
+    setActiveFloorPlan(getFloorPlanAsset(floorKey));
+    setFloorPlanModalVisible(true);
+  }, []);
+
+  const openBuildingFloorPlansFromMap = useCallback(() => {
+    if (!selectedBuilding) return;
+    const opts = getFloorPlanOptionsForBuilding(selectedBuilding);
+    if (opts.length === 0) return;
+    setFloorPlanModalOptions([...opts]);
+    setSelectedFloorPlanKey(opts[0].key);
+    setActiveFloorPlan(getFloorPlanAsset(opts[0].key));
+    setFloorPlanModalVisible(true);
+  }, [selectedBuilding]);
+
+  const closeFloorPlanModal = useCallback(() => {
+    setFloorPlanModalVisible(false);
+    setFloorPlanModalOptions([]);
+    setSelectedFloorPlanKey(null);
+  }, []);
+
   return (
     <View style={styles.container}>
       <AppHeader
@@ -2025,11 +2101,34 @@ export default function MapScreen() {
         searchInputRef={searchInputRef}
       />
 
-      {searchResults.length > 0 && (
+      {(washroomSearchResults.length > 0 || searchResults.length > 0) && (
         <View style={styles.searchResultsContainer} testID="search-results">
           <Text style={styles.searchResultsHint}>
-            Tap a building to set destination (To).
+            {washroomSearchResults.length > 0
+              ? "Tap an option to locate the nearest washroom."
+              : "Tap a building to set destination (To)."}
           </Text>
+          {washroomSearchResults.map((result) => (
+            <Pressable
+              key={result.key}
+              testID={`search-result-${result.key}`}
+              style={styles.searchResultItem}
+              onPress={() =>
+                handleWashroomSearchResultPress(
+                  result.building,
+                  result.roomLabel,
+                )
+              }
+            >
+              <Text style={styles.searchResultCode}>{result.building.code}</Text>
+              <Text style={styles.searchResultName} numberOfLines={1}>
+                {result.label}
+              </Text>
+              <Text style={styles.searchResultAddress} numberOfLines={1}>
+                {`Room ${result.roomLabel} - ${result.building.longName}`}
+              </Text>
+            </Pressable>
+          ))}
           {searchResults.map((building) => (
             <Pressable
               key={building.code}
@@ -2071,8 +2170,7 @@ export default function MapScreen() {
         setOriginRoom={setOriginRoom}
         destinationRoom={destinationRoom}
         setDestinationRoom={setDestinationRoom}
-        setActiveFloorPlan={setActiveFloorPlan}
-        setFloorPlanModalVisible={setFloorPlanModalVisible}
+        openFloorPlanModal={openFloorPlanModal}
         getRoomDetails={getRoomDetails}
         getFloorPlanAsset={getFloorPlanAsset}
         onShowIndoorDirections={() => setIndoorDirectionsModalVisible(true)}
@@ -2229,13 +2327,15 @@ export default function MapScreen() {
         buildingInfo={buildingInfo}
         buildingPhotoLink={buildingPhotoLink}
         editingField={editingField}
+        floorPlanOptions={selectedBuildingFloorPlans}
+        onOpenFloorPlans={openBuildingFloorPlansFromMap}
         onSelectDestination={(code: string) => {
           if (editingField === "from") {
             originModeRef.current = "manual";
             setOriginBuildingCode(code);
           } else {
-            setDestinationBuildingCode(code);
-            setIsDirectionsMode(true);
+            setDestinationAndEnterDirectionsMode(code);
+            return;
           }
           setSelectedBuilding(null);
           setEditingField(undefined);
@@ -2245,43 +2345,163 @@ export default function MapScreen() {
         visible={floorPlanModalVisible}
         animationType="fade"
         transparent={true}
+        onRequestClose={closeFloorPlanModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Pressable
               style={styles.modalCloseButton}
-              onPress={() => setFloorPlanModalVisible(false)}
+              onPress={closeFloorPlanModal}
             >
               <X size={24} color="#1F1F24" strokeWidth={2.5} />
             </Pressable>
 
-            {activeFloorPlan && (
-              Platform.OS === "web" ? (
-                <Image
-                  source={activeFloorPlan}
-                  style={styles.floorPlanImage}
-                  resizeMode="contain"
-                />
-              ) : typeof activeFloorPlan === "number" ? (
-                <Image
-                  source={activeFloorPlan}
-                  style={styles.floorPlanImage}
-                  resizeMode="contain"
-                />
-              ) : (
-                (() => {
+            {floorPlanModalOptions.length > 1 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.floorPlanModalChipScroll}
+                contentContainerStyle={styles.floorPlanModalChipScrollContent}
+              >
+                {floorPlanModalOptions.map((opt) => {
+                  const active = opt.key === selectedFloorPlanKey;
+                  return (
+                    <Pressable
+                      key={opt.key}
+                      testID={`floor-plan-chip-${opt.key}`}
+                      onPress={() => {
+                        setSelectedFloorPlanKey(opt.key);
+                        setActiveFloorPlan(getFloorPlanAsset(opt.key));
+                      }}
+                      style={[
+                        styles.floorPlanModalChip,
+                        active && styles.floorPlanModalChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.floorPlanModalChipText,
+                          active && styles.floorPlanModalChipTextActive,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
+
+            <View style={styles.floorPlanModalBody}>
+              {activeFloorPlan && selectedFloorPlanKey && (() => {
+                const parsedKey = parseFloorPlanKey(selectedFloorPlanKey);
+                if (!parsedKey) {
+                  // Fallback rendering without nodes
+                  return Platform.OS === "web" ? (
+                    <Image
+                      source={activeFloorPlan}
+                      style={styles.floorPlanImage}
+                      resizeMode="contain"
+                    />
+                  ) : typeof activeFloorPlan === "number" ? (
+                    <Image
+                      source={activeFloorPlan}
+                      style={styles.floorPlanImage}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    (() => {
+                      const FloorPlanComponent = activeFloorPlan as React.ComponentType<{
+                        width?: string | number;
+                        height?: string | number;
+                      }>;
+                      return (
+                        <Svg width="100%" height="100%" viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid meet">
+                          <FloorPlanComponent width={1024} height={1024} />
+                        </Svg>
+                      );
+                    })()
+                  );
+                }
+
+                const specialNodes = getSpecialNodesForFloor(parsedKey.building, parsedKey.floor);
+                const bounds = getFloorBounds(parsedKey.building, parsedKey.floor);
+                const graphBounds = getGraphFloorBounds(parsedKey.building, parsedKey.floor);
+
+                const renderSpecialNodeCircles = () =>
+                  specialNodes.map((node) => {
+                    const x = (node.x * bounds.width) / graphBounds.width;
+                    const y = (node.y * bounds.height) / graphBounds.height;
+                    const nodeColor = SPECIAL_NODE_COLORS[node.type];
+                    if (!nodeColor) return null;
+                    return (
+                      <Circle
+                        key={node.id}
+                        cx={x}
+                        cy={y}
+                        r={12}
+                        fill={nodeColor.fill}
+                        stroke="white"
+                        strokeWidth={2}
+                        opacity={0.9}
+                      />
+                    );
+                  });
+
+                if (Platform.OS === "web") {
+                  return (
+                    <View style={{ position: 'relative', width: '100%', height: '100%' }}>
+                      <Image
+                        source={activeFloorPlan}
+                        style={styles.floorPlanImage}
+                        resizeMode="contain"
+                      />
+                      {specialNodes.length > 0 && (
+                        <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+                          {renderSpecialNodeCircles()}
+                        </Svg>
+                      )}
+                    </View>
+                  );
+                } else if (typeof activeFloorPlan === "number") {
+                  return (
+                    <View style={{ position: 'relative', width: '100%', height: '100%' }}>
+                      <Image
+                        source={activeFloorPlan}
+                        style={styles.floorPlanImage}
+                        resizeMode="contain"
+                      />
+                      {specialNodes.length > 0 && (
+                        <View style={StyleSheet.absoluteFill}>
+                          <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet">
+                            {renderSpecialNodeCircles()}
+                          </Svg>
+                        </View>
+                      )}
+                    </View>
+                  );
+                } else {
                   const FloorPlanComponent = activeFloorPlan as React.ComponentType<{
                     width?: string | number;
                     height?: string | number;
                   }>;
                   return (
-                    <Svg width="100%" height="100%" viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid meet">
-                      <FloorPlanComponent width={1024} height={1024} />
+                    <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet">
+                      <FloorPlanComponent width={bounds.width} height={bounds.height} />
+                      {renderSpecialNodeCircles()}
                     </Svg>
                   );
-                })()
-              )
-            )}
+                }
+              })()}
+            </View>
+            <View style={styles.floorPlanLegend}>
+              {Object.entries(SPECIAL_NODE_COLORS).map(([type, { fill, label }]) => (
+                <View key={type} style={styles.floorPlanLegendItem}>
+                  <View style={[styles.floorPlanLegendSwatch, { backgroundColor: fill }]} />
+                  <Text style={styles.floorPlanLegendText}>{label}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         </View>
       </Modal>

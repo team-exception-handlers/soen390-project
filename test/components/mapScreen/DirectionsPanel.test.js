@@ -147,8 +147,7 @@ function createProps(overrides = {}) {
     setOriginRoom: jest.fn(),
     destinationRoom: "102",
     setDestinationRoom: jest.fn(),
-    setActiveFloorPlan: jest.fn(),
-    setFloorPlanModalVisible: jest.fn(),
+    openFloorPlanModal: jest.fn(),
     getRoomDetails: jest.fn(),
     getFloorPlanAsset: jest.fn(),
     ...overrides,
@@ -213,8 +212,7 @@ describe("components/mapScreen/DirectionsPanel", () => {
     expect(floorPlanButtons[1].props.disabled).toBe(true);
 
     floorPlanButtons[0].props.onPress();
-    expect(props.setActiveFloorPlan).toHaveBeenCalledWith(asset);
-    expect(props.setFloorPlanModalVisible).toHaveBeenCalledWith(true);
+    expect(props.openFloorPlanModal).toHaveBeenCalledWith("H-8");
   });
 
   test("renders empty origin/destination state when no buildings are selected", () => {

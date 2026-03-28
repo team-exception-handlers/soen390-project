@@ -75,6 +75,11 @@ appId: host.exp.Exponent
       id: "direction-to-value-CL"
     timeout: 5000
 
+- assertVisible:
+    id: "direction-start-button"
+- tapOn:
+    id: "direction-start-button"
+
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"
@@ -83,31 +88,24 @@ appId: host.exp.Exponent
 - assertVisible:
     id: "route-steps-popup"
 
-- tapOn:
-    id: "route-steps-close-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "route-steps-collapsed-tab"
-    timeout: 10000
-
-- assertVisible:
-    id: "route-steps-collapsed-tab"
-
 # Open shuttle tab to view shuttle menu
 - assertVisible:
     id: "route-mode-shuttle"
 - tapOn:
     id: "route-mode-shuttle"
-- tapOn:
-    id: "route-steps-collapsed-tab"
 
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"
+    timeout: 10000
 
 - tapOn:
     id: "route-steps-close-button"
+
+- extendedWaitUntil:
+    notVisible:
+      id: "route-steps-popup"
+    timeout: 10000
 
 # Zoom map to LOY campus so the walking path is visible
 - tapOn:
@@ -117,12 +115,8 @@ appId: host.exp.Exponent
       text: "Loyola"
     timeout: 3000
 - tapOn:
-    id: "route-steps-collapsed-tab"
+    id: "direction-start-button"
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"
     timeout: 10000
-- assertVisible:
-    id: "route-steps-popup"
-- tapOn:
-    id: "direction-start-button"

@@ -1,0 +1,215 @@
+11:45:14.167 [ INFO] maestro.cli.report.TestDebugReporter.logSystemInfo: Debug output path: /Users/samuelrichard/Documents/GitHub/soen390-project/.maestro/debug/.maestro/tests/2026-03-28_114514
+11:45:14.169 [ INFO] MAESTRO.logSystemInfo: ---- System Info ----
+11:45:14.169 [ INFO] MAESTRO.logSystemInfo: Maestro Version: 2.3.0
+11:45:14.169 [ INFO] MAESTRO.logSystemInfo: CI: Undefined
+11:45:14.169 [ INFO] MAESTRO.logSystemInfo: OS Name: Mac OS X
+11:45:14.170 [ INFO] MAESTRO.logSystemInfo: OS Version: 26.2
+11:45:14.170 [ INFO] MAESTRO.logSystemInfo: Architecture: aarch64
+11:45:14.170 [ INFO] MAESTRO.logSystemInfo: Java Version: 25
+11:45:14.253 [ INFO] MAESTRO.logSystemInfo: Xcode Version: 26.4
+11:45:14.256 [ INFO] MAESTRO.logSystemInfo: Flutter Version: Undefined
+11:45:14.259 [ INFO] MAESTRO.logSystemInfo: Flutter Channel: Undefined
+11:45:14.259 [ INFO] MAESTRO.logSystemInfo: ---------------------
+11:45:14.433 [DEBUG] io.micrometer.common.util.internal.logging.InternalLoggerFactory.newDefaultFactory: Using SLF4J as the default logging framework
+11:45:15.326 [ INFO] maestro.cli.command.TestCommand.runShardSuite: [shard 1] Selected device A4D6C771-6192-4966-90C2-64987FE52953 using port 7001 with execution plan ExecutionPlan(flowsToRun=[/Users/samuelrichard/Documents/GitHub/soen390-project/.maestro/flows/ci/_suite.yml], sequence=FlowSequence(flows=[], continueOnFailure=true), workspaceConfig=WorkspaceConfig(flows=null, includeTags=null, excludeTags=null, executionOrder=null, baselineBranch=null, notifications=null, disableRetries=false, platform=PlatformConfiguration(android=AndroidConfiguration(disableAnimations=false), ios=IOSConfiguration(disableAnimations=false, snapshotKeyHonorModalViews=null)), testOutputDir=null))
+11:45:15.511 [TRACE] ios.xctest.XCTestIOSDevice.open: Opening a connection
+11:45:15.511 [TRACE] xcuitest.XCTestDriverClient.restartXCTestRunner: Restarting XCTest Runner (uninstalling, installing and starting)
+11:45:15.511 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:15.513 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:15.513 [TRACE] xcuitest.XCTestDriverClient.restartXCTestRunner: XCTest Runner uninstalled, will install and start it
+11:45:15.513 [ INFO] xcuitest.installer.LocalXCTestInstaller.start$lambda$3: start()
+11:45:15.514 [ INFO] xcuitest.installer.LocalXCTestInstaller.start$lambda$3: [Start] Install XCUITest runner on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:15.514 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:15.514 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:15.514 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Start] Writing build products
+11:45:15.548 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Done] Writing build products
+11:45:15.548 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Start] Writing maestro-driver-iosUITests-Runner app
+11:45:15.694 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Done] Writing maestro-driver-iosUITests-Runner app
+11:45:15.695 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Start] Writing maestro-driver-ios app
+11:45:15.700 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Done] Writing maestro-driver-ios app
+11:45:15.701 [ INFO] xcuitest.installer.LocalXCTestInstaller.startXCTestRunner: Installing driver with xcodebuild
+11:45:15.702 [ INFO] xcuitest.installer.LocalXCTestInstaller.startXCTestRunner: [Start] Running XcUITest with `xcodebuild test-without-building` with 7001 and config: IOSDriverConfig(prebuiltRunner=false, sourceDirectory=driver-iPhoneSimulator, context=CLI, snapshotKeyHonorModalViews=null)
+11:45:15.703 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcodebuild, test-without-building, -xctestrun, /var/folders/ff/6d77w8xj4jvclhyhr3xfcg680000gn/T/A4D6C771-6192-4966-90C2-64987FE5295316413578777369089573/maestro-driver-ios-config.xctestrun, -destination, id=A4D6C771-6192-4966-90C2-64987FE52953, -derivedDataPath, /var/folders/ff/6d77w8xj4jvclhyhr3xfcg680000gn/T/maestro_xctestrunner_xcodebuild_output16194612035472751907] with {TEST_RUNNER_PORT=7001}
+11:45:15.706 [ INFO] xcuitest.installer.LocalXCTestInstaller.startXCTestRunner: [Done] Running XcUITest with `xcodebuild test-without-building`
+11:45:15.706 [ INFO] xcuitest.installer.LocalXCTestInstaller.start$lambda$3: [Done] Install XCUITest runner on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:15.707 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:15.707 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:16.213 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:16.213 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:16.716 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:16.717 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:17.222 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:17.223 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:17.729 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:17.730 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:18.236 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:18.237 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:18.742 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:18.743 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:19.248 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:19.249 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:19.755 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:19.755 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:20.262 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:20.265 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:20.772 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:20.775 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:21.278 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:21.281 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:21.783 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:21.785 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:22.290 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:22.292 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:22.797 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:22.800 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:23.305 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:23.306 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:23.812 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:23.814 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:24.320 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:24.322 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:24.828 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:24.830 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:25.336 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:25.338 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:25.844 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:25.845 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:26.351 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:26.353 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:26.859 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:26.861 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:27.364 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:27.366 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:27.872 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:27.874 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:28.376 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:28.379 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:28.880 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:28.881 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:29.387 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:29.388 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:29.891 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:29.894 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:30.401 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:30.408 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:30.911 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:30.913 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:31.418 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:31.421 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:31.927 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:31.929 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:32.434 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:32.440 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:32.947 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:32.948 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:33.454 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:33.455 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:33.961 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:33.967 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:34.471 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:34.473 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:7001
+11:45:34.974 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:34.982 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Done] Perform XCUITest driver status check on A4D6C771-6192-4966-90C2-64987FE52953
+11:45:35.108 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow:  Running flow _suite
+11:45:35.118 [ INFO] maestro.Maestro.cachedDeviceInfo_delegate$lambda$0: Getting device info
+11:45:35.983 [ INFO] maestro.Maestro.cachedDeviceInfo_delegate$lambda$0: Got device info: DeviceInfo(platform=IOS, widthPixels=828, heightPixels=1792, widthGrid=414, heightGrid=896)
+11:45:36.037 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Define variables RUNNING
+11:45:36.040 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Define variables COMPLETED
+11:45:36.040 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Apply configuration RUNNING
+11:45:36.040 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Apply configuration COMPLETED
+11:45:36.040 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Run us1.1-campus-maps.yml RUNNING
+11:45:36.041 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Apply configuration RUNNING
+11:45:36.041 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Apply configuration COMPLETED
+11:45:36.041 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Set permissions RUNNING
+11:45:36.042 [ INFO] device.SimctlIOSDevice.setPermissions: [Start] Setting permissions location=inuse through applesimutils
+11:45:36.042 [ INFO] device.SimctlIOSDevice.setPermissions: [Done] Setting permissions through applesimutils
+11:45:36.043 [ INFO] device.SimctlIOSDevice.setPermissions: [Start] Setting Permissions location=inuse through simctl
+11:45:36.043 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcrun, simctl, privacy, A4D6C771-6192-4966-90C2-64987FE52953, grant, location, com.anonymous.concordiaclassfinder] with {}
+11:45:36.599 [ INFO] device.SimctlIOSDevice.setPermissions: [Done] Setting Permissions location=inuse through simctl
+11:45:36.614 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Set permissions COMPLETED
+11:45:36.614 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Set location (45.495376, -73.577997) RUNNING
+11:45:36.614 [ INFO] maestro.Maestro.setLocation: Setting location: (45.495376, -73.577997)
+11:45:36.619 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcrun, simctl, location, A4D6C771-6192-4966-90C2-64987FE52953, set, 45.495376,-73.577997] with {}
+11:45:36.730 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Set location (45.495376, -73.577997) COMPLETED
+11:45:36.730 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Run _launch-app.yaml RUNNING
+11:45:36.730 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Apply configuration RUNNING
+11:45:36.730 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Apply configuration COMPLETED
+11:45:36.730 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Launch app "com.anonymous.concordiaclassfinder" RUNNING
+11:45:36.730 [ INFO] device.SimctlIOSDevice.setPermissions: [Start] Setting permissions all=allow through applesimutils
+11:45:36.731 [ INFO] util.LocalSimulatorUtils.setAppleSimutilsPermissions: [Start] Setting permissions via pinned applesimutils
+11:45:36.731 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [/Users/samuelrichard/.maestro/deps/applesimutils, --byId, A4D6C771-6192-4966-90C2-64987FE52953, --bundle, com.anonymous.concordiaclassfinder, --setPermissions, calendar=YES,camera=YES,contacts=YES,faceid=YES,homekit=YES,medialibrary=YES,microphone=YES,motion=YES,photos=YES,reminders=YES,siri=YES,speech=YES,userTracking=YES] with {}
+11:45:37.158 [ INFO] util.LocalSimulatorUtils.setAppleSimutilsPermissions: [Done] Setting permissions pinned applesimutils
+11:45:37.159 [ INFO] device.SimctlIOSDevice.setPermissions: [Done] Setting permissions through applesimutils
+11:45:37.159 [ INFO] device.SimctlIOSDevice.setPermissions: [Start] Setting Permissions all=allow through simctl
+11:45:37.159 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcrun, simctl, privacy, A4D6C771-6192-4966-90C2-64987FE52953, grant, location-always, com.anonymous.concordiaclassfinder] with {}
+11:45:37.271 [ INFO] device.SimctlIOSDevice.setPermissions: [Done] Setting Permissions all=allow through simctl
+11:45:37.276 [ INFO] maestro.Maestro.launchApp: Launching app com.anonymous.concordiaclassfinder
+11:45:37.277 [ INFO] maestro.Maestro.launchApp: Stopping com.anonymous.concordiaclassfinder app during launch
+11:45:37.317 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcrun, simctl, launch, A4D6C771-6192-4966-90C2-64987FE52953, com.anonymous.concordiaclassfinder] with {}
+11:45:37.475 [ERROR] util.CommandLineUtils.runCommand: Process failed with exit code 4
+11:45:37.475 [ERROR] util.CommandLineUtils.runCommand: Error output An error was encountered processing the command (domain=FBSOpenApplicationServiceErrorDomain, code=4):
+Simulator device failed to launch com.anonymous.concordiaclassfinder.
+Underlying error (domain=FBSOpenApplicationServiceErrorDomain, code=4):
+	The request to open "com.anonymous.concordiaclassfinder" failed.
+
+11:45:37.476 [ERROR] maestro.orchestra.Orchestra.launchAppCommand: Failed to launch app
+java.lang.IllegalStateException: An error was encountered processing the command (domain=FBSOpenApplicationServiceErrorDomain, code=4):
+Simulator device failed to launch com.anonymous.concordiaclassfinder.
+Underlying error (domain=FBSOpenApplicationServiceErrorDomain, code=4):
+	The request to open "com.anonymous.concordiaclassfinder" failed.
+
+	at util.CommandLineUtils.runCommand(CommandLineUtils.kt:50)
+	at util.CommandLineUtils.runCommand$default(CommandLineUtils.kt:16)
+	at util.LocalSimulatorUtils.launch(LocalSimulatorUtils.kt:331)
+	at device.SimctlIOSDevice.launch(SimctlIOSDevice.kt:93)
+	at ios.LocalIOSDevice.launch(LocalIOSDevice.kt:107)
+	at maestro.drivers.IOSDriver.launchApp$lambda$7(IOSDriver.kt:104)
+	at maestro.utils.Metrics.measured(Metrics.kt:48)
+	at maestro.drivers.IOSDriver.launchApp(IOSDriver.kt:103)
+	at maestro.Maestro.launchApp(Maestro.kt:70)
+	at maestro.orchestra.Orchestra.launchAppCommand(Orchestra.kt:1141)
+	at maestro.orchestra.Orchestra.executeCommand(Orchestra.kt:356)
+	at maestro.orchestra.Orchestra.executeSubflowCommands(Orchestra.kt:992)
+	at maestro.orchestra.Orchestra.runSubFlow(Orchestra.kt:1049)
+	at maestro.orchestra.Orchestra.runFlowCommand(Orchestra.kt:891)
+	at maestro.orchestra.Orchestra.executeCommand(Orchestra.kt:366)
+	at maestro.orchestra.Orchestra.executeSubflowCommands(Orchestra.kt:992)
+	at maestro.orchestra.Orchestra.runSubFlow(Orchestra.kt:1049)
+	at maestro.orchestra.Orchestra.runFlowCommand(Orchestra.kt:891)
+	at maestro.orchestra.Orchestra.executeCommand(Orchestra.kt:366)
+	at maestro.orchestra.Orchestra.executeCommands(Orchestra.kt:263)
+	at maestro.orchestra.Orchestra.runFlow(Orchestra.kt:181)
+	at maestro.cli.runner.TestSuiteInteractor.runFlow(TestSuiteInteractor.kt:243)
+	at maestro.cli.runner.TestSuiteInteractor.runTestSuite(TestSuiteInteractor.kt:98)
+	at maestro.cli.command.TestCommand.runMultipleFlows(TestCommand.kt:619)
+	at maestro.cli.command.TestCommand.access$runMultipleFlows(TestCommand.kt:80)
+	at maestro.cli.command.TestCommand$runShardSuite$1$1.invokeSuspend(TestCommand.kt:502)
+	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:104)
+	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:277)
+	at kotlinx.coroutines.BlockingCoroutine.joinBlocking(Builders.kt:95)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking(Builders.kt:69)
+	at kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:48)
+	at kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source)
+	at maestro.cli.command.TestCommand.runShardSuite$lambda$10(TestCommand.kt:501)
+	at maestro.cli.session.MaestroSessionManager.newSession(MaestroSessionManager.kt:132)
+	at maestro.cli.session.MaestroSessionManager.newSession$default(MaestroSessionManager.kt:66)
+	at maestro.cli.command.TestCommand.runShardSuite(TestCommand.kt:476)
+	at maestro.cli.command.TestCommand.access$runShardSuite(TestCommand.kt:80)
+	at maestro.cli.command.TestCommand$handleSessions$1$results$1$1.invokeSuspend(TestCommand.kt:435)
+	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:104)
+	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:111)
+	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:99)
+	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:585)
+	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:802)
+	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:706)
+	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:693)
+11:45:37.477 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$9: Launch app "com.anonymous.concordiaclassfinder" FAILED
+11:45:37.478 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+11:45:37.479 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+11:45:37.597 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$9: Run _launch-app.yaml FAILED
+11:45:37.597 [ERROR] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandFailed: Unable to launch app com.anonymous.concordiaclassfinder
+11:45:37.597 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$9: Run us1.1-campus-maps.yml FAILED
+11:45:37.958 [ INFO] maestro.cli.report.TestDebugReporter.deleteOldFiles: Performing purge of logs older than 14 days from /Users/samuelrichard/Documents/GitHub/soen390-project/.maestro/debug/.maestro/tests

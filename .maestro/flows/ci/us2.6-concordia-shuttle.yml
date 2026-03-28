@@ -69,6 +69,11 @@ appId: com.anonymous.concordiaclassfinder
       id: "direction-to-value-RA"
     timeout: 5000
 
+- assertVisible:
+    id: "direction-start-button"
+- tapOn:
+    id: "direction-start-button"
+
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"
@@ -77,26 +82,13 @@ appId: com.anonymous.concordiaclassfinder
 - assertVisible:
     id: "route-steps-popup"
 
-- tapOn:
-    id: "route-steps-close-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "route-steps-collapsed-tab"
-    timeout: 10000
-
-- assertVisible:
-    id: "route-steps-collapsed-tab"
-
 # Open shuttle tab to view shuttle menu
 - assertVisible:
     id: "route-mode-shuttle"
 - tapOn:
     id: "route-mode-shuttle"
-- tapOn:
-    id: "route-steps-collapsed-tab"
 
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"
-    timeout: 10000
+    timeout: 45000

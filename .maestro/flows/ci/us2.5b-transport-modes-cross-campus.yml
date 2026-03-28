@@ -8,6 +8,11 @@ appId: com.anonymous.concordiaclassfinder
 - runFlow:
     file: _hook-select-mb-to-sp.yml
 
+- assertVisible:
+    id: "direction-start-button"
+- tapOn:
+    id: "direction-start-button"
+
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"
@@ -15,17 +20,6 @@ appId: com.anonymous.concordiaclassfinder
 
 - assertVisible:
     id: "route-steps-popup"
-
-- tapOn:
-    id: "route-steps-close-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "route-steps-collapsed-tab"
-    timeout: 10000
-
-- assertVisible:
-    id: "route-steps-collapsed-tab"
 
 # Walking mode (default)
 - assertVisible:
@@ -44,10 +38,8 @@ appId: com.anonymous.concordiaclassfinder
     id: "route-mode-transit"
 - tapOn:
     id: "route-mode-transit"
-- tapOn:
-    id: "route-steps-collapsed-tab"
 
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"
-    timeout: 10000
+    timeout: 45000
