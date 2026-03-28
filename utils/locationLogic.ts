@@ -1,4 +1,4 @@
-import { Campus } from './shuttleLogic';
+import type { Campus } from "../constants/buildings";
 
 export interface Coordinates {
     latitude: number;
