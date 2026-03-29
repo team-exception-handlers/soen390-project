@@ -1,9 +1,29 @@
+const mockUseReducer = jest.fn();
+const mockUseRef = jest.fn();
+
+jest.mock("react", () => {
+  const actual = jest.requireActual("react");
+  return {
+    ...actual,
+    useReducer: (...args: unknown[]) => mockUseReducer(...args),
+    useMemo: (factory: () => unknown) => factory(),
+    useCallback: <T extends (...args: any[]) => any>(fn: T) => fn,
+    useRef: (value: unknown) => mockUseRef(value),
+  };
+});
+
 import {
   createInitialMapRouteState,
   mapRouteStateReducer,
+  useMapRouteState,
 } from "../../hooks/useMapRouteState";
 
 describe("hooks/useMapRouteState", () => {
+  beforeEach(() => {
+    mockUseReducer.mockReset();
+    mockUseRef.mockReset();
+  });
+
   test("reset_geometry clears derived route data but preserves shuttle departure", () => {
     const state = {
       ...createInitialMapRouteState(),
@@ -87,6 +107,50 @@ describe("hooks/useMapRouteState", () => {
     expect(next.showRouteInstructions).toBe(false);
   });
 
+  test("reset_all preserves shuttle departure and walk results use the base route state", () => {
+    const state = {
+      ...createInitialMapRouteState(),
+      selectedShuttleDeparture: "16:00",
+      routeCoordinates: [{ latitude: 1, longitude: 2 }],
+    };
+    const result = {
+      routeCoordinates: [{ latitude: 45.5, longitude: -73.5 }],
+      routeDurationMinutes: 10,
+      routeDistanceMeters: 700,
+      routeInstructions: [{ text: "Walk straight", distanceMeters: 20 }],
+      transitItineraries: [{ durationSeconds: 600 } as any],
+      shuttleWalkToCoords: [{ latitude: 1, longitude: 1 }],
+      shuttleDriveCoords: [{ latitude: 2, longitude: 2 }],
+      shuttleWalkFromCoords: [{ latitude: 3, longitude: 3 }],
+    };
+
+    expect(mapRouteStateReducer(state, { type: "reset_all" })).toEqual({
+      ...createInitialMapRouteState(),
+      selectedShuttleDeparture: "16:00",
+    });
+
+    expect(
+      mapRouteStateReducer(createInitialMapRouteState(), {
+        type: "apply_route_result",
+        payload: {
+          result,
+          showInstructions: true,
+          routeMode: "walk",
+        },
+      }),
+    ).toMatchObject({
+      routeCoordinates: result.routeCoordinates,
+      routeDurationMinutes: 10,
+      routeDistanceMeters: 700,
+      routeInstructions: result.routeInstructions,
+      showRouteInstructions: true,
+      transitItineraries: [],
+      shuttleWalkToCoords: [],
+      shuttleDriveCoords: [],
+      shuttleWalkFromCoords: [],
+    });
+  });
+
   test("setters update itinerary expansion and instruction details", () => {
     let next = mapRouteStateReducer(createInitialMapRouteState(), {
       type: "set_expanded_itineraries",
@@ -105,5 +169,159 @@ describe("hooks/useMapRouteState", () => {
       payload: [{ text: "Continue", distanceMeters: 10 }],
     });
     expect(next.routeInstructions[0].text).toBe("Continue");
+  });
+
+  test("supports the remaining reducer setters and ignores unknown actions", () => {
+    const state = createInitialMapRouteState();
+
+    let next = mapRouteStateReducer(state, {
+      type: "set_route_loading",
+      payload: true,
+    });
+    expect(next.routeLoading).toBe(true);
+
+    next = mapRouteStateReducer(next, {
+      type: "set_show_route_instructions",
+      payload: true,
+    });
+    expect(next.showRouteInstructions).toBe(true);
+
+    next = mapRouteStateReducer(next, {
+      type: "set_route_started",
+      payload: true,
+    });
+    expect(next.routeStarted).toBe(true);
+
+    next = mapRouteStateReducer(next, {
+      type: "set_selected_itinerary_index",
+      payload: 3,
+    });
+    expect(next.selectedItineraryIndex).toBe(3);
+
+    next = mapRouteStateReducer(next, {
+      type: "set_expanded_itineraries",
+      payload: (current) => [...current, 4],
+    });
+    expect(next.expandedItineraries).toEqual([4]);
+
+    next = mapRouteStateReducer(next, {
+      type: "set_expanded_intermediate_stops",
+      payload: (current) => new Set([...current, "stop-2"]),
+    });
+    expect(Array.from(next.expandedIntermediateStops)).toEqual(["stop-2"]);
+
+    next = mapRouteStateReducer(next, {
+      type: "set_route_duration_minutes",
+      payload: 18,
+    });
+    expect(next.routeDurationMinutes).toBe(18);
+
+    next = mapRouteStateReducer(next, {
+      type: "set_route_distance_meters",
+      payload: 900,
+    });
+    expect(next.routeDistanceMeters).toBe(900);
+
+    next = mapRouteStateReducer(next, {
+      type: "set_selected_shuttle_departure",
+      payload: "14:30",
+    });
+    expect(next.selectedShuttleDeparture).toBe("14:30");
+
+    expect(
+      mapRouteStateReducer(next, { type: "unknown_action" } as any),
+    ).toBe(next);
+  });
+
+  test("hook actions dispatch the expected state transitions and manage dismissal", () => {
+    const dispatch = jest.fn();
+    const state = createInitialMapRouteState();
+    const routeInstructionsDismissedRef = { current: false };
+    const result = {
+      routeCoordinates: [{ latitude: 45.5, longitude: -73.5 }],
+      routeDurationMinutes: 22,
+      routeDistanceMeters: 1400,
+      routeInstructions: [{ text: "Head east", distanceMeters: 50 }],
+      transitItineraries: [],
+      shuttleWalkToCoords: [],
+      shuttleDriveCoords: [],
+      shuttleWalkFromCoords: [],
+    };
+
+    mockUseReducer.mockReturnValue([state, dispatch]);
+    mockUseRef.mockReturnValue(routeInstructionsDismissedRef);
+
+    const hook = useMapRouteState();
+
+    expect(hook.state).toBe(state);
+    expect(hook.routeInstructionsDismissedRef).toBe(routeInstructionsDismissedRef);
+    expect(hook.actions.shouldShowInstructionsForResult(result as any)).toBe(true);
+
+    hook.actions.hideInstructions();
+    expect(routeInstructionsDismissedRef.current).toBe(true);
+    expect(hook.actions.shouldShowInstructionsForResult(result as any)).toBe(false);
+
+    hook.actions.resetDismissed();
+    expect(routeInstructionsDismissedRef.current).toBe(false);
+    expect(
+      hook.actions.shouldShowInstructionsForResult({
+        ...result,
+        routeCoordinates: [],
+      } as any),
+    ).toBe(true);
+
+    hook.actions.resetAll();
+    hook.actions.resetGeometry();
+    hook.actions.applyRouteResult(result as any, {
+      showInstructions: true,
+      routeMode: "walk",
+    });
+    hook.actions.setRouteLoading(true);
+    hook.actions.showInstructions();
+    hook.actions.setRouteStarted(true);
+    hook.actions.setSelectedItineraryIndex(1);
+    hook.actions.setExpandedItineraries((current) => [...current, 1]);
+    hook.actions.setExpandedIntermediateStops(
+      (current) => new Set([...current, "stop-3"]),
+    );
+    hook.actions.setRouteDurationMinutes(12);
+    hook.actions.setRouteDistanceMeters(450);
+    hook.actions.setRouteInstructions(result.routeInstructions as any);
+    hook.actions.setSelectedShuttleDeparture("09:15");
+    hook.collapseInstructions();
+
+    expect(routeInstructionsDismissedRef.current).toBe(true);
+    expect(dispatch.mock.calls).toEqual(
+      expect.arrayContaining([
+        [{ type: "reset_all" }],
+        [{ type: "reset_geometry" }],
+        [
+          {
+            type: "apply_route_result",
+            payload: {
+              result,
+              showInstructions: true,
+              routeMode: "walk",
+            },
+          },
+        ],
+        [{ type: "set_route_loading", payload: true }],
+        [{ type: "set_show_route_instructions", payload: true }],
+        [{ type: "set_show_route_instructions", payload: false }],
+        [{ type: "set_route_started", payload: true }],
+        [{ type: "set_selected_itinerary_index", payload: 1 }],
+        [{ type: "set_expanded_itineraries", payload: expect.any(Function) }],
+        [
+          {
+            type: "set_expanded_intermediate_stops",
+            payload: expect.any(Function),
+          },
+        ],
+        [{ type: "set_route_duration_minutes", payload: 12 }],
+        [{ type: "set_route_distance_meters", payload: 450 }],
+        [{ type: "set_route_instructions", payload: result.routeInstructions }],
+        [{ type: "set_selected_shuttle_departure", payload: "09:15" }],
+      ]),
+    );
   });
 });

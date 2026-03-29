@@ -13,10 +13,8 @@ import {
   shouldShowBuildingPin,
 } from "../../../components/mapScreen/mapScreen.helpers";
 
-const findUserBuilding = jest.fn();
-
 jest.mock("../../../utils/locationUtils", () => ({
-  findUserBuilding,
+  findUserBuilding: jest.fn(),
 }));
 jest.mock("../../../assets/floor_plans/png/H1.png", () => "H1_ASSET");
 jest.mock("../../../assets/floor_plans/png/H2.png", () => "H2_ASSET");
@@ -28,6 +26,10 @@ jest.mock("../../../assets/floor_plans/png/ve1.png", () => "VE1_ASSET");
 jest.mock("../../../assets/floor_plans/png/ve2.png", () => "VE2_ASSET");
 jest.mock("../../../assets/floor_plans/png/vl_1.png", () => "VL1_ASSET");
 jest.mock("../../../assets/floor_plans/png/vl_2.png", () => "VL2_ASSET");
+
+const { findUserBuilding } = jest.requireMock("../../../utils/locationUtils") as {
+  findUserBuilding: jest.Mock;
+};
 
 
 describe("components/mapScreen/mapScreen.helpers", () => {
