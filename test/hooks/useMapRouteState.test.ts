@@ -1,3 +1,9 @@
+import {
+  createInitialMapRouteState,
+  mapRouteStateReducer,
+  useMapRouteState,
+} from "../../hooks/useMapRouteState";
+
 const mockUseReducer = jest.fn();
 const mockUseRef = jest.fn();
 
@@ -12,11 +18,6 @@ jest.mock("react", () => {
   };
 });
 
-import {
-  createInitialMapRouteState,
-  mapRouteStateReducer,
-  useMapRouteState,
-} from "../../hooks/useMapRouteState";
 
 describe("hooks/useMapRouteState", () => {
   beforeEach(() => {
@@ -135,7 +136,7 @@ describe("hooks/useMapRouteState", () => {
         payload: {
           result,
           showInstructions: true,
-          routeMode: "walk",
+          routeMode: "walking",
         },
       }),
     ).toMatchObject({
@@ -274,7 +275,7 @@ describe("hooks/useMapRouteState", () => {
     hook.actions.resetGeometry();
     hook.actions.applyRouteResult(result as any, {
       showInstructions: true,
-      routeMode: "walk",
+      routeMode: "walking",
     });
     hook.actions.setRouteLoading(true);
     hook.actions.showInstructions();
@@ -301,7 +302,7 @@ describe("hooks/useMapRouteState", () => {
             payload: {
               result,
               showInstructions: true,
-              routeMode: "walk",
+              routeMode: "walking",
             },
           },
         ],
