@@ -925,20 +925,18 @@ export default function MapScreen() {
   const searchResults = useMemo(() => {
     const query = searchText.trim().toLowerCase();
     if (!query) return [];
-    return campusBuildings
-      .filter((building) => {
-        const haystack = [
-          building.code,
-          building.shortName,
-          building.longName,
-          building.address,
-        ]
-          .join(" ")
-          .toLowerCase();
-        return haystack.includes(query);
-      })
-      .slice(0, 8);
-  }, [campusBuildings, searchText]);
+    return BUILDINGS.filter((building) => {
+      const haystack = [
+        building.code,
+        building.shortName,
+        building.longName,
+        building.address,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    }).slice(0, 8);
+  }, [searchText]);
 
   const washroomSearchResults = useMemo(() => {
     const query = searchText.trim().toLowerCase();
@@ -998,6 +996,9 @@ export default function MapScreen() {
   ]);
 
   const handleSearchResultPress = (building: BuildingRecord) => {
+    if (building.campus !== campus) {
+      handleCampusChange(building.campus);
+    }
     setSelectedBuilding(building.code);
     setSearchText("");
     Keyboard.dismiss();
@@ -2136,7 +2137,14 @@ export default function MapScreen() {
               style={styles.searchResultItem}
               onPress={() => handleSearchResultPress(building)}
             >
-              <Text style={styles.searchResultCode}>{building.code}</Text>
+              <Text style={styles.searchResultCode}>
+                {building.code}
+                {building.campus !== campus && (
+                  <Text style={styles.searchResultCampusBadge}>
+                    {" "}({building.campus})
+                  </Text>
+                )}
+              </Text>
               <Text style={styles.searchResultName} numberOfLines={1}>
                 {building.longName}
               </Text>
