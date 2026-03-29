@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import Svg, { Circle, Polyline, type SvgProps } from "react-native-svg";
 import type { IndoorRoute } from "../utils/indoorDirections";
-import { findIndoorRoute } from "../utils/indoorDirections";
+import { findIndoorRoute, getSpecialNodesForFloor } from "../utils/indoorDirections";
 
 import CC1Plan from "../assets/floor_plans/svg/CC1.svg";
 import H1Plan from "../assets/floor_plans/svg/H1.svg";
@@ -37,6 +37,13 @@ const FLOOR_PLAN_ASSETS: Record<string, FloorPlanAsset> = {
   "VL-1": { kind: "image", source: require("../assets/floor_plans/png/vl_1.png") },
   "VL-2": { kind: "image", source: require("../assets/floor_plans/png/vl_2.png") },
   "CC-1": { kind: "svg", component: CC1Plan },
+};
+
+const SPECIAL_NODE_COLORS: Record<string, { fill: string; label: string }> = {
+  bathroom: { fill: "#2196F3", label: "Bathroom" }, // Blue
+  stairs: { fill: "#FF9800", label: "Stairs" }, // Orange
+  elevator: { fill: "#F44336", label: "Elevator" }, // Red
+  escalator: { fill: "#4CAF50", label: "Escalator" }, // Green
 };
 
 const DEFAULT_FLOOR_BOUNDS = { width: 2000, height: 1500 };
@@ -182,6 +189,10 @@ export default function IndoorDirectionsModal({
   );
   const allPointsOnFloor = segmentsOnActiveFloor.flatMap((s) => s.points);
 
+  // Get special nodes (bathrooms, stairs, elevators, escalators) for the current floor
+  const specialNodes =
+    effectiveFloor !== null ? getSpecialNodesForFloor(buildingCode, effectiveFloor) : [];
+
   const floorAsset =
     effectiveFloor !== null
       ? getFloorAsset(buildingCode, effectiveFloor)
@@ -310,6 +321,7 @@ export default function IndoorDirectionsModal({
             </View>
             <View style={styles.headerRight}>
               <Pressable
+                testID="indoor-directions-settings-button"
                 style={styles.headerIconButton}
                 onPress={() => setSettingsVisible(true)}
                 accessibilityLabel="Accessibility settings"
@@ -409,6 +421,24 @@ export default function IndoorDirectionsModal({
                         opacity={0.9}
                       />
                     )}
+                    {/* Special floor nodes (bathrooms, stairs, elevators, escalators) */}
+                    {specialNodes.map((node) => {
+                      const { sx, sy } = scalePoint(node.x, node.y);
+                      const nodeColor = SPECIAL_NODE_COLORS[node.type];
+                      if (!nodeColor) return null;
+                      return (
+                        <Circle
+                          key={node.id}
+                          cx={sx}
+                          cy={sy}
+                          r={6}
+                          fill={nodeColor.fill}
+                          stroke="white"
+                          strokeWidth={1.5}
+                          opacity={0.8}
+                        />
+                      );
+                    })}
                     {startPoint && (
                       <Circle
                         cx={startPoint.sx}
@@ -429,6 +459,36 @@ export default function IndoorDirectionsModal({
                         strokeWidth={2}
                       />
                     )}
+                  </Svg>
+                )}
+                
+                {/* Special nodes overlay (always visible when viewing a floor) */}
+                {containerSize.width > 0 && specialNodes.length > 0 && (
+                  <Svg
+                    style={StyleSheet.absoluteFill}
+                    width={containerSize.width}
+                    height={containerSize.height}
+                    pointerEvents="none"
+                  >
+                    {specialNodes.map((node) => {
+                      const { sx, sy } = scalePoint(node.x, node.y);
+                      const nodeColor = SPECIAL_NODE_COLORS[node.type];
+                      if (!nodeColor) return null;
+                      // Skip rendering if already rendered in the route overlay
+                      if (scaledPoints.length > 0) return null;
+                      return (
+                        <Circle
+                          key={node.id}
+                          cx={sx}
+                          cy={sy}
+                          r={6}
+                          fill={nodeColor.fill}
+                          stroke="white"
+                          strokeWidth={1.5}
+                          opacity={0.8}
+                        />
+                      );
+                    })}
                   </Svg>
                 )}
               </View>
@@ -476,12 +536,35 @@ export default function IndoorDirectionsModal({
         animationType="fade"
         onRequestClose={() => setSettingsVisible(false)}
       >
-        <Pressable style={styles.settingsOverlay} onPress={() => setSettingsVisible(false)}>
-          <Pressable style={styles.settingsCard} onPress={() => { }}>
+        <Pressable
+          testID="indoor-directions-settings-overlay"
+          style={styles.settingsOverlay}
+          onPress={() => setSettingsVisible(false)}
+        >
+          <Pressable
+            testID="indoor-directions-settings-card"
+            style={styles.settingsCard}
+            onPress={(event) => event?.stopPropagation?.()}
+          >
             <Text style={styles.settingsTitle}>Accessibility Settings</Text>
-            <SettingsRow label="Stairs" value={stairsEnabled} onChange={setStairsEnabled} />
-            <SettingsRow label="Escalators" value={escalatorsEnabled} onChange={setEscalatorsEnabled} />
-            <SettingsRow label="Elevators" value={elevatorsEnabled} onChange={setElevatorsEnabled} />
+            <SettingsRow
+              label="Stairs"
+              value={stairsEnabled}
+              onChange={setStairsEnabled}
+              switchTestID="indoor-directions-settings-stairs"
+            />
+            <SettingsRow
+              label="Escalators"
+              value={escalatorsEnabled}
+              onChange={setEscalatorsEnabled}
+              switchTestID="indoor-directions-settings-escalators"
+            />
+            <SettingsRow
+              label="Elevators"
+              value={elevatorsEnabled}
+              onChange={setElevatorsEnabled}
+              switchTestID="indoor-directions-settings-elevators"
+            />
           </Pressable>
         </Pressable>
       </Modal>
@@ -493,17 +576,29 @@ function SettingsRow({
   label,
   value,
   onChange,
-}: Readonly<{ label: string; value: boolean; onChange: (v: boolean) => void }>) {
+  switchTestID,
+}: Readonly<{
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  switchTestID?: string;
+}>) {
+  const switchControl = (
+    <Switch
+      value={value}
+      onValueChange={onChange}
+      trackColor={{ false: "#D1D5DB", true: "#34C759" }}
+      thumbColor="#FFFFFF"
+      ios_backgroundColor="#D1D5DB"
+    />
+  );
+
   return (
     <View style={styles.settingsRow}>
       <Text style={styles.settingsRowLabel}>{label}</Text>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        trackColor={{ false: "#D1D5DB", true: "#34C759" }}
-        thumbColor="#FFFFFF"
-        ios_backgroundColor="#D1D5DB"
-      />
+      <View testID={switchTestID} collapsable={false}>
+        {switchControl}
+      </View>
     </View>
   );
 }

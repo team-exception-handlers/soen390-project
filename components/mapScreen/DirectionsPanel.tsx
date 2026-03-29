@@ -1,8 +1,8 @@
 import { Map, Navigation } from "lucide-react-native";
 import {
-  type Dispatch,
-  type RefObject,
-  type SetStateAction,
+    type Dispatch,
+    type RefObject,
+    type SetStateAction,
 } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import type { BuildingRecord } from "../../constants/buildings";
@@ -18,15 +18,14 @@ type RoomInputGroupProps = Readonly<{
   building: BuildingRecord | null;
   room: string;
   setRoom: Dispatch<SetStateAction<string>>;
-  roomInputTestID?: string;
   styles: MapScreenStyles;
+  roomInputTestID?: string;
   getRoomDetails: (
     buildingCode: string,
     roomNumber: string,
   ) => RoomRecord | undefined;
   getFloorPlanAsset: GetFloorPlanAsset;
-  setActiveFloorPlan: (asset: FloorPlanAsset) => void;
-  setFloorPlanModalVisible: (visible: boolean) => void;
+  openFloorPlanModal: (floorKey: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
 }>;
@@ -34,13 +33,12 @@ type RoomInputGroupProps = Readonly<{
 function RoomInputGroup({
   building,
   room,
-  setRoom,
   roomInputTestID,
+  setRoom,
   styles,
   getRoomDetails,
   getFloorPlanAsset,
-  setActiveFloorPlan,
-  setFloorPlanModalVisible,
+  openFloorPlanModal,
   onFocus,
   onBlur,
 }: RoomInputGroupProps) {
@@ -53,6 +51,7 @@ function RoomInputGroup({
   return (
     <View style={styles.roomInputContainer}>
       <TextInput
+        testID={roomInputTestID}
         style={styles.roomInput}
         placeholder="Room #"
         placeholderTextColor="rgba(255,255,255,0.4)"
@@ -61,7 +60,6 @@ function RoomInputGroup({
         keyboardType="default"
         onFocus={onFocus}
         onBlur={onBlur}
-        testID={roomInputTestID}
       />
       <Pressable
         style={
@@ -73,9 +71,7 @@ function RoomInputGroup({
         accessibilityLabel="View Floor Plan"
         onPress={() => {
           if (floorKey) {
-            const asset = getFloorPlanAsset(floorKey);
-            setActiveFloorPlan(asset);
-            setFloorPlanModalVisible(true);
+            openFloorPlanModal(floorKey);
           }
         }}
       >
@@ -262,6 +258,7 @@ export type DirectionsPanelActions = Readonly<{
   setDestinationRoom: Dispatch<SetStateAction<string>>;
   setActiveFloorPlan: (asset: FloorPlanAsset) => void;
   setFloorPlanModalVisible: (visible: boolean) => void;
+  openFloorPlanModal: (floorKey: string) => void;
   setFocusedRoom?: Dispatch<SetStateAction<"from" | "to" | null>>;
   onRoomSuggestionPressIn?: () => void;
   onRoomSuggestionSelect?: (room: string, field: "from" | "to") => void;
@@ -317,6 +314,7 @@ export default function DirectionsPanel({
     setDestinationRoom,
     setActiveFloorPlan,
     setFloorPlanModalVisible,
+    openFloorPlanModal,
     setFocusedRoom,
     onRoomSuggestionPressIn,
     onRoomSuggestionSelect,
@@ -365,12 +363,15 @@ export default function DirectionsPanel({
             building={originBuilding}
             room={originRoom}
             setRoom={setOriginRoom}
-            roomInputTestID="search-room-from-input"
+            roomInputTestID={
+              isDirectionsMode
+                ? "direction-from-room-input"
+                : "search-room-from-input"
+            }
             styles={styles}
             getRoomDetails={getRoomDetails}
             getFloorPlanAsset={getFloorPlanAsset}
-            setActiveFloorPlan={setActiveFloorPlan}
-            setFloorPlanModalVisible={setFloorPlanModalVisible}
+            openFloorPlanModal={openFloorPlanModal}
             onFocus={() => setFocusedRoom?.("from")}
             onBlur={() =>
               setTimeout(
@@ -415,12 +416,15 @@ export default function DirectionsPanel({
             building={destinationBuilding}
             room={destinationRoom}
             setRoom={setDestinationRoom}
-            roomInputTestID="search-room-to-input"
+            roomInputTestID={
+              isDirectionsMode
+                ? "direction-to-room-input"
+                : "search-room-to-input"
+            }
             styles={styles}
             getRoomDetails={getRoomDetails}
             getFloorPlanAsset={getFloorPlanAsset}
-            setActiveFloorPlan={setActiveFloorPlan}
-            setFloorPlanModalVisible={setFloorPlanModalVisible}
+            openFloorPlanModal={openFloorPlanModal}
             onFocus={() => setFocusedRoom?.("to")}
             onBlur={() =>
               setTimeout(
