@@ -49,17 +49,15 @@ export function resolveDetectedLocationState({
   let nextCampus: Campus | null = null;
   let nextHasInitializedCampusFromLocation = hasInitializedCampusFromLocation;
 
-  if (detected.campus) {
-    if (syncCampusMode === "always") {
-      nextCampus = detected.campus;
-      nextHasInitializedCampusFromLocation = true;
-    } else if (
-      syncCampusMode === "once" &&
-      !hasInitializedCampusFromLocation
-    ) {
-      nextCampus = detected.campus;
-      nextHasInitializedCampusFromLocation = true;
-    }
+  const shouldSyncCampus =
+    detected.campus &&
+    (syncCampusMode === "always" ||
+      (syncCampusMode === "once" &&
+        !nextHasInitializedCampusFromLocation));
+
+  if (shouldSyncCampus) {
+    nextCampus = detected.campus;
+    nextHasInitializedCampusFromLocation = true;
   }
 
   return {

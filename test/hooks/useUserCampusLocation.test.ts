@@ -1,11 +1,11 @@
+import { resolveDetectedLocationState } from "../../hooks/useUserCampusLocation";
+
 jest.mock("../../utils/locationUtils", () => ({
   getInitialLocationFix: jest.fn(),
   hasLocationPermission: jest.fn(),
   requestLocationPermission: jest.fn(),
   startWatchingLocation: jest.fn(),
 }));
-
-import { resolveDetectedLocationState } from "../../hooks/useUserCampusLocation";
 
 describe("hooks/useUserCampusLocation", () => {
   test("syncs origin building when origin mode is auto", () => {
@@ -73,6 +73,20 @@ describe("hooks/useUserCampusLocation", () => {
     });
     expect(always.nextCampus).toBe("LOY");
     expect(always.nextHasInitializedCampusFromLocation).toBe(true);
+  });
+
+  test("does not initialize campus from location when sync is disabled", () => {
+    const result = resolveDetectedLocationState({
+      detected: { code: "SP", campus: "LOY" },
+      originMode: "auto",
+      hasInitializedCampusFromLocation: false,
+      options: {
+        syncCampusMode: "never",
+      },
+    });
+
+    expect(result.nextCampus).toBeNull();
+    expect(result.nextHasInitializedCampusFromLocation).toBe(false);
   });
 
   test("handles locations outside known campuses", () => {

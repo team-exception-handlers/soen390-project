@@ -1,3 +1,18 @@
+import { BUILDINGS } from "../../../constants/buildings";
+import {
+  buildingHasPolygon,
+  detectBuildingFromLocation,
+  formatDuration,
+  getBoundsFromRegion,
+  getFloorPlanAsset,
+  getPinVisibilityMode,
+  getTransitColor,
+  roundCoord,
+  resolveBuildingByCode,
+  resolvePolygonCode,
+  shouldShowBuildingPin,
+} from "../../../components/mapScreen/mapScreen.helpers";
+
 const findUserBuilding = jest.fn();
 
 jest.mock("../../../utils/locationUtils", () => ({
@@ -14,20 +29,6 @@ jest.mock("../../../assets/floor_plans/png/ve2.png", () => "VE2_ASSET");
 jest.mock("../../../assets/floor_plans/png/vl_1.png", () => "VL1_ASSET");
 jest.mock("../../../assets/floor_plans/png/vl_2.png", () => "VL2_ASSET");
 
-import { BUILDINGS } from "../../../constants/buildings";
-import {
-  buildingHasPolygon,
-  detectBuildingFromLocation,
-  formatDuration,
-  getBoundsFromRegion,
-  getFloorPlanAsset,
-  getPinVisibilityMode,
-  getTransitColor,
-  roundCoord,
-  resolveBuildingByCode,
-  resolvePolygonCode,
-  shouldShowBuildingPin,
-} from "../../../components/mapScreen/mapScreen.helpers";
 
 describe("components/mapScreen/mapScreen.helpers", () => {
   test("rounds coordinates to four decimal places", () => {
