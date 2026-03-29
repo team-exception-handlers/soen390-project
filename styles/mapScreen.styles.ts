@@ -65,6 +65,70 @@ export function createMapScreenStyles({
       width: "100%",
       height: "100%",
     },
+    floorPlanModalChipScroll: {
+      flexGrow: 0,
+      maxHeight: 44,
+      marginTop: 48,
+      marginHorizontal: 12,
+    },
+    floorPlanModalChipScrollContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingRight: 8,
+    },
+    floorPlanModalChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: "#E8E8ED",
+      borderWidth: 1,
+      borderColor: "transparent",
+    },
+    floorPlanModalChipActive: {
+      backgroundColor: "#1668C7",
+      borderColor: "#0d4a8c",
+    },
+    floorPlanModalChipText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: "#1F1F24",
+    },
+    floorPlanModalChipTextActive: {
+      color: "#FFFFFF",
+    },
+    floorPlanModalBody: {
+      flex: 1,
+      width: "100%",
+      minHeight: 0,
+    },
+    floorPlanLegend: {
+      flexDirection: "row",
+      justifyContent: "space-around",
+      alignItems: "center",
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderTopWidth: 1,
+      borderTopColor: "#E0E0E0",
+      backgroundColor: "#FAFAFA",
+    },
+    floorPlanLegendItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    floorPlanLegendSwatch: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 1,
+      borderColor: "#FFFFFF",
+    },
+    floorPlanLegendText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: "#1F1F24",
+    },
     roomInput: {
       flex: 1,
       height: 30,
@@ -270,6 +334,11 @@ export function createMapScreenStyles({
       color: "#A32638",
       fontWeight: "700",
       fontSize: 13,
+    },
+    searchResultCampusBadge: {
+      color: "#5D5D66",
+      fontWeight: "400",
+      fontSize: 11,
     },
     searchResultName: {
       marginTop: 3,

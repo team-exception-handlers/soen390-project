@@ -40,8 +40,10 @@ jest.mock("react-native", () => {
   };
 
   return {
+    Image: host("Image"),
     Keyboard: { dismiss: keyboardDismiss },
     Linking: { openSettings: jest.fn() },
+    Modal: host("Modal"),
     PanResponder: { create: jest.fn(() => ({ panHandlers: {} })) },
     Platform: { OS: "web" },
     Pressable,
@@ -76,6 +78,15 @@ jest.mock("lucide-react-native", () => {
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
 }));
+
+jest.mock("react-native-svg", () => {
+  const React = require("react");
+  return {
+    __esModule: true,
+    default: ({ children, ...props }) => React.createElement("Svg", props, children),
+    Circle: (props) => React.createElement("Circle", props),
+  };
+});
 
 jest.mock("../../components/AppHeader", () => {
   const React = require("react");
@@ -239,26 +250,30 @@ describe("app/(tabs)/index", () => {
   test("wires campus change and search result selection", () => {
     const setters = mockUseStateSequence([
       undefined,
-      false,
-      null,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
       "SGW",
       "hall",
-      null,
-      "EV",
-      "H",
-      "",
-      "",
-      null,
-      false,
       undefined,
-      false,
-      "walking",
-      { walking: null, driving: null, transit: null },
-      false,
-      null,
-      { latitude: 45.497, longitude: -73.579, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-      [[45.49, -73.58], [45.5, -73.57]],
-      0,
+      undefined,
+      "H",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
     ]);
 
     const MapScreen = require("../../app/(tabs)/index").default;
@@ -266,12 +281,12 @@ describe("app/(tabs)/index", () => {
 
     const header = findByType(tree, "AppHeader");
     header.props.onCampusChange("LOY");
-    expect(setters[3]).toHaveBeenCalledWith("LOY");
+    expect(setters[5]).toHaveBeenCalledWith("LOY");
 
     const hallResult = findByTestID(tree, "search-result-H");
     hallResult.props.onPress();
-    expect(setters[5]).toHaveBeenCalledWith("H");
-    expect(setters[4]).toHaveBeenCalledWith("");
+    expect(setters[7]).toHaveBeenCalledWith("H");
+    expect(setters[6]).toHaveBeenCalledWith("");
     expect(keyboardDismiss).toHaveBeenCalled();
   });
 });

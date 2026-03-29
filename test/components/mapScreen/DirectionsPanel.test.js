@@ -151,6 +151,7 @@ function createProps(overrides = {}) {
     setDestinationRoom: jest.fn(),
     setActiveFloorPlan: jest.fn(),
     setFloorPlanModalVisible: jest.fn(),
+    openFloorPlanModal: jest.fn(),
     setFocusedRoom: undefined,
     onRoomSuggestionPressIn: undefined,
     onRoomSuggestionSelect: undefined,
@@ -255,8 +256,7 @@ describe("components/mapScreen/DirectionsPanel", () => {
     expect(floorPlanButtons[1].props.disabled).toBe(true);
 
     floorPlanButtons[0].props.onPress();
-    expect(props.setActiveFloorPlan).toHaveBeenCalledWith(asset);
-    expect(props.setFloorPlanModalVisible).toHaveBeenCalledWith(true);
+    expect(props.openFloorPlanModal).toHaveBeenCalledWith("H-8");
   });
 
   test("renders empty origin/destination state when no buildings are selected", () => {

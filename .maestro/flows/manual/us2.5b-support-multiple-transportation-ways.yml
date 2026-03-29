@@ -69,6 +69,11 @@ appId: host.exp.Exponent
       id: "direction-to-value-SP"
     timeout: 5000
 
+- assertVisible:
+    id: "direction-start-button"
+- tapOn:
+    id: "direction-start-button"
+
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"
@@ -76,17 +81,6 @@ appId: host.exp.Exponent
 
 - assertVisible:
     id: "route-steps-popup"
-
-- tapOn:
-    id: "route-steps-close-button"
-
-- extendedWaitUntil:
-    visible:
-      id: "route-steps-collapsed-tab"
-    timeout: 10000
-
-- assertVisible:
-    id: "route-steps-collapsed-tab"
 
 # Bike mode (internal walking profile)
 - assertVisible:
@@ -105,8 +99,14 @@ appId: host.exp.Exponent
     id: "route-mode-transit"
 - tapOn:
     id: "route-mode-transit"
+
+- extendedWaitUntil:
+    visible:
+      id: "route-steps-popup"
+    timeout: 10000
+    id: "route-mode-transit"
 - tapOn:
-    id: "route-steps-collapsed-tab"
+    id: "route-mode-transit"
 
 - extendedWaitUntil:
     visible:

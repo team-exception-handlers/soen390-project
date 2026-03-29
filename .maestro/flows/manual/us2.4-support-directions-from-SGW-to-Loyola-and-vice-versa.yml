@@ -69,6 +69,11 @@ appId: host.exp.Exponent
       id: "direction-to-value-SP"
     timeout: 5000
 
+- assertVisible:
+    id: "direction-start-button"
+- tapOn:
+    id: "direction-start-button"
+
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"
@@ -81,9 +86,37 @@ appId: host.exp.Exponent
     id: "route-steps-close-button"
 
 - extendedWaitUntil:
-    visible:
-      id: "route-steps-collapsed-tab"
+    notVisible:
+      id: "route-steps-popup"
     timeout: 10000
 
+- assertNotVisible:
+    id: "route-steps-popup"
+
+- extendedWaitUntil:
+    visible:
+      id: "direction-from-value-MB"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "direction-to-value-SP"
+    timeout: 5000
+
+- extendedWaitUntil:
+    visible:
+      id: "route-steps-popup"
+    timeout: 45000
+
 - assertVisible:
-    id: "route-steps-collapsed-tab"
+    id: "route-steps-popup"
+
+- tapOn:
+    id: "route-steps-close-button"
+
+- extendedWaitUntil:
+    notVisible:
+      id: "route-steps-popup"
+    timeout: 10000
+
+- assertNotVisible:
+    id: "route-steps-popup"

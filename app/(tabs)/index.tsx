@@ -2,26 +2,30 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import { useLocalSearchParams } from "expo-router";
-import { ChevronUp } from "lucide-react-native";
+import { ChevronUp, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Image,
   Keyboard,
   Linking,
+  Modal,
   PanResponder,
   Platform,
   Pressable,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Circle } from "react-native-svg";
 import AppHeader from "../../components/AppHeader";
 import BuildingInformation from "../../components/BuildingInformation";
 import IndoorDirectionsModal from "../../components/IndoorDirectionsModal";
 import CurrentBuildingBanner from "../../components/mapScreen/CurrentBuildingBanner";
 import DirectionsPanel from "../../components/mapScreen/DirectionsPanel";
-import FloorPlanModal from "../../components/mapScreen/FloorPlanModal";
 import LocationPermissionBanner from "../../components/mapScreen/LocationPermissionBanner";
 import NativeCampusMap from "../../components/mapScreen/NativeCampusMap";
 import RouteStepsPopup from "../../components/mapScreen/RouteStepsPopup";
@@ -45,28 +49,55 @@ import { useUserCampusLocation } from "../../hooks/useUserCampusLocation";
 import { createMapScreenStyles } from "../../styles/mapScreen.styles";
 import type { MapBounds, RouteMode } from "../../types/map";
 import { parseLocationParts } from "../../utils/classLocation";
+import {
+  getFloorPlanLabelForKey,
+  getFloorPlanOptionsForBuilding,
+} from "../../utils/floorPlanCatalog";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
   findIndoorRoute,
   getFloorBounds,
   getGraphFloorBounds,
+  getSpecialNodesForFloor,
   type IndoorRoute,
 } from "../../utils/indoorDirections";
 import { requestLocationPermission } from "../../utils/locationUtils";
 import { getCampusRegion } from "../../utils/mapRegions";
+import { fetchOsrmRoute } from "../../utils/osrmDirections";
+import { getRoomDetails, getRoomsForBuilding, roomLabelMatchesSearchPrefix } from "../../utils/roomUtils";
 import {
   calculateOsrmRouteHelper,
   calculateShuttleRouteHelper,
   calculateTransitRouteHelper,
 } from "../../utils/routeCalculators";
-import { getRoomDetails, getRoomsForBuilding, roomLabelMatchesSearchPrefix } from "../../utils/roomUtils";
-import { fetchOsrmRoute } from "../../utils/osrmDirections";
 import { fetchTransitItineraries, formatTime } from "../../utils/transitousDirections";
+import { findNearestWashroomTarget } from "../../utils/washroomSearch";
+
+const parseFloorPlanKey = (key: string): { building: string; floor: number } | null => {
+  const match = key.match(/^([A-Z]+)-(-?\d+)$/);
+  if (!match) return null;
+  const building = match[1];
+  const floor = parseInt(match[2], 10);
+  return { building, floor };
+};
+
+const SPECIAL_NODE_COLORS: Record<string, { fill: string; label: string }> = {
+  bathroom: { fill: "#2196F3", label: "Bathroom" },
+  stairs: { fill: "#FF9800", label: "Stairs" },
+  elevator: { fill: "#F44336", label: "Elevator" },
+  escalator: { fill: "#4CAF50", label: "Escalator" },
+};
 
 const DEFAULT_START_BUILDING_CODE = "H";
 const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
 
 export default function MapScreen() {
+  const [floorPlanModalOptions, setFloorPlanModalOptions] = useState<
+    { key: string; label: string }[]
+  >([]);
+  const [selectedFloorPlanKey, setSelectedFloorPlanKey] = useState<string | null>(
+    null,
+  );
   const { toBuilding, toRoom } = useLocalSearchParams<{
     toBuilding?: string;
     toRoom?: string;
@@ -384,6 +415,27 @@ export default function MapScreen() {
     clearRoomInputs();
   }, [clearRoomInputs, routeActions]);
 
+  const setDestinationAndEnterDirectionsMode = useCallback((
+    building: string | null,
+    room?: string | null,
+    clearInputs = true,
+  ) => {
+    if (!building) return;
+    setDestinationBuildingCode(building);
+    setDestinationRoom(room ?? "");
+    setIsDirectionsMode(true);
+    setEditingField(undefined);
+    if (clearInputs) {
+      setSelectedBuilding(null);
+      setSearchText("");
+    }
+    routeActions.showInstructions();
+    const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
+    if (destinationRecord && destinationRecord.campus !== campus) {
+      setCampus(destinationRecord.campus);
+    }
+  }, [campus, routeActions]);
+
   const handleCampusChange = useCallback(
     (nextCampus: Campus) => {
       if (isDirectionsMode) {
@@ -427,21 +479,10 @@ export default function MapScreen() {
         return;
       }
 
-      setDestinationBuildingCode(building);
-      setDestinationRoom(room ?? "");
-      setIsDirectionsMode(true);
-      setEditingField(undefined);
-      setSelectedBuilding(null);
-      setSearchText("");
-      routeActions.showInstructions();
-
-      const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
-      if (destinationRecord && destinationRecord.campus !== campus) {
-        setCampus(destinationRecord.campus);
-      }
-
       const className = nextEvent.summary ?? "your next class";
       const location = room ? `${building}-${room}` : building;
+
+      setDestinationAndEnterDirectionsMode(building, room);
       setNextClassMessage(`Directions set to ${className} (${location}).`);
     } catch (error) {
       console.error("Failed to get next class directions:", error);
@@ -479,26 +520,92 @@ export default function MapScreen() {
   const searchResults = useMemo(() => {
     const query = searchText.trim().toLowerCase();
     if (!query) return [];
-    return campusBuildings
-      .filter((building) => {
-        const haystack = [
-          building.code,
-          building.shortName,
-          building.longName,
-          building.address,
-        ]
-          .join(" ")
-          .toLowerCase();
-        return haystack.includes(query);
-      })
-      .slice(0, 8);
-  }, [campusBuildings, searchText]);
+    return BUILDINGS.filter((building) => {
+      const haystack = [
+        building.code,
+        building.shortName,
+        building.longName,
+        building.address,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    }).slice(0, 8);
+  }, [searchText]);
+
+  const washroomSearchResults = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+    const isWashroomQuery =
+      query.includes("washroom") || query.includes("bathroom");
+    if (!isWashroomQuery) return [];
+
+    const washroomParams = {
+      campusBuildings,
+      actualOriginPoint,
+      originBuildingCode: originBuilding?.code ?? null,
+      originRoom,
+      destinationBuildingCode: destinationBuilding?.code ?? null,
+      destinationRoom,
+    };
+
+    const maleWashroomTarget = findNearestWashroomTarget(
+      "male_washroom",
+      washroomParams,
+    );
+    const femaleWashroomTarget = findNearestWashroomTarget(
+      "female_washroom",
+      washroomParams,
+    );
+
+    return [
+      maleWashroomTarget
+        ? {
+          key: "nearest-male-washroom",
+          label: "Nearest male washroom",
+          building: maleWashroomTarget.building,
+          roomLabel: maleWashroomTarget.roomLabel,
+        }
+        : null,
+      femaleWashroomTarget
+        ? {
+          key: "nearest-female-washroom",
+          label: "Nearest female washroom",
+          building: femaleWashroomTarget.building,
+          roomLabel: femaleWashroomTarget.roomLabel,
+        }
+        : null,
+    ].filter((result): result is {
+      key: string;
+      label: string;
+      building: BuildingRecord;
+      roomLabel: string;
+    } => result !== null);
+  }, [
+    actualOriginPoint,
+    campusBuildings,
+    destinationBuilding?.code,
+    destinationRoom,
+    originBuilding?.code,
+    originRoom,
+    searchText,
+  ]);
 
   const handleSearchResultPress = useCallback((building: BuildingRecord) => {
+    if (building.campus !== campus) {
+      handleCampusChange(building.campus);
+    }
     setSelectedBuilding(building.code);
     setSearchText("");
     Keyboard.dismiss();
-  }, []);
+  }, [campus, handleCampusChange]);
+
+  const handleWashroomSearchResultPress = (
+    building: BuildingRecord,
+    roomLabel: string,
+  ) => {
+    setDestinationAndEnterDirectionsMode(building.code, roomLabel, true);
+    Keyboard.dismiss();
+  };
 
   useEffect(() => {
     setSearchText("");
@@ -629,6 +736,35 @@ export default function MapScreen() {
     routeMode === "shuttle";
   const hasIndoorRoute =
     indoorRoute === undefined ? undefined : indoorRoute !== null;
+  const selectedBuildingFloorPlans = useMemo(
+    () => getFloorPlanOptionsForBuilding(selectedBuilding),
+    [selectedBuilding],
+  );
+
+  const openFloorPlanModal = useCallback((floorKey: string) => {
+    setFloorPlanModalOptions([
+      { key: floorKey, label: getFloorPlanLabelForKey(floorKey) },
+    ]);
+    setSelectedFloorPlanKey(floorKey);
+    setActiveFloorPlan(getFloorPlanAsset(floorKey));
+    setFloorPlanModalVisible(true);
+  }, []);
+
+  const openBuildingFloorPlansFromMap = useCallback(() => {
+    if (!selectedBuilding) return;
+    const opts = getFloorPlanOptionsForBuilding(selectedBuilding);
+    if (opts.length === 0) return;
+    setFloorPlanModalOptions([...opts]);
+    setSelectedFloorPlanKey(opts[0].key);
+    setActiveFloorPlan(getFloorPlanAsset(opts[0].key));
+    setFloorPlanModalVisible(true);
+  }, [selectedBuilding]);
+
+  const closeFloorPlanModal = useCallback(() => {
+    setFloorPlanModalVisible(false);
+    setFloorPlanModalOptions([]);
+    setSelectedFloorPlanKey(null);
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -640,11 +776,34 @@ export default function MapScreen() {
         searchInputRef={searchInputRef}
       />
 
-      {searchResults.length > 0 && (
+      {(washroomSearchResults.length > 0 || searchResults.length > 0) && (
         <View style={styles.searchResultsContainer} testID="search-results">
           <Text style={styles.searchResultsHint}>
-            Tap a building to set destination (To).
+            {washroomSearchResults.length > 0
+              ? "Tap an option to locate the nearest washroom."
+              : "Tap a building to set destination (To)."}
           </Text>
+          {washroomSearchResults.map((result) => (
+            <Pressable
+              key={result.key}
+              testID={`search-result-${result.key}`}
+              style={styles.searchResultItem}
+              onPress={() =>
+                handleWashroomSearchResultPress(
+                  result.building,
+                  result.roomLabel,
+                )
+              }
+            >
+              <Text style={styles.searchResultCode}>{result.building.code}</Text>
+              <Text style={styles.searchResultName} numberOfLines={1}>
+                {result.label}
+              </Text>
+              <Text style={styles.searchResultAddress} numberOfLines={1}>
+                {`Room ${result.roomLabel} - ${result.building.longName}`}
+              </Text>
+            </Pressable>
+          ))}
           {searchResults.map((building) => (
             <Pressable
               key={building.code}
@@ -652,7 +811,14 @@ export default function MapScreen() {
               style={styles.searchResultItem}
               onPress={() => handleSearchResultPress(building)}
             >
-              <Text style={styles.searchResultCode}>{building.code}</Text>
+              <Text style={styles.searchResultCode}>
+                {building.code}
+                {building.campus !== campus && (
+                  <Text style={styles.searchResultCampusBadge}>
+                    {" "}({building.campus})
+                  </Text>
+                )}
+              </Text>
               <Text style={styles.searchResultName} numberOfLines={1}>
                 {building.longName}
               </Text>
@@ -691,6 +857,7 @@ export default function MapScreen() {
           setDestinationRoom,
           setActiveFloorPlan,
           setFloorPlanModalVisible,
+          openFloorPlanModal,
           setFocusedRoom,
           onRoomSuggestionPressIn: () => {
             // reserved for suggestion tap timing parity
@@ -868,25 +1035,184 @@ export default function MapScreen() {
         buildingInfo={selectedBuildingRecord?.description}
         buildingPhotoLink={selectedBuildingRecord?.photoLink}
         editingField={editingField}
+        floorPlanOptions={selectedBuildingFloorPlans}
+        onOpenFloorPlans={openBuildingFloorPlansFromMap}
         onSelectDestination={(code: string) => {
           if (editingField === "from") {
             setOriginMode("manual");
             setOriginBuildingCode(code);
           } else {
-            setDestinationBuildingCode(code);
-            setIsDirectionsMode(true);
+            setDestinationAndEnterDirectionsMode(code);
+            return;
           }
           setSelectedBuilding(null);
           setEditingField(undefined);
         }}
       />
 
-      <FloorPlanModal
+      <Modal
         visible={floorPlanModalVisible}
-        activeFloorPlan={activeFloorPlan}
-        onClose={() => setFloorPlanModalVisible(false)}
-        styles={styles}
-      />
+        animationType="fade"
+        transparent={true}
+        onRequestClose={closeFloorPlanModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Pressable
+              style={styles.modalCloseButton}
+              onPress={closeFloorPlanModal}
+            >
+              <X size={24} color="#1F1F24" strokeWidth={2.5} />
+            </Pressable>
+
+            {floorPlanModalOptions.length > 1 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.floorPlanModalChipScroll}
+                contentContainerStyle={styles.floorPlanModalChipScrollContent}
+              >
+                {floorPlanModalOptions.map((opt) => {
+                  const active = opt.key === selectedFloorPlanKey;
+                  return (
+                    <Pressable
+                      key={opt.key}
+                      testID={`floor-plan-chip-${opt.key}`}
+                      onPress={() => {
+                        setSelectedFloorPlanKey(opt.key);
+                        setActiveFloorPlan(getFloorPlanAsset(opt.key));
+                      }}
+                      style={[
+                        styles.floorPlanModalChip,
+                        active && styles.floorPlanModalChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.floorPlanModalChipText,
+                          active && styles.floorPlanModalChipTextActive,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
+
+            <View style={styles.floorPlanModalBody}>
+              {(activeFloorPlan != null && selectedFloorPlanKey != null) ? (() => {
+                const parsedKey = parseFloorPlanKey(selectedFloorPlanKey);
+                if (!parsedKey) {
+                  return (Platform.OS === "web" ? (
+                    <Image
+                      source={activeFloorPlan}
+                      style={styles.floorPlanImage}
+                      resizeMode="contain"
+                    />
+                  ) : typeof activeFloorPlan === "number" ? (
+                    <Image
+                      source={activeFloorPlan}
+                      style={styles.floorPlanImage}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    (() => {
+                      const FloorPlanComponent = activeFloorPlan as React.ComponentType<{
+                        width?: string | number;
+                        height?: string | number;
+                      }>;
+                      return (
+                        <Svg width="100%" height="100%" viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid meet">
+                          <FloorPlanComponent width={1024} height={1024} />
+                        </Svg>
+                      );
+                    })()
+                  )) as React.ReactNode;
+                }
+
+                const specialNodes = getSpecialNodesForFloor(parsedKey.building, parsedKey.floor);
+                const bounds = getFloorBounds(parsedKey.building, parsedKey.floor);
+                const graphBounds = getGraphFloorBounds(parsedKey.building, parsedKey.floor);
+
+                const renderSpecialNodeCircles = () =>
+                  specialNodes.map((node) => {
+                    const x = (node.x * bounds.width) / graphBounds.width;
+                    const y = (node.y * bounds.height) / graphBounds.height;
+                    const nodeColor = SPECIAL_NODE_COLORS[node.type];
+                    if (!nodeColor) return null;
+                    return (
+                      <Circle
+                        key={node.id}
+                        cx={x}
+                        cy={y}
+                        r={12}
+                        fill={nodeColor.fill}
+                        stroke="white"
+                        strokeWidth={2}
+                        opacity={0.9}
+                      />
+                    );
+                  });
+
+                if (Platform.OS === "web") {
+                  return (
+                    <View style={{ position: 'relative', width: '100%', height: '100%' }}>
+                      <Image
+                        source={activeFloorPlan}
+                        style={styles.floorPlanImage}
+                        resizeMode="contain"
+                      />
+                      {specialNodes.length > 0 && (
+                        <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+                          {renderSpecialNodeCircles()}
+                        </Svg>
+                      )}
+                    </View>
+                  );
+                } else if (typeof activeFloorPlan === "number") {
+                  return (
+                    <View style={{ position: 'relative', width: '100%', height: '100%' }}>
+                      <Image
+                        source={activeFloorPlan}
+                        style={styles.floorPlanImage}
+                        resizeMode="contain"
+                      />
+                      {specialNodes.length > 0 && (
+                        <View style={StyleSheet.absoluteFill}>
+                          <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet">
+                            {renderSpecialNodeCircles()}
+                          </Svg>
+                        </View>
+                      )}
+                    </View>
+                  );
+                } else {
+                  const FloorPlanComponent = activeFloorPlan as React.ComponentType<{
+                    width?: string | number;
+                    height?: string | number;
+                  }>;
+                  return (
+                    <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet">
+                      <FloorPlanComponent width={bounds.width} height={bounds.height} />
+                      {renderSpecialNodeCircles()}
+                    </Svg>
+                  );
+                }
+              })() : null}
+            </View>
+            <View style={styles.floorPlanLegend}>
+              {Object.entries(SPECIAL_NODE_COLORS).map(([type, { fill, label }]) => (
+                <View key={type} style={styles.floorPlanLegendItem}>
+                  <View style={[styles.floorPlanLegendSwatch, { backgroundColor: fill }]} />
+                  <Text style={styles.floorPlanLegendText}>{label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <IndoorDirectionsModal
         visible={indoorDirectionsModalVisible}

@@ -8,6 +8,11 @@ appId: com.anonymous.concordiaclassfinder
 - runFlow:
     file: _hook-select-mb-to-sp.yml
 
+- assertVisible:
+    id: "direction-start-button"
+- tapOn:
+    id: "direction-start-button"
+
 - extendedWaitUntil:
     visible:
       id: "route-steps-popup"
@@ -20,9 +25,9 @@ appId: com.anonymous.concordiaclassfinder
     id: "route-steps-close-button"
 
 - extendedWaitUntil:
-    visible:
-      id: "route-steps-collapsed-tab"
+    notVisible:
+      id: "route-steps-popup"
     timeout: 10000
 
-- assertVisible:
-    id: "route-steps-collapsed-tab"
+- assertNotVisible:
+    id: "route-steps-popup"
