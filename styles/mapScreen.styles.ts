@@ -271,8 +271,8 @@ export function createMapScreenStyles({
       shadowOpacity: 0.2,
       shadowRadius: 8,
       shadowOffset: { width: 0, height: 4 },
-      elevation: 5,
-      zIndex: 1000,
+      elevation: 2,
+      zIndex: 5,
       maxWidth: "90%",
     },
     permissionText: {
