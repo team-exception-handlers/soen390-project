@@ -330,7 +330,7 @@ export default function DirectionsPanel({
   return (
     <View style={styles.directionsPanel} testID="directions-panel">
       <View style={styles.directionFieldRow}>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Pressable
             testID="direction-from-button"
             onPress={() => {
@@ -382,7 +382,7 @@ export default function DirectionsPanel({
           />
         </View>
 
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Pressable
             testID="direction-to-button"
             onPress={() => {

@@ -17,8 +17,8 @@ export function createMapScreenStyles({
 }: Readonly<CreateMapScreenStylesArgs>) {
   return StyleSheet.create({
     floorPlanButtonActive: {
-      width: 34,
-      height: 30,
+      width: 28,
+      height: 28,
       backgroundColor: "rgba(35, 140, 81, 0.8)",
       borderRadius: 8,
       borderWidth: 1,
@@ -131,24 +131,25 @@ export function createMapScreenStyles({
     },
     roomInput: {
       flex: 1,
-      height: 30,
+      minWidth: 0,
+      height: 28,
       backgroundColor: "rgba(255,255,255,0.06)",
       borderRadius: 8,
       borderWidth: 1,
       borderColor: "rgba(255,255,255,0.15)",
       color: "white",
-      paddingHorizontal: 8,
+      paddingHorizontal: 6,
       fontSize: 12,
     },
     roomInputContainer: {
       flexDirection: "row",
       alignItems: "center",
       marginTop: 4,
-      gap: 6,
+      gap: 4,
     },
     floorPlanButtonDisabled: {
-      width: 34,
-      height: 30,
+      width: 28,
+      height: 28,
       backgroundColor: "rgba(255,255,255,0.03)",
       borderRadius: 8,
       borderWidth: 1,
@@ -396,7 +397,8 @@ export function createMapScreenStyles({
       minHeight: 18,
     },
     clearRouteButton: {
-      paddingHorizontal: 10,
+      flexShrink: 0,
+      paddingHorizontal: 8,
       paddingVertical: 8,
       borderRadius: 10,
       borderWidth: 1,
