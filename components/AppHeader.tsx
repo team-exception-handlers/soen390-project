@@ -118,8 +118,8 @@ const styles = StyleSheet.create({
     padding: 4,
     overflow: "hidden",
     backgroundColor: "rgba(255,255,255,0.15)",
-    transform: Platform.OS === "web" ? [] : [{ translateY: -15 }],
-    marginTop: Platform.OS === "web" ? -20 : 0,
+    transform: Platform.OS === "web" ? [] : [{ translateY: -10 }],
+    marginTop: Platform.OS === "web" ? -15 : 0,
   },
 
   toggleButton: {
