@@ -13,6 +13,7 @@ import React, {
 import {
   Image,
   Keyboard,
+  type LayoutChangeEvent,
   Linking,
   Modal,
   PanResponder,
@@ -23,6 +24,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -203,6 +205,7 @@ const getTransitColor = (mode: string, route?: string) => {
 };
 
 export default function MapScreen() {
+  const { height: windowHeight } = useWindowDimensions();
   // Tracks whether the user is editing the start or destination
   const [editingField, setEditingField] = useState<"from" | "to" | undefined>(
     undefined,
@@ -297,6 +300,7 @@ export default function MapScreen() {
   const [routeStarted, setRouteStarted] = useState(false);
   const [nextClassLoading, setNextClassLoading] = useState(false);
   const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
+  const [directionsPanelBottom, setDirectionsPanelBottom] = useState(0);
   const [mapViewportRegion, setMapViewportRegion] = useState(() =>
     getCampusRegion("SGW", SGW_POLYGONS.features),
   );
@@ -388,6 +392,28 @@ export default function MapScreen() {
         tabBarHeight: TAB_BAR_HEIGHT,
       }),
     [isWebPlatform, insets.top, insets.bottom],
+  );
+  const routeStepsPopupMaxHeight = useMemo(() => {
+    const preferredMaxHeight = isWebPlatform ? 360 : 300;
+    if (!directionsPanelBottom) return preferredMaxHeight;
+
+    const popupBottomOffset = insets.bottom + TAB_BAR_HEIGHT + 10;
+    const gapBelowDirectionsPanel = 12;
+    const availableHeight =
+      windowHeight -
+      directionsPanelBottom -
+      popupBottomOffset -
+      gapBelowDirectionsPanel;
+
+    return Math.max(140, Math.min(preferredMaxHeight, availableHeight));
+  }, [directionsPanelBottom, insets.bottom, isWebPlatform, windowHeight]);
+
+  const handleDirectionsPanelLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { y, height } = event.nativeEvent.layout;
+      setDirectionsPanelBottom(y + height);
+    },
+    [],
   );
 
   const MapViewComponent = !isWebPlatform && !isExpoGo ? NativeMapView : null;
@@ -2195,6 +2221,7 @@ export default function MapScreen() {
           else setDestinationRoom(room);
           setFocusedRoom(null);
         }}
+        onLayout={handleDirectionsPanelLayout}
       />
 
       {currentBuilding &&
@@ -2309,6 +2336,7 @@ export default function MapScreen() {
             expandedIntermediateStops={expandedIntermediateStops}
             setExpandedIntermediateStops={setExpandedIntermediateStops}
             routeInstructions={routeInstructions}
+            popupMaxHeight={routeStepsPopupMaxHeight}
           />
         )}
 
