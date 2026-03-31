@@ -348,7 +348,7 @@ export default function RouteStepsPopup({
     <View
       style={[
         styles.routeStepsPopup,
-        popupMaxHeight != null ? { maxHeight: popupMaxHeight } : null,
+        popupMaxHeight === undefined ? null : { maxHeight: popupMaxHeight },
       ]}
       testID="route-steps-popup"
     >
