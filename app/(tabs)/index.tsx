@@ -700,8 +700,18 @@ export default function MapScreen() {
     setIndoorRoute(route);
   }, [originBuilding, destinationBuilding, originRoom, destinationRoom]);
 
+  const resolvedDestination = useMemo(() => {
+    if (destinationPOI) {
+      return {
+        latitude: destinationPOI.latitude,
+        longitude: destinationPOI.longitude,
+      };
+    }
+    return destinationBuilding;
+  }, [destinationPOI, destinationBuilding]);
+
   useEffect(() => {
-    if (!destinationBuilding || !actualOriginPoint) {
+    if (!resolvedDestination || !actualOriginPoint) {
       setModeDurations({ walking: null, driving: null, transit: null });
       return;
     }
@@ -712,10 +722,10 @@ export default function MapScreen() {
       const [walkOrBike, drive] = await Promise.allSettled([
         fetchOsrmRoute(
           actualOriginPoint,
-          destinationBuilding,
+          resolvedDestination,
           walkOrBikeProfile,
         ),
-        fetchOsrmRoute(actualOriginPoint, destinationBuilding, "driving"),
+        fetchOsrmRoute(actualOriginPoint, resolvedDestination, "driving"),
       ]);
       if (cancelled) return;
       setModeDurations((p) => ({
@@ -733,7 +743,7 @@ export default function MapScreen() {
         try {
           const itins = await fetchTransitItineraries(
             actualOriginPoint,
-            destinationBuilding,
+            resolvedDestination,
           );
           if (!cancelled)
             setModeDurations((p) => ({
@@ -751,7 +761,7 @@ export default function MapScreen() {
     return () => {
       cancelled = true;
     };
-  }, [actualOriginPoint, destinationBuilding, isSameCampus]);
+  }, [actualOriginPoint, resolvedDestination, isSameCampus]);
 
   const clearRouteState = () => {
     setRouteCoordinates([]);
@@ -1074,16 +1084,6 @@ export default function MapScreen() {
     setSearchText("");
     setSelectedBuilding(null);
   }, [campusBuildings]);
-
-  const resolvedDestination = useMemo(() => {
-    if (destinationPOI) {
-      return {
-        latitude: destinationPOI.latitude,
-        longitude: destinationPOI.longitude,
-      };
-    }
-    return destinationBuilding;
-  }, [destinationPOI, destinationBuilding]);
 
   useEffect(() => {
     if (!isDirectionsMode || !resolvedDestination || !actualOriginPoint) {
