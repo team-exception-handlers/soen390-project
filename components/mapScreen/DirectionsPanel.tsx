@@ -264,6 +264,7 @@ type DirectionsPanelProps = Readonly<{
   editingField: EditingField;
   originBuilding: BuildingRecord | null;
   destinationBuilding: BuildingRecord | null;
+  destinationPOIName?: string | null;
   clearDirections: () => void;
   isDirectionsMode: boolean;
   isSameCampus: boolean;
@@ -302,6 +303,7 @@ export default function DirectionsPanel({
   editingField,
   originBuilding,
   destinationBuilding,
+  destinationPOIName,
   clearDirections,
   isDirectionsMode,
   isSameCampus,
@@ -421,7 +423,9 @@ export default function DirectionsPanel({
             >
               {destinationBuilding
                 ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
-                : "Where to?"}
+                : destinationPOIName
+                  ? destinationPOIName
+                  : "Where to?"}
             </Text>
           </Pressable>
           <RoomInputGroup
