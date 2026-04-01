@@ -302,12 +302,12 @@ describe("components/mapScreen/DirectionsPanel", () => {
     });
     const el = renderTree(DirectionsPanel(props));
 
-    findByTestID(el, "route-mode-walking").props.onPress();
+    findByTestID(el, "route-mode-cycling").props.onPress();
     findByTestID(el, "route-mode-driving").props.onPress();
     findByTestID(el, "route-mode-transit").props.onPress();
     findByTestID(el, "route-mode-shuttle").props.onPress();
 
-    expect(props.setRouteMode).toHaveBeenNthCalledWith(1, "walking");
+    expect(props.setRouteMode).toHaveBeenNthCalledWith(1, "cycling");
     expect(props.setRouteMode).toHaveBeenNthCalledWith(2, "driving");
     expect(props.setRouteMode).toHaveBeenNthCalledWith(3, "transit");
     expect(props.setRouteMode).toHaveBeenNthCalledWith(4, "shuttle");
