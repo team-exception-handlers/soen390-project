@@ -39,7 +39,7 @@ describe("poiSearch", () => {
               id: 100,
               lat: 45.498,
               lon: -73.579,
-              tags: { name: "Cafe A", "addr:street": "Rue Guy" },
+              tags: { name: "Cafe A", "addr:street": "Rue Guy", "addr:housenumber": "1455" },
             },
             {
               id: 101,
@@ -64,7 +64,7 @@ describe("poiSearch", () => {
       expect(results).toHaveLength(2);
       expect(results[0].name).toBe("Cafe A");
       expect(results[0].category).toBe("cafe");
-      expect(results[0].address).toBe("Rue Guy");
+      expect(results[0].address).toBe("1455 Rue Guy");
       expect(typeof results[0].distance).toBe("number");
     });
 
