@@ -5,7 +5,14 @@ import {
   type RefObject,
   type SetStateAction,
 } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
 import type { BuildingRecord } from "../../constants/buildings";
 import type { MapScreenStyles } from "../../styles/mapScreen.styles";
 import { RoomRecord } from "../../types/rooms";
@@ -285,6 +292,7 @@ type DirectionsPanelProps = Readonly<{
   roomSuggestions?: string[];
   onRoomSuggestionPressIn?: () => void;
   onRoomSuggestionSelect?: (room: string, field: "from" | "to") => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
 }>;
 
 export default function DirectionsPanel({
@@ -319,6 +327,7 @@ export default function DirectionsPanel({
   roomSuggestions = [],
   onRoomSuggestionPressIn,
   onRoomSuggestionSelect,
+  onLayout,
 }: DirectionsPanelProps) {
   const isSameBuilding =
     originBuilding?.code != null &&
@@ -328,7 +337,11 @@ export default function DirectionsPanel({
     isSameBuilding && originRoom.trim() && destinationRoom.trim();
 
   return (
-    <View style={styles.directionsPanel} testID="directions-panel">
+    <View
+      style={styles.directionsPanel}
+      testID="directions-panel"
+      onLayout={onLayout}
+    >
       <View style={styles.directionFieldRow}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Pressable
