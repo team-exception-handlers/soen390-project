@@ -185,6 +185,7 @@ type RouteStepsPopupProps = Readonly<{
   routeInstructions: RouteInstruction[];
   selectedShuttleDeparture?: string | null;
   setSelectedShuttleDeparture?: (time: string) => void;
+  popupMaxHeight?: number;
 }>;
 
 export default function RouteStepsPopup({
@@ -210,6 +211,7 @@ export default function RouteStepsPopup({
   routeInstructions,
   selectedShuttleDeparture,
   setSelectedShuttleDeparture,
+  popupMaxHeight,
 }: RouteStepsPopupProps) {
   const hasTransitItineraries =
     routeMode === "transit" && transitItineraries.length > 0;
@@ -343,7 +345,13 @@ export default function RouteStepsPopup({
   }
 
   return (
-    <View style={styles.routeStepsPopup} testID="route-steps-popup">
+    <View
+      style={[
+        styles.routeStepsPopup,
+        popupMaxHeight === undefined ? null : { maxHeight: popupMaxHeight },
+      ]}
+      testID="route-steps-popup"
+    >
       <Pressable
         {...routeSheetPanResponder.panHandlers}
         style={styles.routeStepsHandle}

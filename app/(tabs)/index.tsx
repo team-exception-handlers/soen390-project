@@ -23,7 +23,9 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
+  type LayoutChangeEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -36,7 +38,9 @@ import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
 import { createMapScreenStyles } from "../../styles/mapScreen.styles";
+import { useFocusEffect } from "@react-navigation/native";
 import { parseLocationParts } from "../../utils/classLocation";
+import { getToken } from "../../utils/googleCalendarAuth";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
   findIndoorRoute,
@@ -46,6 +50,7 @@ import {
   type IndoorRoute,
 } from "../../utils/indoorDirections";
 
+import POISearchPanel from "../../components/POISearchPanel";
 import {
   getFloorPlanLabelForKey,
   getFloorPlanOptionsForBuilding,
@@ -70,6 +75,7 @@ import {
   type RouteInstruction,
   type RouteProfile,
 } from "../../utils/osrmDirections";
+import type { POIResult } from "../../utils/poiSearch";
 import {
   getRoomDetails,
   getRoomsForBuilding,
@@ -203,6 +209,7 @@ const getTransitColor = (mode: string, route?: string) => {
 };
 
 export default function MapScreen() {
+  const { height: windowHeight } = useWindowDimensions();
   // Tracks whether the user is editing the start or destination
   const [editingField, setEditingField] = useState<"from" | "to" | undefined>(
     undefined,
@@ -297,6 +304,8 @@ export default function MapScreen() {
   const [routeStarted, setRouteStarted] = useState(false);
   const [nextClassLoading, setNextClassLoading] = useState(false);
   const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
+  const [hasCalendarToken, setHasCalendarToken] = useState(false);
+  const [directionsPanelBottom, setDirectionsPanelBottom] = useState(0);
   const [mapViewportRegion, setMapViewportRegion] = useState(() =>
     getCampusRegion("SGW", SGW_POLYGONS.features),
   );
@@ -334,6 +343,8 @@ export default function MapScreen() {
   const hasInitializedCampusFromLocationRef = useRef(false);
   const [locationPermissionDenied, setLocationPermissionDenied] =
     useState(false);
+  const [showPOIPanel, setShowPOIPanel] = useState(false);
+  const [poiResults, setPOIResults] = useState<POIResult[]>([]);
 
   const isExpoGo =
     Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
@@ -370,6 +381,12 @@ export default function MapScreen() {
     campusRef.current = campus;
   }, [campus]);
 
+  useFocusEffect(
+    useCallback(() => {
+      getToken().then((token) => setHasCalendarToken(token !== null));
+    }, []),
+  );
+
   useEffect(() => {
     if (!nextClassMessage) return;
 
@@ -388,6 +405,28 @@ export default function MapScreen() {
         tabBarHeight: TAB_BAR_HEIGHT,
       }),
     [isWebPlatform, insets.top, insets.bottom],
+  );
+  const routeStepsPopupMaxHeight = useMemo(() => {
+    const preferredMaxHeight = isWebPlatform ? 360 : 300;
+    if (!directionsPanelBottom) return preferredMaxHeight;
+
+    const popupBottomOffset = insets.bottom + TAB_BAR_HEIGHT + 10;
+    const gapBelowDirectionsPanel = 12;
+    const availableHeight =
+      windowHeight -
+      directionsPanelBottom -
+      popupBottomOffset -
+      gapBelowDirectionsPanel;
+
+    return Math.max(140, Math.min(preferredMaxHeight, availableHeight));
+  }, [directionsPanelBottom, insets.bottom, isWebPlatform, windowHeight]);
+
+  const handleDirectionsPanelLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { y, height } = event.nativeEvent.layout;
+      setDirectionsPanelBottom(y + height);
+    },
+    [],
   );
 
   const MapViewComponent = !isWebPlatform && !isExpoGo ? NativeMapView : null;
@@ -2049,6 +2088,29 @@ export default function MapScreen() {
               </View>
             </MapMarkerComponent>
           ))}
+
+        {poiResults.map((poi) => (
+          <MapMarkerComponent
+            key={`poi-${poi.id}`}
+            testID={`poi-marker-${poi.id}`}
+            identifier={`poi-marker-${poi.id}`}
+            accessible
+            accessibilityLabel={`poi-marker-${poi.name}`}
+            coordinate={{
+              latitude: poi.latitude,
+              longitude: poi.longitude,
+            }}
+          >
+            <View style={styles.markerContainer}>
+              <View style={styles.poiMarkerBadge}>
+                <Text style={styles.poiMarkerText} numberOfLines={1}>
+                  {poi.name}
+                </Text>
+              </View>
+              <View style={styles.poiMarkerStem} />
+            </View>
+          </MapMarkerComponent>
+        ))}
       </MapViewComponent>
     ) : (
       <View style={styles.webFallback}>
@@ -2101,6 +2163,17 @@ export default function MapScreen() {
         onSearchTextChange={setSearchText}
         searchInputRef={searchInputRef}
       />
+
+      {showPOIPanel && (
+        <POISearchPanel
+          userLocation={actualOriginPoint}
+          onResultsChange={setPOIResults}
+          onClose={() => {
+            setShowPOIPanel(false);
+            setPOIResults([]);
+          }}
+        />
+      )}
 
       {(washroomSearchResults.length > 0 || searchResults.length > 0) && (
         <View style={styles.searchResultsContainer} testID="search-results">
@@ -2195,6 +2268,7 @@ export default function MapScreen() {
           else setDestinationRoom(room);
           setFocusedRoom(null);
         }}
+        onLayout={handleDirectionsPanelLayout}
       />
 
       {currentBuilding &&
@@ -2247,15 +2321,30 @@ export default function MapScreen() {
       {shouldUseWebFallback ? webMapContent : nativeMapContent}
 
       <Pressable
-        testID="next-class-floating-button"
-        style={styles.nextClassButton}
-        onPress={handleNextClassDirections}
-        disabled={nextClassLoading}
+        testID="poi-floating-button"
+        style={styles.poiButton}
+        onPress={() => {
+          setShowPOIPanel((prev) => !prev);
+          if (showPOIPanel) setPOIResults([]);
+        }}
       >
-        <Text style={styles.nextClassButtonText}>
-          {nextClassLoading ? "…" : "Go to Next Class"}
+        <Text style={styles.poiButtonText}>
+          {showPOIPanel ? "Close" : "Nearby"}
         </Text>
       </Pressable>
+
+      {hasCalendarToken && (
+        <Pressable
+          testID="next-class-floating-button"
+          style={styles.nextClassButton}
+          onPress={handleNextClassDirections}
+          disabled={nextClassLoading}
+        >
+          <Text style={styles.nextClassButtonText}>
+            {nextClassLoading ? "…" : "Go to Next Class"}
+          </Text>
+        </Pressable>
+      )}
 
       {nextClassMessage && (
         <View style={styles.nextClassAlert}>
@@ -2309,6 +2398,7 @@ export default function MapScreen() {
             expandedIntermediateStops={expandedIntermediateStops}
             setExpandedIntermediateStops={setExpandedIntermediateStops}
             routeInstructions={routeInstructions}
+            popupMaxHeight={routeStepsPopupMaxHeight}
           />
         )}
 
