@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import { useLocalSearchParams } from "expo-router";
@@ -38,7 +39,6 @@ import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
 import { createMapScreenStyles } from "../../styles/mapScreen.styles";
-import { useFocusEffect } from "@react-navigation/native";
 import { parseLocationParts } from "../../utils/classLocation";
 import { getToken } from "../../utils/googleCalendarAuth";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
@@ -345,6 +345,7 @@ export default function MapScreen() {
     useState(false);
   const [showPOIPanel, setShowPOIPanel] = useState(false);
   const [poiResults, setPOIResults] = useState<POIResult[]>([]);
+  const [destinationPOI, setDestinationPOI] = useState<POIResult | null>(null);
 
   const isExpoGo =
     Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
@@ -787,6 +788,7 @@ export default function MapScreen() {
 
   const exitDirectionsMode = () => {
     setIsDirectionsMode(false);
+    setDestinationPOI(null);
     resetRouteState();
   };
 
@@ -807,12 +809,29 @@ export default function MapScreen() {
     }
     routeInstructionsDismissedRef.current = false;
     setShowRouteInstructions(true);
+    setDestinationPOI(null);
 
     const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
     if (destinationRecord && destinationRecord.campus !== campus) {
       setCampus(destinationRecord.campus);
     }
   };
+
+  const handlePOIPress = useCallback(
+    (poi: POIResult) => {
+      setDestinationPOI(poi);
+      setDestinationBuildingCode("");
+      setDestinationRoom("");
+      setIsDirectionsMode(true);
+      setEditingField(undefined);
+      setSelectedBuilding(null);
+      setSearchText("");
+      setShowPOIPanel(false);
+      routeInstructionsDismissedRef.current = false;
+      setShowRouteInstructions(true);
+    },
+    [routeInstructionsDismissedRef],
+  );
 
   const animateMapToRegion = useCallback(
     (region: any, targetCampus: Campus) => {
@@ -1056,8 +1075,18 @@ export default function MapScreen() {
     setSelectedBuilding(null);
   }, [campusBuildings]);
 
+  const resolvedDestination = useMemo(() => {
+    if (destinationPOI) {
+      return {
+        latitude: destinationPOI.latitude,
+        longitude: destinationPOI.longitude,
+      };
+    }
+    return destinationBuilding;
+  }, [destinationPOI, destinationBuilding]);
+
   useEffect(() => {
-    if (!isDirectionsMode || !destinationBuilding || !actualOriginPoint) {
+    if (!isDirectionsMode || !resolvedDestination || !actualOriginPoint) {
       clearRouteState();
       return;
     }
@@ -1078,12 +1107,12 @@ export default function MapScreen() {
 
     const fetchRoute = async () => {
       if (routeMode === "shuttle") {
-        return calculateShuttleRouteHelper(actualOriginPoint, destinationBuilding, selectedShuttleDeparture);
+        return calculateShuttleRouteHelper(actualOriginPoint, resolvedDestination, selectedShuttleDeparture);
       }
       if (routeMode === "transit") {
-        return calculateTransitRouteHelper(actualOriginPoint, destinationBuilding);
+        return calculateTransitRouteHelper(actualOriginPoint, resolvedDestination);
       }
-      return calculateOsrmRouteHelper(actualOriginPoint, destinationBuilding, routeMode, isSameCampus);
+      return calculateOsrmRouteHelper(actualOriginPoint, resolvedDestination, routeMode, isSameCampus);
     };
 
     const loadRoute = async () => {
@@ -1123,7 +1152,7 @@ export default function MapScreen() {
     };
   }, [
     isDirectionsMode,
-    destinationBuilding,
+    resolvedDestination,
     actualOriginPoint,
     routeMode,
     isSameCampus,
@@ -2100,6 +2129,7 @@ export default function MapScreen() {
               latitude: poi.latitude,
               longitude: poi.longitude,
             }}
+            onPress={() => handlePOIPress(poi)}
           >
             <View style={styles.markerContainer}>
               <View style={styles.poiMarkerBadge}>
@@ -2168,6 +2198,7 @@ export default function MapScreen() {
         <POISearchPanel
           userLocation={actualOriginPoint}
           onResultsChange={setPOIResults}
+          onSelectPOI={handlePOIPress}
           onClose={() => {
             setShowPOIPanel(false);
             setPOIResults([]);
@@ -2236,6 +2267,7 @@ export default function MapScreen() {
         editingField={editingField}
         originBuilding={originBuilding}
         destinationBuilding={destinationBuilding}
+        destinationPOIName={destinationPOI?.name ?? null}
         clearDirections={clearDirections}
         isDirectionsMode={isDirectionsMode}
         isSameCampus={isSameCampus}
@@ -2385,7 +2417,7 @@ export default function MapScreen() {
             setShowRouteInstructions={setShowRouteInstructions}
             routeMode={routeMode}
             actualOriginPoint={actualOriginPoint}
-            destinationBuilding={destinationBuilding}
+            destinationBuilding={destinationBuilding ?? (destinationPOI ? { ...destinationPOI, code: "", shortName: destinationPOI.name, longName: destinationPOI.name, campus: campus, address: destinationPOI.address ?? "", description: undefined, photoLink: undefined } as any : null)}
             transitItineraries={transitItineraries}
             routeStarted={routeStarted}
             selectedItineraryIndex={selectedItineraryIndex}
