@@ -151,26 +151,26 @@ function TransportModeSelector({
     <View style={styles.modeSelectorGrid}>
       <View style={styles.modeSelectorRow}>
         <View style={styles.modePillGroup}>
-          <Pressable
-            testID="route-mode-walking"
-            style={[
-              styles.modePill,
-              routeMode === "walking" && styles.modePillActive,
-            ]}
-            onPress={() => setRouteMode("walking")}
-          >
-            <Text
-              style={[
-                styles.modePillText,
-                routeMode === "walking" && styles.modePillTextActive,
-              ]}
-            >
-              Bike -{" "}
-              {modeDurations.walking !== null
-                ? formatDuration(modeDurations.walking)
-                : "—"}
-            </Text>
-          </Pressable>
+        <Pressable
+  testID="route-mode-cycling"
+  style={[
+    styles.modePill,
+    routeMode === "cycling" && styles.modePillActive,
+  ]}
+  onPress={() => setRouteMode("cycling")}
+>
+  <Text
+    style={[
+      styles.modePillText,
+      routeMode === "cycling" && styles.modePillTextActive,
+    ]}
+  >
+    Bike -{" "}
+    {modeDurations.cycling !== null
+      ? formatDuration(modeDurations.cycling)
+      : "—"}
+  </Text>
+</Pressable>
           <Pressable
             testID="route-mode-driving"
             style={[

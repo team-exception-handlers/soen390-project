@@ -271,6 +271,7 @@ export default function MapScreen() {
     Record<string, number | null>
   >({
     walking: null,
+    cycling: null,
     driving: null,
     transit: null,
   });
@@ -688,7 +689,7 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (!destinationBuilding || !actualOriginPoint) {
-      setModeDurations({ walking: null, driving: null, transit: null });
+      setModeDurations({ walking: null, cycling: null, driving: null, transit: null });
       return;
     }
     let cancelled = false;
@@ -707,9 +708,13 @@ export default function MapScreen() {
       setModeDurations((p) => ({
         ...p,
         walking:
-          walkOrBike.status === "fulfilled"
+          walkOrBikeProfile === "walking" && walkOrBike.status === "fulfilled"
             ? Math.round(walkOrBike.value.durationSeconds / 60)
-            : null,
+            : p.walking,
+        cycling:
+          walkOrBikeProfile === "cycling" && walkOrBike.status === "fulfilled"
+            ? Math.round(walkOrBike.value.durationSeconds / 60)
+            : p.cycling,
         driving:
           drive.status === "fulfilled"
             ? Math.round(drive.value.durationSeconds / 60)

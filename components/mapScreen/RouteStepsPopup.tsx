@@ -256,6 +256,7 @@ export default function RouteStepsPopup({
         </>
       );
     } else {
+      
       content = (
         <ShuttleDirections
           origin={actualOriginPoint}
@@ -329,35 +330,41 @@ export default function RouteStepsPopup({
       );
     }
   } else {
-    content = (
-      <>
-        <Text
-          style={{
-            fontSize: 17,
-            fontWeight: "700",
-            marginBottom: 10,
-            color: "#1C1C1E",
-          }}
-        >
-          🚶 Walking Directions
-        </Text>
-    
-        {routeInstructions.length > 0 ? (
-          routeInstructions.map((instruction, index) => (
+    const routeModeHeading =
+    routeMode === "driving"
+      ? "🚗 Car Directions"
+      : routeMode === "cycling"
+        ? "🚴 Bike Directions"
+        : "🚶 Walking Directions";
+        content = (
+          <>
             <Text
-              key={`${instruction.text}-${instruction.distanceMeters}`}
-              style={styles.routeStepText}
+              style={{
+                fontSize: 17,
+                fontWeight: "700",
+                marginBottom: 10,
+                color: "#1C1C1E",
+              }}
             >
-              {`${index + 1}. ${instruction.text}`}
+              {routeModeHeading}
             </Text>
-          ))
-        ) : (
-          <Text style={styles.routeStepText}>
-            Route loaded. No step-by-step directions available.
-          </Text>
-        )}
-      </>
-    );
+        
+            {routeInstructions.length > 0 ? (
+              routeInstructions.map((instruction, index) => (
+                <Text
+                  key={`${instruction.text}-${instruction.distanceMeters}`}
+                  style={styles.routeStepText}
+                >
+                  {`${index + 1}. ${instruction.text}`}
+                </Text>
+              ))
+            ) : (
+              <Text style={styles.routeStepText}>
+                Route loaded. No step-by-step directions available.
+              </Text>
+            )}
+          </>
+        );
   }
 
   return (
