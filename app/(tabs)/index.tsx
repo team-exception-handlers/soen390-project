@@ -5,28 +5,28 @@ import * as Location from "expo-location";
 import { useLocalSearchParams } from "expo-router";
 import { ChevronUp, X } from "lucide-react-native";
 import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
 } from "react";
 import {
-  Image,
-  Keyboard,
-  Linking,
-  Modal,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
-  type LayoutChangeEvent,
+    Image,
+    Keyboard,
+    Linking,
+    Modal,
+    PanResponder,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
+    type LayoutChangeEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -43,57 +43,60 @@ import { parseLocationParts } from "../../utils/classLocation";
 import { getToken } from "../../utils/googleCalendarAuth";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
-  findIndoorRoute,
-  getFloorBounds,
-  getGraphFloorBounds,
-  getSpecialNodesForFloor,
-  type IndoorRoute,
+    findIndoorRoute,
+    getFloorBounds,
+    getGraphFloorBounds,
+    getSpecialNodesForFloor,
+    type IndoorRoute,
 } from "../../utils/indoorDirections";
 
 import POISearchPanel from "../../components/POISearchPanel";
 import {
-  getFloorPlanLabelForKey,
-  getFloorPlanOptionsForBuilding,
+    getFloorPlanLabelForKey,
+    getFloorPlanOptionsForBuilding,
 } from "../../utils/floorPlanCatalog";
 import {
-  findUserBuilding,
-  getInitialLocationFix,
-  hasLocationPermission,
-  requestLocationPermission,
-  startWatchingLocation,
+    findUserBuilding,
+    getInitialLocationFix,
+    hasLocationPermission,
+    requestLocationPermission,
+    startWatchingLocation,
 } from "../../utils/locationUtils";
 import { getCampusRegion } from "../../utils/mapRegions";
 import {
-  NativeMapCallout,
-  NativeMapMarker,
-  NativeMapPolygon,
-  NativeMapPolyline,
-  NativeMapView,
+    NativeMapCallout,
+    NativeMapMarker,
+    NativeMapPolygon,
+    NativeMapPolyline,
+    NativeMapView,
 } from "../../utils/nativeMaps";
 import {
-  fetchOsrmRoute,
-  type RouteInstruction,
-  type RouteProfile,
+    fetchOsrmRoute,
+    type RouteInstruction,
+    type RouteProfile,
 } from "../../utils/osrmDirections";
 import type { POIResult } from "../../utils/poiSearch";
 import {
-  getRoomDetails,
-  getRoomsForBuilding,
-  roomLabelMatchesSearchPrefix,
+    getRoomDetails,
+    getRoomsForBuilding,
+    roomLabelMatchesSearchPrefix,
 } from "../../utils/roomUtils";
 import {
-  calculateOsrmRouteHelper,
-  calculateShuttleRouteHelper,
-  calculateTransitRouteHelper,
-  RouteLoaderResult,
+    calculateOsrmRouteHelper,
+    calculateShuttleRouteHelper,
+    calculateTransitRouteHelper,
+    RouteLoaderResult,
 } from "../../utils/routeCalculators";
 import {
-  decodePolyline,
-  fetchTransitItineraries,
-  formatTime,
-  type TransitItinerary,
+    decodePolyline,
+    fetchTransitItineraries,
+    formatTime,
+    type TransitItinerary,
 } from "../../utils/transitousDirections";
-import { findNearestWashroomTarget } from "../../utils/washroomSearch";
+import {
+    findNearestWashroomTarget,
+    type WashroomCategory
+} from "../../utils/washroomSearch";
 
 let WebView: React.ComponentType<any> | null = null;
 if (Platform.OS !== "web") {
@@ -346,6 +349,9 @@ export default function MapScreen() {
   const [showPOIPanel, setShowPOIPanel] = useState(false);
   const [poiResults, setPOIResults] = useState<POIResult[]>([]);
   const [destinationPOI, setDestinationPOI] = useState<POIResult | null>(null);
+  const [washroomPickerBuilding, setWashroomPickerBuilding] = useState<
+    string | null
+  >(null);
 
   const isExpoGo =
     Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
@@ -829,6 +835,13 @@ export default function MapScreen() {
 
   const handlePOIPress = useCallback(
     (poi: POIResult) => {
+      // Indoor washroom POIs: show male/female picker
+      if (poi.id.startsWith("indoor-wc-")) {
+        const buildingCode = poi.id.replace("indoor-wc-", "");
+        setWashroomPickerBuilding(buildingCode);
+        return;
+      }
+
       setDestinationPOI(poi);
       setDestinationBuildingCode("");
       setDestinationRoom("");
@@ -841,6 +854,37 @@ export default function MapScreen() {
       setShowRouteInstructions(true);
     },
     [routeInstructionsDismissedRef],
+  );
+
+  const handleWashroomPickerSelect = useCallback(
+    (category: WashroomCategory) => {
+      if (!washroomPickerBuilding) return;
+      const target = findNearestWashroomTarget(category, {
+        campusBuildings,
+        actualOriginPoint,
+        originBuildingCode: originBuildingCode,
+        originRoom,
+        destinationBuildingCode: washroomPickerBuilding,
+        destinationRoom: "",
+      });
+      setWashroomPickerBuilding(null);
+      setShowPOIPanel(false);
+      setPOIResults([]);
+      if (target) {
+        setDestinationAndEnterDirectionsMode(
+          target.building.code,
+          target.roomLabel,
+          true,
+        );
+      }
+    },
+    [
+      washroomPickerBuilding,
+      campusBuildings,
+      actualOriginPoint,
+      originBuildingCode,
+      originRoom,
+    ],
   );
 
   const animateMapToRegion = useCallback(
@@ -2205,6 +2249,55 @@ export default function MapScreen() {
           }}
         />
       )}
+
+      <Modal
+        visible={washroomPickerBuilding !== null}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setWashroomPickerBuilding(null)}
+      >
+        <Pressable
+          style={styles.washroomPickerOverlay}
+          onPress={() => setWashroomPickerBuilding(null)}
+        >
+          <View style={styles.washroomPickerCard}>
+            <Text style={styles.washroomPickerTitle}>
+              Select washroom type
+            </Text>
+            <Pressable
+              testID="washroom-picker-male"
+              style={({ pressed }) => [
+                styles.washroomPickerOption,
+                pressed && styles.washroomPickerOptionPressed,
+              ]}
+              onPress={() => handleWashroomPickerSelect("male_washroom")}
+            >
+              <Text style={styles.washroomPickerOptionText}>
+                Male washroom
+              </Text>
+            </Pressable>
+            <Pressable
+              testID="washroom-picker-female"
+              style={({ pressed }) => [
+                styles.washroomPickerOption,
+                pressed && styles.washroomPickerOptionPressed,
+              ]}
+              onPress={() => handleWashroomPickerSelect("female_washroom")}
+            >
+              <Text style={styles.washroomPickerOptionText}>
+                Female washroom
+              </Text>
+            </Pressable>
+            <Pressable
+              testID="washroom-picker-cancel"
+              style={styles.washroomPickerCancel}
+              onPress={() => setWashroomPickerBuilding(null)}
+            >
+              <Text style={styles.washroomPickerCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
 
       {(washroomSearchResults.length > 0 || searchResults.length > 0) && (
         <View style={styles.searchResultsContainer} testID="search-results">
