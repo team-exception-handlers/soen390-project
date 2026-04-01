@@ -1050,77 +1050,12 @@ export default function MapScreen() {
     }).slice(0, 8);
   }, [searchText]);
 
-  const washroomSearchResults = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-    const isWashroomQuery =
-      query.includes("washroom") || query.includes("bathroom");
-    if (!isWashroomQuery) return [];
-
-    const washroomParams = {
-      campusBuildings,
-      actualOriginPoint,
-      originBuildingCode: originBuilding?.code ?? null,
-      originRoom,
-      destinationBuildingCode: destinationBuilding?.code ?? null,
-      destinationRoom,
-    };
-
-    const maleWashroomTarget = findNearestWashroomTarget(
-      "male_washroom",
-      washroomParams,
-    );
-    const femaleWashroomTarget = findNearestWashroomTarget(
-      "female_washroom",
-      washroomParams,
-    );
-
-    return [
-      maleWashroomTarget
-        ? {
-          key: "nearest-male-washroom",
-          label: "Nearest male washroom",
-          building: maleWashroomTarget.building,
-          roomLabel: maleWashroomTarget.roomLabel,
-        }
-        : null,
-      femaleWashroomTarget
-        ? {
-          key: "nearest-female-washroom",
-          label: "Nearest female washroom",
-          building: femaleWashroomTarget.building,
-          roomLabel: femaleWashroomTarget.roomLabel,
-        }
-        : null,
-    ].filter((result): result is {
-      key: string;
-      label: string;
-      building: BuildingRecord;
-      roomLabel: string;
-    } => result !== null);
-  }, [
-    actualOriginPoint,
-    campusBuildings,
-    destinationBuilding?.code,
-    destinationRoom,
-    originBuilding?.code,
-    originRoom,
-    searchText,
-  ]);
-
   const handleSearchResultPress = (building: BuildingRecord) => {
     if (building.campus !== campus) {
       handleCampusChange(building.campus);
     }
     setSelectedBuilding(building.code);
     setSearchText("");
-    Keyboard.dismiss();
-  };
-
-  const handleWashroomSearchResultPress = (
-    building: BuildingRecord,
-    roomLabel: string,
-  ) => {
-    setDestinationAndEnterDirectionsMode(building.code, roomLabel, true);
     Keyboard.dismiss();
   };
 
@@ -2299,34 +2234,11 @@ export default function MapScreen() {
         </Pressable>
       </Modal>
 
-      {(washroomSearchResults.length > 0 || searchResults.length > 0) && (
+      {searchResults.length > 0 && (
         <View style={styles.searchResultsContainer} testID="search-results">
           <Text style={styles.searchResultsHint}>
-            {washroomSearchResults.length > 0
-              ? "Tap an option to locate the nearest washroom."
-              : "Tap a building to set destination (To)."}
+            Tap a building to set destination (To).
           </Text>
-          {washroomSearchResults.map((result) => (
-            <Pressable
-              key={result.key}
-              testID={`search-result-${result.key}`}
-              style={styles.searchResultItem}
-              onPress={() =>
-                handleWashroomSearchResultPress(
-                  result.building,
-                  result.roomLabel,
-                )
-              }
-            >
-              <Text style={styles.searchResultCode}>{result.building.code}</Text>
-              <Text style={styles.searchResultName} numberOfLines={1}>
-                {result.label}
-              </Text>
-              <Text style={styles.searchResultAddress} numberOfLines={1}>
-                {`Room ${result.roomLabel} - ${result.building.longName}`}
-              </Text>
-            </Pressable>
-          ))}
           {searchResults.map((building) => (
             <Pressable
               key={building.code}
