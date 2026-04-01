@@ -13,7 +13,6 @@ import React, {
 import {
   Image,
   Keyboard,
-  type LayoutChangeEvent,
   Linking,
   Modal,
   PanResponder,
@@ -26,6 +25,7 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
+  type LayoutChangeEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -38,7 +38,9 @@ import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
 import { createMapScreenStyles } from "../../styles/mapScreen.styles";
+import { useFocusEffect } from "@react-navigation/native";
 import { parseLocationParts } from "../../utils/classLocation";
+import { getToken } from "../../utils/googleCalendarAuth";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
   findIndoorRoute,
@@ -48,6 +50,7 @@ import {
   type IndoorRoute,
 } from "../../utils/indoorDirections";
 
+import POISearchPanel from "../../components/POISearchPanel";
 import {
   getFloorPlanLabelForKey,
   getFloorPlanOptionsForBuilding,
@@ -72,6 +75,7 @@ import {
   type RouteInstruction,
   type RouteProfile,
 } from "../../utils/osrmDirections";
+import type { POIResult } from "../../utils/poiSearch";
 import {
   getRoomDetails,
   getRoomsForBuilding,
@@ -300,6 +304,7 @@ export default function MapScreen() {
   const [routeStarted, setRouteStarted] = useState(false);
   const [nextClassLoading, setNextClassLoading] = useState(false);
   const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
+  const [hasCalendarToken, setHasCalendarToken] = useState(false);
   const [directionsPanelBottom, setDirectionsPanelBottom] = useState(0);
   const [mapViewportRegion, setMapViewportRegion] = useState(() =>
     getCampusRegion("SGW", SGW_POLYGONS.features),
@@ -338,6 +343,8 @@ export default function MapScreen() {
   const hasInitializedCampusFromLocationRef = useRef(false);
   const [locationPermissionDenied, setLocationPermissionDenied] =
     useState(false);
+  const [showPOIPanel, setShowPOIPanel] = useState(false);
+  const [poiResults, setPOIResults] = useState<POIResult[]>([]);
 
   const isExpoGo =
     Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
@@ -373,6 +380,12 @@ export default function MapScreen() {
   useEffect(() => {
     campusRef.current = campus;
   }, [campus]);
+
+  useFocusEffect(
+    useCallback(() => {
+      getToken().then((token) => setHasCalendarToken(token !== null));
+    }, []),
+  );
 
   useEffect(() => {
     if (!nextClassMessage) return;
@@ -2075,6 +2088,29 @@ export default function MapScreen() {
               </View>
             </MapMarkerComponent>
           ))}
+
+        {poiResults.map((poi) => (
+          <MapMarkerComponent
+            key={`poi-${poi.id}`}
+            testID={`poi-marker-${poi.id}`}
+            identifier={`poi-marker-${poi.id}`}
+            accessible
+            accessibilityLabel={`poi-marker-${poi.name}`}
+            coordinate={{
+              latitude: poi.latitude,
+              longitude: poi.longitude,
+            }}
+          >
+            <View style={styles.markerContainer}>
+              <View style={styles.poiMarkerBadge}>
+                <Text style={styles.poiMarkerText} numberOfLines={1}>
+                  {poi.name}
+                </Text>
+              </View>
+              <View style={styles.poiMarkerStem} />
+            </View>
+          </MapMarkerComponent>
+        ))}
       </MapViewComponent>
     ) : (
       <View style={styles.webFallback}>
@@ -2127,6 +2163,17 @@ export default function MapScreen() {
         onSearchTextChange={setSearchText}
         searchInputRef={searchInputRef}
       />
+
+      {showPOIPanel && (
+        <POISearchPanel
+          userLocation={actualOriginPoint}
+          onResultsChange={setPOIResults}
+          onClose={() => {
+            setShowPOIPanel(false);
+            setPOIResults([]);
+          }}
+        />
+      )}
 
       {(washroomSearchResults.length > 0 || searchResults.length > 0) && (
         <View style={styles.searchResultsContainer} testID="search-results">
@@ -2274,15 +2321,30 @@ export default function MapScreen() {
       {shouldUseWebFallback ? webMapContent : nativeMapContent}
 
       <Pressable
-        testID="next-class-floating-button"
-        style={styles.nextClassButton}
-        onPress={handleNextClassDirections}
-        disabled={nextClassLoading}
+        testID="poi-floating-button"
+        style={styles.poiButton}
+        onPress={() => {
+          setShowPOIPanel((prev) => !prev);
+          if (showPOIPanel) setPOIResults([]);
+        }}
       >
-        <Text style={styles.nextClassButtonText}>
-          {nextClassLoading ? "…" : "Go to Next Class"}
+        <Text style={styles.poiButtonText}>
+          {showPOIPanel ? "Close" : "Nearby"}
         </Text>
       </Pressable>
+
+      {hasCalendarToken && (
+        <Pressable
+          testID="next-class-floating-button"
+          style={styles.nextClassButton}
+          onPress={handleNextClassDirections}
+          disabled={nextClassLoading}
+        >
+          <Text style={styles.nextClassButtonText}>
+            {nextClassLoading ? "…" : "Go to Next Class"}
+          </Text>
+        </Pressable>
+      )}
 
       {nextClassMessage && (
         <View style={styles.nextClassAlert}>
