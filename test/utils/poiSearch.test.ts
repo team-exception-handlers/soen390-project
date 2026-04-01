@@ -4,6 +4,7 @@ import {
     filterPOIsByDistance,
     formatDistance,
     getCategoryLabel,
+    getIndoorWashroomPOIs,
     sortPOIsByDistance,
     type POIResult,
 } from "../../utils/poiSearch";
@@ -11,6 +12,8 @@ import {
 // Mock global fetch
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+
+jest.useFakeTimers();
 
 const SGW_LOCATION = { latitude: 45.497, longitude: -73.578 };
 
@@ -122,12 +125,39 @@ describe("poiSearch", () => {
       expect(results[0].name).toBe("Pharmacy");
     });
 
-    it("throws on API error", async () => {
-      mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+    it("throws on API error after exhausting retries", async () => {
+      mockFetch
+        .mockResolvedValueOnce({ ok: false, status: 500 })
+        .mockResolvedValueOnce({ ok: false, status: 500 })
+        .mockResolvedValueOnce({ ok: false, status: 500 });
 
-      await expect(
-        fetchNearbyPOIs(SGW_LOCATION, "cafe", 1000),
-      ).rejects.toThrow("Overpass API error: 500");
+      const promise = fetchNearbyPOIs(SGW_LOCATION, "cafe", 1000).catch((e: Error) => e);
+      // Advance past both retry delays
+      await jest.advanceTimersByTimeAsync(5000);
+      const result = await promise;
+      expect(result).toBeInstanceOf(Error);
+      expect((result as Error).message).toBe("Overpass API error: 500");
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("retries on transient failure and succeeds", async () => {
+      mockFetch
+        .mockResolvedValueOnce({ ok: false, status: 429 })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            elements: [
+              { id: 500, lat: 45.498, lon: -73.578, tags: { name: "Retry Cafe" } },
+            ],
+          }),
+        });
+
+      const promise = fetchNearbyPOIs(SGW_LOCATION, "cafe", 1000);
+      await jest.advanceTimersByTimeAsync(5000);
+      const results = await promise;
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(results).toHaveLength(1);
+      expect(results[0].name).toBe("Retry Cafe");
     });
 
     it("returns empty array for empty response", async () => {
@@ -230,6 +260,37 @@ describe("poiSearch", () => {
       expect(ALL_POI_CATEGORIES).toContain("gym");
       expect(ALL_POI_CATEGORIES).toContain("bank");
       expect(ALL_POI_CATEGORIES).toContain("grocery");
+    });
+  });
+
+  describe("getIndoorWashroomPOIs", () => {
+    it("returns indoor washroom POIs with distance from user", () => {
+      const results = getIndoorWashroomPOIs(SGW_LOCATION);
+
+      expect(results.length).toBeGreaterThan(0);
+      for (const poi of results) {
+        expect(poi.category).toBe("washroom");
+        expect(poi.id).toMatch(/^indoor-wc-/);
+        expect(poi.name).toContain("(Indoor)");
+        expect(typeof poi.latitude).toBe("number");
+        expect(typeof poi.longitude).toBe("number");
+        expect(typeof poi.distance).toBe("number");
+        expect(poi.distance).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it("deduplicates by building code", () => {
+      const results = getIndoorWashroomPOIs(SGW_LOCATION);
+      const buildingCodes = results.map((r) => r.id);
+      const unique = new Set(buildingCodes);
+      expect(buildingCodes.length).toBe(unique.size);
+    });
+
+    it("includes known buildings with washroom data", () => {
+      const results = getIndoorWashroomPOIs(SGW_LOCATION);
+      const ids = results.map((r) => r.id);
+      // Hall building should have washrooms in the indoor data
+      expect(ids).toContain("indoor-wc-H");
     });
   });
 });

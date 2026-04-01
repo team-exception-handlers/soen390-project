@@ -15,6 +15,7 @@ import {
     filterPOIsByDistance,
     formatDistance,
     getCategoryLabel,
+    getIndoorWashroomPOIs,
     type POICategory,
     type POIResult,
     sortPOIsByDistance,
@@ -74,6 +75,16 @@ export default function POISearchPanel({
           category,
           distanceOption.meters,
         );
+
+        // Merge indoor washroom data when searching washrooms
+        if (category === "washroom") {
+          const indoor = getIndoorWashroomPOIs(userLocation);
+          const outdoorIds = new Set(raw.map((r) => r.id));
+          for (const poi of indoor) {
+            if (!outdoorIds.has(poi.id)) raw.push(poi);
+          }
+        }
+
         const filtered = filterPOIsByDistance(raw, distanceOption.km);
         const sorted = sortPOIsByDistance(filtered);
 

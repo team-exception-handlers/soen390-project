@@ -19,11 +19,13 @@ jest.mock("react-native", () => ({
 }));
 
 const mockFetchNearbyPOIs = jest.fn();
+const mockGetIndoorWashroomPOIs = jest.fn().mockReturnValue([]);
 jest.mock("../../utils/poiSearch", () => {
   const actual = jest.requireActual("../../utils/poiSearch");
   return {
     ...actual,
     fetchNearbyPOIs: (...args) => mockFetchNearbyPOIs(...args),
+    getIndoorWashroomPOIs: (...args) => mockGetIndoorWashroomPOIs(...args),
   };
 });
 
@@ -125,6 +127,7 @@ function render(overrides = {}) {
 describe("POISearchPanel", () => {
   beforeEach(() => {
     mockFetchNearbyPOIs.mockReset();
+    mockGetIndoorWashroomPOIs.mockReset().mockReturnValue([]);
   });
 
   it("renders the header with title and close button", () => {
@@ -320,5 +323,39 @@ describe("POISearchPanel", () => {
     expect(dist2km.props.style).toEqual(
       expect.arrayContaining([expect.objectContaining({})]),
     );
+  });
+
+  it("merges indoor washroom results when searching washroom category", async () => {
+    mockFetchNearbyPOIs.mockResolvedValue([
+      { id: "outdoor-1", name: "Public WC", category: "washroom", latitude: 45.498, longitude: -73.579, distance: 0.3 },
+    ]);
+    mockGetIndoorWashroomPOIs.mockReturnValue([
+      { id: "indoor-wc-H", name: "Hall Building (Indoor)", category: "washroom", latitude: 45.497, longitude: -73.578, distance: 0.1, address: "1455 De Maisonneuve" },
+    ]);
+
+    const onResultsChange = jest.fn();
+    const { tree } = render({ onResultsChange });
+    const washroomChip = findByTestID(tree, "poi-category-washroom");
+    await washroomChip.props.onPress();
+
+    expect(mockGetIndoorWashroomPOIs).toHaveBeenCalledWith({ latitude: 45.497, longitude: -73.578 });
+    expect(onResultsChange).toHaveBeenCalled();
+    const passedResults = onResultsChange.mock.calls[0][0];
+    expect(passedResults).toHaveLength(2);
+    // Sorted by distance: indoor (0.1) before outdoor (0.3)
+    expect(passedResults[0].id).toBe("indoor-wc-H");
+    expect(passedResults[1].id).toBe("outdoor-1");
+  });
+
+  it("does not merge indoor washrooms for non-washroom categories", async () => {
+    mockFetchNearbyPOIs.mockResolvedValue([
+      { id: "1", name: "Cafe", category: "cafe", latitude: 45.498, longitude: -73.579, distance: 0.2 },
+    ]);
+
+    const { tree } = render();
+    const cafeChip = findByTestID(tree, "poi-category-cafe");
+    await cafeChip.props.onPress();
+
+    expect(mockGetIndoorWashroomPOIs).not.toHaveBeenCalled();
   });
 });

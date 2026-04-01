@@ -1,4 +1,6 @@
+import { BUILDINGS } from "../constants/buildings";
 import { calculateDistance, type Coordinates } from "./locationLogic";
+import { WASHROOM_ROOMS } from "./washroomSearch";
 
 export type POICategory =
   | "restaurant"
@@ -51,6 +53,22 @@ export function getCategoryLabel(category: POICategory): string {
 }
 
 const OVERPASS_API_URL = "https://overpass-api.de/api/interpreter";
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 800;
+
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  retries: number = MAX_RETRIES,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const response = await fetch(url, options);
+    if (response.ok || attempt === retries) return response;
+    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * (attempt + 1)));
+  }
+  // Unreachable, but satisfies TS
+  throw new Error("Overpass API: retries exhausted");
+}
 
 export async function fetchNearbyPOIs(
   userLocation: Coordinates,
@@ -69,7 +87,7 @@ export async function fetchNearbyPOIs(
     out center body;
   `;
 
-  const response = await fetch(OVERPASS_API_URL, {
+  const response = await fetchWithRetry(OVERPASS_API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: `data=${encodeURIComponent(query)}`,
@@ -111,6 +129,43 @@ export async function fetchNearbyPOIs(
       } satisfies POIResult;
     })
     .filter((r: POIResult | null): r is POIResult => r !== null);
+
+  return results;
+}
+
+export function getIndoorWashroomPOIs(
+  userLocation: Coordinates,
+): POIResult[] {
+  const buildingMap = new Map(
+    BUILDINGS.map((b) => [b.code, b]),
+  );
+
+  // Deduplicate by building: one entry per building
+  const seenBuildings = new Set<string>();
+  const results: POIResult[] = [];
+
+  for (const room of WASHROOM_ROOMS) {
+    if (seenBuildings.has(room.buildingCode)) continue;
+    seenBuildings.add(room.buildingCode);
+
+    const building = buildingMap.get(room.buildingCode);
+    if (!building) continue;
+
+    const distance = calculateDistance(userLocation, {
+      latitude: building.latitude,
+      longitude: building.longitude,
+    });
+
+    results.push({
+      id: `indoor-wc-${room.buildingCode}`,
+      name: `${building.longName} (Indoor)`,
+      category: "washroom",
+      latitude: building.latitude,
+      longitude: building.longitude,
+      distance,
+      address: building.address,
+    });
+  }
 
   return results;
 }
