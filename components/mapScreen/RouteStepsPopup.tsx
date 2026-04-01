@@ -179,6 +179,7 @@ export type RouteStepsPopupActions = Readonly<{
   setExpandedItineraries: Dispatch<SetStateAction<number[]>>;
   setExpandedIntermediateStops: Dispatch<SetStateAction<Set<string>>>;
   setSelectedShuttleDeparture?: (time: string) => void;
+  popupMaxHeight?: number;
 }>;
 
 export type RouteStepsPopupHelpers = Readonly<{
@@ -220,6 +221,7 @@ export default function RouteStepsPopup({
     setExpandedItineraries,
     setExpandedIntermediateStops,
     setSelectedShuttleDeparture,
+    popupMaxHeight,
   } = actions;
   const { formatTime } = helpers;
 
@@ -355,7 +357,13 @@ export default function RouteStepsPopup({
   }
 
   return (
-    <View style={styles.routeStepsPopup} testID="route-steps-popup">
+    <View
+      style={[
+        styles.routeStepsPopup,
+        popupMaxHeight === undefined ? null : { maxHeight: popupMaxHeight },
+      ]}
+      testID="route-steps-popup"
+    >
       <Pressable
         {...routeSheetPanResponder.panHandlers}
         style={styles.routeStepsHandle}

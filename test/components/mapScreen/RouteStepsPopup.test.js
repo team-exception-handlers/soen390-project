@@ -433,4 +433,13 @@ describe("components/mapScreen/RouteStepsPopup", () => {
     expect(findText(el, "1. Head north")).toBeTruthy();
     expect(findText(el, "2. Turn right")).toBeTruthy();
   });
+
+  test("applies popup max height when provided", () => {
+    const el = renderTree(RouteStepsPopup(createProps({ popupMaxHeight: 320 })));
+
+    expect(findByTestID(el, "route-steps-popup").props.style).toEqual([
+      expect.objectContaining({ styleKey: "routeStepsPopup" }),
+      { maxHeight: 320 },
+    ]);
+  });
 });

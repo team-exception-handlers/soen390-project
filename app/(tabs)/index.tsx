@@ -17,7 +17,9 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
+  type LayoutChangeEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -92,6 +94,7 @@ const DEFAULT_START_BUILDING_CODE = "H";
 const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
 
 export default function MapScreen() {
+  const { height: windowHeight } = useWindowDimensions();
   const [floorPlanModalOptions, setFloorPlanModalOptions] = useState<
     { key: string; label: string }[]
   >([]);
@@ -135,6 +138,7 @@ export default function MapScreen() {
   });
   const [nextClassLoading, setNextClassLoading] = useState(false);
   const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
+  const [directionsPanelBottom, setDirectionsPanelBottom] = useState(0);
   const [mapViewportRegion, setMapViewportRegion] = useState(() =>
     getCampusRegion("SGW", SGW_POLYGONS.features),
   );
@@ -216,6 +220,28 @@ export default function MapScreen() {
         tabBarHeight: TAB_BAR_HEIGHT,
       }),
     [insets.bottom, insets.top, isWebPlatform],
+  );
+  const routeStepsPopupMaxHeight = useMemo(() => {
+    const preferredMaxHeight = isWebPlatform ? 360 : 300;
+    if (!directionsPanelBottom) return preferredMaxHeight;
+
+    const popupBottomOffset = insets.bottom + TAB_BAR_HEIGHT + 10;
+    const gapBelowDirectionsPanel = 12;
+    const availableHeight =
+      windowHeight -
+      directionsPanelBottom -
+      popupBottomOffset -
+      gapBelowDirectionsPanel;
+
+    return Math.max(140, Math.min(preferredMaxHeight, availableHeight));
+  }, [directionsPanelBottom, insets.bottom, isWebPlatform, windowHeight]);
+
+  const handleDirectionsPanelLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { y, height } = event.nativeEvent.layout;
+      setDirectionsPanelBottom(y + height);
+    },
+    [],
   );
 
   const focusMapRegion = useCallback(
@@ -867,6 +893,7 @@ export default function MapScreen() {
             else setDestinationRoom(room);
             setFocusedRoom(null);
           },
+          onLayout: handleDirectionsPanelLayout,
         }}
         helpers={{
           getRoomDetails,
