@@ -165,8 +165,21 @@ function TransportModeSelector({
       routeMode === "cycling" && styles.modePillTextActive,
     ]}
   >
+    <Pressable
+  testID="route-mode-walking"
+  style={[
+    styles.modePill,
+    routeMode === "walking" && styles.modePillActive,
+  ]}
+  onPress={() => setRouteMode("walking")}
+>
+  <Text style={styles.modePillText}>
+    Walk
+  </Text>
+</Pressable>
     Bike -{" "}
-    {modeDurations.cycling !== null
+    {typeof modeDurations.cycling === "number" &&
+    !Number.isNaN(modeDurations.cycling)
       ? formatDuration(modeDurations.cycling)
       : "—"}
   </Text>

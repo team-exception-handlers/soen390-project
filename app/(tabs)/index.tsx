@@ -2651,19 +2651,19 @@ export default function MapScreen() {
         onClose={() => setIndoorDirectionsModalVisible(false)}
         route={indoorRoute ?? null}
         buildingCode={
-          originBuilding?.code ?? destinationBuilding?.code ?? ""
+          destinationBuilding?.code ?? originBuilding?.code ?? ""
         }
         originRoom={originRoom}
         destinationRoom={destinationRoom}
         floorBounds={(floor) =>
           getFloorBounds(
-            originBuilding?.code ?? destinationBuilding?.code ?? "",
+            destinationBuilding?.code ?? originBuilding?.code ?? "",
             floor,
           )
         }
         graphFloorBounds={(floor) =>
           getGraphFloorBounds(
-            originBuilding?.code ?? destinationBuilding?.code ?? "",
+            destinationBuilding?.code ?? originBuilding?.code ?? "",
             floor,
           )
         }
