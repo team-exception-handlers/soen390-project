@@ -784,7 +784,7 @@ export function createMapScreenStyles({
       left: 12,
       bottom: 110,
       gap: 8,
-      zIndex: 1100,
+      zIndex: 9999,
     },
     e2eButton: {
       backgroundColor: "rgba(0,0,0,0.72)",
