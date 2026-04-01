@@ -833,7 +833,7 @@ export function createMapScreenStyles({
       backgroundColor: "#1668C7",
       alignItems: "center",
       justifyContent: "center",
-      zIndex: 1200,
+      zIndex: 1050,
       shadowColor: "#000",
       shadowOpacity: 0.25,
       shadowRadius: 6,
@@ -891,6 +891,51 @@ export function createMapScreenStyles({
       color: "white",
       fontSize: 12,
       fontWeight: "600",
+    },
+    washroomPickerOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.45)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    washroomPickerCard: {
+      width: 280,
+      backgroundColor: "white",
+      borderRadius: 16,
+      paddingVertical: 20,
+      paddingHorizontal: 24,
+      alignItems: "center",
+      gap: 12,
+    },
+    washroomPickerTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: "#1F1F24",
+      marginBottom: 4,
+    },
+    washroomPickerOption: {
+      width: "100%",
+      paddingVertical: 12,
+      borderRadius: 10,
+      backgroundColor: "#1668C7",
+      alignItems: "center",
+    },
+    washroomPickerOptionPressed: {
+      opacity: 0.85,
+    },
+    washroomPickerOptionText: {
+      color: "white",
+      fontSize: 15,
+      fontWeight: "600",
+    },
+    washroomPickerCancel: {
+      marginTop: 4,
+      paddingVertical: 8,
+    },
+    washroomPickerCancelText: {
+      color: "#5D5D66",
+      fontSize: 14,
+      fontWeight: "500",
     },
   });
 }

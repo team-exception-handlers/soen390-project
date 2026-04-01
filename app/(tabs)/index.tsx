@@ -1,31 +1,32 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import { useLocalSearchParams } from "expo-router";
 import { ChevronUp, X } from "lucide-react-native";
 import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
 } from "react";
 import {
-  Image,
-  Keyboard,
-  Linking,
-  Modal,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
-  type LayoutChangeEvent,
+    Image,
+    Keyboard,
+    Linking,
+    Modal,
+    PanResponder,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
+    type LayoutChangeEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -38,62 +39,64 @@ import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
 import { createMapScreenStyles } from "../../styles/mapScreen.styles";
-import { useFocusEffect } from "@react-navigation/native";
 import { parseLocationParts } from "../../utils/classLocation";
 import { getToken } from "../../utils/googleCalendarAuth";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
-  findIndoorRoute,
-  getFloorBounds,
-  getGraphFloorBounds,
-  getSpecialNodesForFloor,
-  type IndoorRoute,
+    findIndoorRoute,
+    getFloorBounds,
+    getGraphFloorBounds,
+    getSpecialNodesForFloor,
+    type IndoorRoute,
 } from "../../utils/indoorDirections";
 
 import POISearchPanel from "../../components/POISearchPanel";
 import {
-  getFloorPlanLabelForKey,
-  getFloorPlanOptionsForBuilding,
+    getFloorPlanLabelForKey,
+    getFloorPlanOptionsForBuilding,
 } from "../../utils/floorPlanCatalog";
 import {
-  findUserBuilding,
-  getInitialLocationFix,
-  hasLocationPermission,
-  requestLocationPermission,
-  startWatchingLocation,
+    findUserBuilding,
+    getInitialLocationFix,
+    hasLocationPermission,
+    requestLocationPermission,
+    startWatchingLocation,
 } from "../../utils/locationUtils";
 import { getCampusRegion } from "../../utils/mapRegions";
 import {
-  NativeMapCallout,
-  NativeMapMarker,
-  NativeMapPolygon,
-  NativeMapPolyline,
-  NativeMapView,
+    NativeMapCallout,
+    NativeMapMarker,
+    NativeMapPolygon,
+    NativeMapPolyline,
+    NativeMapView,
 } from "../../utils/nativeMaps";
 import {
-  fetchOsrmRoute,
-  type RouteInstruction,
-  type RouteProfile,
+    fetchOsrmRoute,
+    type RouteInstruction,
+    type RouteProfile,
 } from "../../utils/osrmDirections";
 import type { POIResult } from "../../utils/poiSearch";
 import {
-  getRoomDetails,
-  getRoomsForBuilding,
-  roomLabelMatchesSearchPrefix,
+    getRoomDetails,
+    getRoomsForBuilding,
+    roomLabelMatchesSearchPrefix,
 } from "../../utils/roomUtils";
 import {
-  calculateOsrmRouteHelper,
-  calculateShuttleRouteHelper,
-  calculateTransitRouteHelper,
-  RouteLoaderResult,
+    calculateOsrmRouteHelper,
+    calculateShuttleRouteHelper,
+    calculateTransitRouteHelper,
+    RouteLoaderResult,
 } from "../../utils/routeCalculators";
 import {
-  decodePolyline,
-  fetchTransitItineraries,
-  formatTime,
-  type TransitItinerary,
+    decodePolyline,
+    fetchTransitItineraries,
+    formatTime,
+    type TransitItinerary,
 } from "../../utils/transitousDirections";
-import { findNearestWashroomTarget } from "../../utils/washroomSearch";
+import {
+    findNearestWashroomTarget,
+    type WashroomCategory
+} from "../../utils/washroomSearch";
 
 let WebView: React.ComponentType<any> | null = null;
 if (Platform.OS !== "web") {
@@ -346,6 +349,10 @@ export default function MapScreen() {
     useState(false);
   const [showPOIPanel, setShowPOIPanel] = useState(false);
   const [poiResults, setPOIResults] = useState<POIResult[]>([]);
+  const [destinationPOI, setDestinationPOI] = useState<POIResult | null>(null);
+  const [washroomPickerBuilding, setWashroomPickerBuilding] = useState<
+    string | null
+  >(null);
 
   const isExpoGo =
     Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
@@ -700,8 +707,18 @@ export default function MapScreen() {
     setIndoorRoute(route);
   }, [originBuilding, destinationBuilding, originRoom, destinationRoom]);
 
+  const resolvedDestination = useMemo(() => {
+    if (destinationPOI) {
+      return {
+        latitude: destinationPOI.latitude,
+        longitude: destinationPOI.longitude,
+      };
+    }
+    return destinationBuilding;
+  }, [destinationPOI, destinationBuilding]);
+
   useEffect(() => {
-    if (!destinationBuilding || !actualOriginPoint) {
+    if (!resolvedDestination || !actualOriginPoint) {
       setModeDurations({ walking: null, cycling: null, driving: null, transit: null });
       return;
     }
@@ -712,10 +729,10 @@ export default function MapScreen() {
       const [walkOrBike, drive] = await Promise.allSettled([
         fetchOsrmRoute(
           actualOriginPoint,
-          destinationBuilding,
+          resolvedDestination,
           walkOrBikeProfile,
         ),
-        fetchOsrmRoute(actualOriginPoint, destinationBuilding, "driving"),
+        fetchOsrmRoute(actualOriginPoint, resolvedDestination, "driving"),
       ]);
       if (cancelled) return;
       setModeDurations((p) => ({
@@ -737,7 +754,7 @@ export default function MapScreen() {
         try {
           const itins = await fetchTransitItineraries(
             actualOriginPoint,
-            destinationBuilding,
+            resolvedDestination,
           );
           if (!cancelled)
             setModeDurations((p) => ({
@@ -755,7 +772,7 @@ export default function MapScreen() {
     return () => {
       cancelled = true;
     };
-  }, [actualOriginPoint, destinationBuilding, isSameCampus]);
+  }, [actualOriginPoint, resolvedDestination, isSameCampus]);
 
   const clearRouteState = () => {
     setRouteCoordinates([]);
@@ -792,6 +809,7 @@ export default function MapScreen() {
 
   const exitDirectionsMode = () => {
     setIsDirectionsMode(false);
+    setDestinationPOI(null);
     resetRouteState();
   };
 
@@ -812,12 +830,67 @@ export default function MapScreen() {
     }
     routeInstructionsDismissedRef.current = false;
     setShowRouteInstructions(true);
+    setDestinationPOI(null);
 
     const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
     if (destinationRecord && destinationRecord.campus !== campus) {
       setCampus(destinationRecord.campus);
     }
   };
+
+  const handlePOIPress = useCallback(
+    (poi: POIResult) => {
+      // Indoor washroom POIs: show male/female picker
+      if (poi.id.startsWith("indoor-wc-")) {
+        const buildingCode = poi.id.replace("indoor-wc-", "");
+        setWashroomPickerBuilding(buildingCode);
+        return;
+      }
+
+      setDestinationPOI(poi);
+      setDestinationBuildingCode("");
+      setDestinationRoom("");
+      setIsDirectionsMode(true);
+      setEditingField(undefined);
+      setSelectedBuilding(null);
+      setSearchText("");
+      setShowPOIPanel(false);
+      routeInstructionsDismissedRef.current = false;
+      setShowRouteInstructions(true);
+    },
+    [routeInstructionsDismissedRef],
+  );
+
+  const handleWashroomPickerSelect = useCallback(
+    (category: WashroomCategory) => {
+      if (!washroomPickerBuilding) return;
+      const target = findNearestWashroomTarget(category, {
+        campusBuildings,
+        actualOriginPoint,
+        originBuildingCode: originBuildingCode,
+        originRoom,
+        destinationBuildingCode: washroomPickerBuilding,
+        destinationRoom: "",
+      });
+      setWashroomPickerBuilding(null);
+      setShowPOIPanel(false);
+      setPOIResults([]);
+      if (target) {
+        setDestinationAndEnterDirectionsMode(
+          target.building.code,
+          target.roomLabel,
+          true,
+        );
+      }
+    },
+    [
+      washroomPickerBuilding,
+      campusBuildings,
+      actualOriginPoint,
+      originBuildingCode,
+      originRoom,
+    ],
+  );
 
   const animateMapToRegion = useCallback(
     (region: any, targetCampus: Campus) => {
@@ -982,63 +1055,6 @@ export default function MapScreen() {
     }).slice(0, 8);
   }, [searchText]);
 
-  const washroomSearchResults = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-    const isWashroomQuery =
-      query.includes("washroom") || query.includes("bathroom");
-    if (!isWashroomQuery) return [];
-
-    const washroomParams = {
-      campusBuildings,
-      actualOriginPoint,
-      originBuildingCode: originBuilding?.code ?? null,
-      originRoom,
-      destinationBuildingCode: destinationBuilding?.code ?? null,
-      destinationRoom,
-    };
-
-    const maleWashroomTarget = findNearestWashroomTarget(
-      "male_washroom",
-      washroomParams,
-    );
-    const femaleWashroomTarget = findNearestWashroomTarget(
-      "female_washroom",
-      washroomParams,
-    );
-
-    return [
-      maleWashroomTarget
-        ? {
-          key: "nearest-male-washroom",
-          label: "Nearest male washroom",
-          building: maleWashroomTarget.building,
-          roomLabel: maleWashroomTarget.roomLabel,
-        }
-        : null,
-      femaleWashroomTarget
-        ? {
-          key: "nearest-female-washroom",
-          label: "Nearest female washroom",
-          building: femaleWashroomTarget.building,
-          roomLabel: femaleWashroomTarget.roomLabel,
-        }
-        : null,
-    ].filter((result): result is {
-      key: string;
-      label: string;
-      building: BuildingRecord;
-      roomLabel: string;
-    } => result !== null);
-  }, [
-    actualOriginPoint,
-    campusBuildings,
-    destinationBuilding?.code,
-    destinationRoom,
-    originBuilding?.code,
-    originRoom,
-    searchText,
-  ]);
-
   const handleSearchResultPress = (building: BuildingRecord) => {
     if (building.campus !== campus) {
       handleCampusChange(building.campus);
@@ -1048,21 +1064,13 @@ export default function MapScreen() {
     Keyboard.dismiss();
   };
 
-  const handleWashroomSearchResultPress = (
-    building: BuildingRecord,
-    roomLabel: string,
-  ) => {
-    setDestinationAndEnterDirectionsMode(building.code, roomLabel, true);
-    Keyboard.dismiss();
-  };
-
   useEffect(() => {
     setSearchText("");
     setSelectedBuilding(null);
   }, [campusBuildings]);
 
   useEffect(() => {
-    if (!isDirectionsMode || !destinationBuilding || !actualOriginPoint) {
+    if (!isDirectionsMode || !resolvedDestination || !actualOriginPoint) {
       clearRouteState();
       return;
     }
@@ -1083,12 +1091,12 @@ export default function MapScreen() {
 
     const fetchRoute = async () => {
       if (routeMode === "shuttle") {
-        return calculateShuttleRouteHelper(actualOriginPoint, destinationBuilding, selectedShuttleDeparture);
+        return calculateShuttleRouteHelper(actualOriginPoint, resolvedDestination, selectedShuttleDeparture);
       }
       if (routeMode === "transit") {
-        return calculateTransitRouteHelper(actualOriginPoint, destinationBuilding);
+        return calculateTransitRouteHelper(actualOriginPoint, resolvedDestination);
       }
-      return calculateOsrmRouteHelper(actualOriginPoint, destinationBuilding, routeMode, isSameCampus);
+      return calculateOsrmRouteHelper(actualOriginPoint, resolvedDestination, routeMode, isSameCampus);
     };
 
     const loadRoute = async () => {
@@ -1128,7 +1136,7 @@ export default function MapScreen() {
     };
   }, [
     isDirectionsMode,
-    destinationBuilding,
+    resolvedDestination,
     actualOriginPoint,
     routeMode,
     isSameCampus,
@@ -2105,6 +2113,7 @@ export default function MapScreen() {
               latitude: poi.latitude,
               longitude: poi.longitude,
             }}
+            onPress={() => handlePOIPress(poi)}
           >
             <View style={styles.markerContainer}>
               <View style={styles.poiMarkerBadge}>
@@ -2173,6 +2182,7 @@ export default function MapScreen() {
         <POISearchPanel
           userLocation={actualOriginPoint}
           onResultsChange={setPOIResults}
+          onSelectPOI={handlePOIPress}
           onClose={() => {
             setShowPOIPanel(false);
             setPOIResults([]);
@@ -2180,34 +2190,60 @@ export default function MapScreen() {
         />
       )}
 
-      {(washroomSearchResults.length > 0 || searchResults.length > 0) && (
-        <View style={styles.searchResultsContainer} testID="search-results">
-          <Text style={styles.searchResultsHint}>
-            {washroomSearchResults.length > 0
-              ? "Tap an option to locate the nearest washroom."
-              : "Tap a building to set destination (To)."}
-          </Text>
-          {washroomSearchResults.map((result) => (
+      <Modal
+        visible={washroomPickerBuilding !== null}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setWashroomPickerBuilding(null)}
+      >
+        <Pressable
+          style={styles.washroomPickerOverlay}
+          onPress={() => setWashroomPickerBuilding(null)}
+        >
+          <View style={styles.washroomPickerCard}>
+            <Text style={styles.washroomPickerTitle}>
+              Select washroom type
+            </Text>
             <Pressable
-              key={result.key}
-              testID={`search-result-${result.key}`}
-              style={styles.searchResultItem}
-              onPress={() =>
-                handleWashroomSearchResultPress(
-                  result.building,
-                  result.roomLabel,
-                )
-              }
+              testID="washroom-picker-male"
+              style={({ pressed }) => [
+                styles.washroomPickerOption,
+                pressed && styles.washroomPickerOptionPressed,
+              ]}
+              onPress={() => handleWashroomPickerSelect("male_washroom")}
             >
-              <Text style={styles.searchResultCode}>{result.building.code}</Text>
-              <Text style={styles.searchResultName} numberOfLines={1}>
-                {result.label}
-              </Text>
-              <Text style={styles.searchResultAddress} numberOfLines={1}>
-                {`Room ${result.roomLabel} - ${result.building.longName}`}
+              <Text style={styles.washroomPickerOptionText}>
+                Male washroom
               </Text>
             </Pressable>
-          ))}
+            <Pressable
+              testID="washroom-picker-female"
+              style={({ pressed }) => [
+                styles.washroomPickerOption,
+                pressed && styles.washroomPickerOptionPressed,
+              ]}
+              onPress={() => handleWashroomPickerSelect("female_washroom")}
+            >
+              <Text style={styles.washroomPickerOptionText}>
+                Female washroom
+              </Text>
+            </Pressable>
+            <Pressable
+              testID="washroom-picker-cancel"
+              style={styles.washroomPickerCancel}
+              onPress={() => setWashroomPickerBuilding(null)}
+            >
+              <Text style={styles.washroomPickerCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {searchResults.length > 0 && (
+        <View style={styles.searchResultsContainer} testID="search-results">
+          <Text style={styles.searchResultsHint}>
+            Tap a building to set destination (To).
+          </Text>
           {searchResults.map((building) => (
             <Pressable
               key={building.code}
@@ -2241,6 +2277,7 @@ export default function MapScreen() {
         editingField={editingField}
         originBuilding={originBuilding}
         destinationBuilding={destinationBuilding}
+        destinationPOIName={destinationPOI?.name ?? null}
         clearDirections={clearDirections}
         isDirectionsMode={isDirectionsMode}
         isSameCampus={isSameCampus}
@@ -2390,7 +2427,7 @@ export default function MapScreen() {
             setShowRouteInstructions={setShowRouteInstructions}
             routeMode={routeMode}
             actualOriginPoint={actualOriginPoint}
-            destinationBuilding={destinationBuilding}
+            destinationBuilding={destinationBuilding ?? (destinationPOI ? { ...destinationPOI, code: "", shortName: destinationPOI.name, longName: destinationPOI.name, campus: campus, address: destinationPOI.address ?? "", description: undefined, photoLink: undefined } as any : null)}
             transitItineraries={transitItineraries}
             routeStarted={routeStarted}
             selectedItineraryIndex={selectedItineraryIndex}

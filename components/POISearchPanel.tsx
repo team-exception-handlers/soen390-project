@@ -54,12 +54,14 @@ type Props = {
   userLocation: Coordinates | null;
   onResultsChange: (results: POIResult[]) => void;
   onClose: () => void;
+  onSelectPOI?: (poi: POIResult) => void;
 };
 
 export default function POISearchPanel({
   userLocation,
   onResultsChange,
   onClose,
+  onSelectPOI,
 }: Props) {
   const [selectedCategory, setSelectedCategory] =
     useState<POICategory | null>(null);
@@ -234,10 +236,14 @@ export default function POISearchPanel({
       {results.length > 0 && !loading && (
         <ScrollView style={styles.resultsList} testID="poi-results-list">
           {results.map((poi) => (
-            <View
+            <Pressable
               key={poi.id}
-              style={styles.resultItem}
+              style={({ pressed }) => [
+                styles.resultItem,
+                pressed && styles.resultItemPressed,
+              ]}
               testID={`poi-result-${poi.id}`}
+              onPress={() => onSelectPOI?.(poi)}
             >
               <View style={styles.resultHeader}>
                 <View style={styles.resultNameWrap}>
@@ -264,7 +270,7 @@ export default function POISearchPanel({
                   {poi.address}
                 </Text>
               )}
-            </View>
+            </Pressable>
           ))}
         </ScrollView>
       )}
@@ -400,6 +406,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#F0F0F0",
+  },
+  resultItemPressed: {
+    backgroundColor: "#E8F0FE",
   },
   resultHeader: {
     flexDirection: "row",
