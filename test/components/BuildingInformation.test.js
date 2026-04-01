@@ -169,6 +169,50 @@ describe("components/BuildingInformation", () => {
     expect(text.props.children).toBe("Start Here");
   });
 
+  test("renders See floor plans when options exist and calls onOpenFloorPlans", () => {
+    const onOpenFloorPlans = jest.fn();
+    const el = BuildingInformation({
+      buildingCode: "H",
+      onClose: jest.fn(),
+      buildingName: "Hall",
+      buildingInfo: "x",
+      buildingPhotoLink: undefined,
+      onSelectDestination: jest.fn(),
+      floorPlanOptions: [{ key: "H-1", label: "Floor 1" }],
+      onOpenFloorPlans,
+    });
+
+    const floorPlansBtn = findByTestID(el, "building-info-floor-plans");
+    expect(floorPlansBtn).toBeTruthy();
+
+    // coverage: accessibilityLabel (line around 122)
+    expect(floorPlansBtn.props.accessibilityLabel).toBe("See floor plans for this building");
+
+    // coverage: style callback uses pressed state (line around 124)
+    const styleNotPressed = floorPlansBtn.props.style({ pressed: false });
+    const stylePressed = floorPlansBtn.props.style({ pressed: true });
+    expect(styleNotPressed).not.toContainEqual({ opacity: 0.85 });
+    expect(stylePressed).toContainEqual({ opacity: 0.85 });
+
+    floorPlansBtn.props.onPress();
+    expect(onOpenFloorPlans).toHaveBeenCalled();
+  });
+
+  test("does not render floor plans button when floorPlanOptions is empty", () => {
+    const el = BuildingInformation({
+      buildingCode: "H",
+      onClose: jest.fn(),
+      buildingName: "Hall",
+      buildingInfo: "x",
+      buildingPhotoLink: undefined,
+      onSelectDestination: jest.fn(),
+      floorPlanOptions: [],
+      onOpenFloorPlans: jest.fn(),
+    });
+
+    expect(findByTestID(el, "building-info-floor-plans")).toBeNull();
+  });
+
   test("does not render directions button when buildingCode is null", () => {
     const el = BuildingInformation({
       buildingCode: null,

@@ -1,0 +1,69 @@
+# US-4.3: Accessible directions - CI
+
+appId: com.anonymous.concordiaclassfinder
+
+---
+- runFlow:
+    file: _launch-app.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 25000
+
+- assertVisible: "Where to?"
+- assertVisible:
+    id: "directions-panel"
+- assertVisible:
+    id: "direction-go-button"
+
+# FROM: search "Hall building", confirm, then room 244
+- runFlow:
+    file: _search-from-hall.yml
+
+- tapOn:
+    id: "search-room-from-input"
+- inputText: "244"
+
+# TO: search "Hall building", confirm, then room 857
+- runFlow:
+    file: _search-to-hall.yml
+
+- tapOn:
+    id: "direction-to-room-input"
+- inputText: "857"
+
+- extendedWaitUntil:
+    visible:
+      id: "indoor-directions-button"
+    timeout: 20000
+- tapOn:
+    id: "indoor-directions-button"
+
+# Accessibility: disable stairs and escalators (elevators remain)
+- tapOn:
+    id: "indoor-directions-settings-button"
+- extendedWaitUntil:
+    visible:
+      id: "indoor-directions-settings-card"
+    timeout: 10000
+- tapOn:
+    id: "indoor-directions-settings-stairs"
+- tapOn:
+    id: "indoor-directions-settings-escalators"
+
+# Tap dimmed area above the centered card (center of screen hits the card and does not dismiss).
+- tapOn:
+    point: "50%, 10%"
+- extendedWaitUntil:
+    notVisible:
+      id: "indoor-directions-settings-card"
+    timeout: 10000
+
+# Switch to Floor 8 for the destination segment
+- extendedWaitUntil:
+    visible:
+      id: "indoor-directions-floor-8"
+    timeout: 20000
+- tapOn:
+    id: "indoor-directions-floor-8"

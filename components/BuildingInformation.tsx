@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from "react-native";
+import type { FloorPlanOption } from "../utils/floorPlanCatalog";
 
 type BuildingInformationProps = {
   readonly buildingCode: string | null;
@@ -20,6 +21,9 @@ type BuildingInformationProps = {
   readonly buildingPhotoLink: string | undefined;
   readonly onSelectDestination: (code: string) => void;
   readonly editingField?: "from" | "to";
+  /** When non-empty, shows "See floor plans" next to directions. */
+  readonly floorPlanOptions?: readonly FloorPlanOption[];
+  readonly onOpenFloorPlans?: () => void;
 };
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -34,6 +38,8 @@ export default function BuildingInformation({
   buildingPhotoLink,
   onSelectDestination,
   editingField,
+  floorPlanOptions = [],
+  onOpenFloorPlans,
 }: BuildingInformationProps) {
   const tabBarHeight = useBottomTabBarHeight();
   const heightAnimation = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
@@ -93,20 +99,38 @@ export default function BuildingInformation({
             </Text>
 
             {buildingCode && (
-              <Pressable
-                testID="building-info-directions"
-                accessibilityRole="button"
-                accessibilityLabel="Get directions to this building"
-                style={({ pressed }) => [
-                  styles.headerDirectionsButton,
-                  pressed && styles.headerDirectionsButtonPressed,
-                ]}
-                onPress={handleGetDirections}
-              >
-                <Text style={styles.headerDirectionsButtonText}>
-                  {editingField === "from" ? "Start Here" : "Go There"}
-                </Text>
-              </Pressable>
+              <View style={styles.headerActions}>
+                <Pressable
+                  testID="building-info-directions"
+                  accessibilityRole="button"
+                  accessibilityLabel="Get directions to this building"
+                  style={({ pressed }) => [
+                    styles.headerDirectionsButton,
+                    pressed && styles.headerDirectionsButtonPressed,
+                  ]}
+                  onPress={handleGetDirections}
+                >
+                  <Text style={styles.headerDirectionsButtonText}>
+                    {editingField === "from" ? "Start Here" : "Go There"}
+                  </Text>
+                </Pressable>
+                {floorPlanOptions.length > 0 && onOpenFloorPlans ? (
+                  <Pressable
+                    testID="building-info-floor-plans"
+                    accessibilityRole="button"
+                    accessibilityLabel="See floor plans for this building"
+                    style={({ pressed }) => [
+                      styles.headerFloorPlansButton,
+                      pressed && styles.headerFloorPlansButtonPressed,
+                    ]}
+                    onPress={onOpenFloorPlans}
+                  >
+                    <Text style={styles.headerFloorPlansButtonText}>
+                      See floor plans
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
             )}
           </View>
         </View>
@@ -172,6 +196,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexShrink: 0,
+    gap: 8,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+  },
+
   title: {
     flex: 1,
     fontSize: 18,
@@ -219,6 +252,27 @@ const styles = StyleSheet.create({
 
   headerDirectionsButtonText: {
     color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  headerFloorPlansButton: {
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#1668C7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  headerFloorPlansButtonPressed: {
+    opacity: 0.85,
+  },
+
+  headerFloorPlansButtonText: {
+    color: "#1668C7",
     fontSize: 13,
     fontWeight: "600",
   },

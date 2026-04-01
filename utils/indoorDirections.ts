@@ -1280,6 +1280,73 @@ function buildIndoorRouteFromDijkstraResult(
   };
 }
 
+export interface SpecialFloorNode {
+  id: string;
+  x: number;
+  y: number;
+  type: "bathroom" | "stairs" | "elevator" | "escalator";
+  category?: string;
+}
+
+export function getSpecialNodesForFloor(
+  buildingCode: string,
+  floor: number,
+): SpecialFloorNode[] {
+  const floors = getBuildingFloors(buildingCode);
+  if (floors.length === 0) return [];
+
+  const floorQuery = getFloorQuery(buildingCode, floor);
+
+  const specialNodes: SpecialFloorNode[] = [];
+
+  for (const floorData of floors) {
+    const nodes = floorData.nodes as IndoorNode[];
+
+    for (const node of nodes) {
+      if (!floorQuery.matchesNode(node)) continue;
+
+      // Check for bathrooms
+      const category = (node as any).category;
+      if (category === "male_washroom" || category === "female_washroom") {
+        specialNodes.push({
+          id: node.id,
+          x: node.x,
+          y: node.y,
+          type: "bathroom",
+          category,
+        });
+        continue;
+      }
+
+      // Check for stairs, elevators, escalators
+      if (node.type === "stair_landing") {
+        specialNodes.push({
+          id: node.id,
+          x: node.x,
+          y: node.y,
+          type: "stairs",
+        });
+      } else if (node.type === "elevator_door") {
+        specialNodes.push({
+          id: node.id,
+          x: node.x,
+          y: node.y,
+          type: "elevator",
+        });
+      } else if (node.type === "escalator_landing") {
+        specialNodes.push({
+          id: node.id,
+          x: node.x,
+          y: node.y,
+          type: "escalator",
+        });
+      }
+    }
+  }
+
+  return specialNodes;
+}
+
 export function findIndoorRoute(
   buildingCode: string,
   startRoomLabel: string,

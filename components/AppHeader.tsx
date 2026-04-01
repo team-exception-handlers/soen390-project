@@ -71,7 +71,8 @@ export default function AppHeader({
           onChangeText={onSearchTextChange}
           placeholder="Search buildings, rooms, services"
           placeholderTextColor="#8E8E93"
-          style={styles.input}
+          selectionColor="#1C1C1E"
+          style={[styles.input, inputWebStyles]}
         />
       </View>
     </LinearGradient>
@@ -118,8 +119,8 @@ const styles = StyleSheet.create({
     padding: 4,
     overflow: "hidden",
     backgroundColor: "rgba(255,255,255,0.15)",
-    transform: Platform.OS === "web" ? [] : [{ translateY: -15 }],
-    marginTop: Platform.OS === "web" ? -20 : 0,
+    transform: Platform.OS === "web" ? [] : [{ translateY: -10 }],
+    marginTop: Platform.OS === "web" ? -15 : 0,
   },
 
   toggleButton: {
@@ -164,3 +165,8 @@ const styles = StyleSheet.create({
     color: "#1C1C1E",
   },
 });
+
+const inputWebStyles = Platform.OS === "web"
+  ? { outlineStyle: "none" as any, caretColor: "#1C1C1E" as any }
+  : {};
+

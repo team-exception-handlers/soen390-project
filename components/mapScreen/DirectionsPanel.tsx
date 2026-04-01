@@ -5,7 +5,14 @@ import {
   type RefObject,
   type SetStateAction,
 } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
 import type { BuildingRecord } from "../../constants/buildings";
 import type { MapScreenStyles } from "../../styles/mapScreen.styles";
 import { RoomRecord } from "../../types/rooms";
@@ -20,15 +27,14 @@ type RoomInputGroupProps = Readonly<{
   building: BuildingRecord | null;
   room: string;
   setRoom: Dispatch<SetStateAction<string>>;
-  roomInputTestID?: string;
   styles: MapScreenStyles;
+  roomInputTestID?: string;
   getRoomDetails: (
     buildingCode: string,
     roomNumber: string,
   ) => RoomRecord | undefined;
   getFloorPlanAsset: GetFloorPlanAsset;
-  setActiveFloorPlan: (asset: FloorPlanAsset) => void;
-  setFloorPlanModalVisible: (visible: boolean) => void;
+  openFloorPlanModal: (floorKey: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
 }>;
@@ -36,13 +42,12 @@ type RoomInputGroupProps = Readonly<{
 function RoomInputGroup({
   building,
   room,
-  setRoom,
   roomInputTestID,
+  setRoom,
   styles,
   getRoomDetails,
   getFloorPlanAsset,
-  setActiveFloorPlan,
-  setFloorPlanModalVisible,
+  openFloorPlanModal,
   onFocus,
   onBlur,
 }: RoomInputGroupProps) {
@@ -55,6 +60,7 @@ function RoomInputGroup({
   return (
     <View style={styles.roomInputContainer}>
       <TextInput
+        testID={roomInputTestID}
         style={styles.roomInput}
         placeholder="Room #"
         placeholderTextColor="rgba(255,255,255,0.4)"
@@ -63,7 +69,6 @@ function RoomInputGroup({
         keyboardType="default"
         onFocus={onFocus}
         onBlur={onBlur}
-        testID={roomInputTestID}
       />
       <Pressable
         style={
@@ -75,9 +80,7 @@ function RoomInputGroup({
         accessibilityLabel="View Floor Plan"
         onPress={() => {
           if (floorKey) {
-            const asset = getFloorPlanAsset(floorKey);
-            setActiveFloorPlan(asset);
-            setFloorPlanModalVisible(true);
+            openFloorPlanModal(floorKey);
           }
         }}
       >
@@ -276,8 +279,7 @@ type DirectionsPanelProps = Readonly<{
   setOriginRoom: Dispatch<SetStateAction<string>>;
   destinationRoom: string;
   setDestinationRoom: Dispatch<SetStateAction<string>>;
-  setActiveFloorPlan: (asset: FloorPlanAsset) => void;
-  setFloorPlanModalVisible: (visible: boolean) => void;
+  openFloorPlanModal: (floorKey: string) => void;
   getRoomDetails: (
     buildingCode: string,
     roomNumber: string,
@@ -290,6 +292,7 @@ type DirectionsPanelProps = Readonly<{
   roomSuggestions?: string[];
   onRoomSuggestionPressIn?: () => void;
   onRoomSuggestionSelect?: (room: string, field: "from" | "to") => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
 }>;
 
 export default function DirectionsPanel({
@@ -314,8 +317,7 @@ export default function DirectionsPanel({
   setOriginRoom,
   destinationRoom,
   setDestinationRoom,
-  setActiveFloorPlan,
-  setFloorPlanModalVisible,
+  openFloorPlanModal,
   getRoomDetails,
   getFloorPlanAsset,
   onShowIndoorDirections,
@@ -325,6 +327,7 @@ export default function DirectionsPanel({
   roomSuggestions = [],
   onRoomSuggestionPressIn,
   onRoomSuggestionSelect,
+  onLayout,
 }: DirectionsPanelProps) {
   const isSameBuilding =
     originBuilding?.code != null &&
@@ -334,9 +337,13 @@ export default function DirectionsPanel({
     isSameBuilding && originRoom.trim() && destinationRoom.trim();
 
   return (
-    <View style={styles.directionsPanel} testID="directions-panel">
+    <View
+      style={styles.directionsPanel}
+      testID="directions-panel"
+      onLayout={onLayout}
+    >
       <View style={styles.directionFieldRow}>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Pressable
             testID="direction-from-button"
             onPress={() => {
@@ -368,12 +375,15 @@ export default function DirectionsPanel({
             building={originBuilding}
             room={originRoom}
             setRoom={setOriginRoom}
-            roomInputTestID="search-room-from-input"
+            roomInputTestID={
+              isDirectionsMode
+                ? "direction-from-room-input"
+                : "search-room-from-input"
+            }
             styles={styles}
             getRoomDetails={getRoomDetails}
             getFloorPlanAsset={getFloorPlanAsset}
-            setActiveFloorPlan={setActiveFloorPlan}
-            setFloorPlanModalVisible={setFloorPlanModalVisible}
+            openFloorPlanModal={openFloorPlanModal}
             onFocus={() => setFocusedRoom?.("from")}
             onBlur={() =>
               setTimeout(
@@ -385,7 +395,7 @@ export default function DirectionsPanel({
           />
         </View>
 
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Pressable
             testID="direction-to-button"
             onPress={() => {
@@ -418,12 +428,15 @@ export default function DirectionsPanel({
             building={destinationBuilding}
             room={destinationRoom}
             setRoom={setDestinationRoom}
-            roomInputTestID="search-room-to-input"
+            roomInputTestID={
+              isDirectionsMode
+                ? "direction-to-room-input"
+                : "search-room-to-input"
+            }
             styles={styles}
             getRoomDetails={getRoomDetails}
             getFloorPlanAsset={getFloorPlanAsset}
-            setActiveFloorPlan={setActiveFloorPlan}
-            setFloorPlanModalVisible={setFloorPlanModalVisible}
+            openFloorPlanModal={openFloorPlanModal}
             onFocus={() => setFocusedRoom?.("to")}
             onBlur={() =>
               setTimeout(
