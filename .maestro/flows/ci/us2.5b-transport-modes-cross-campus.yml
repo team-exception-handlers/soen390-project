@@ -21,11 +21,11 @@ appId: com.anonymous.concordiaclassfinder
 - assertVisible:
     id: "route-steps-popup"
 
-# Walking mode (default)
+# Cycling mode (default for cross-campus)
 - assertVisible:
-    id: "route-mode-walking"
+    id: "route-mode-cycling"
 - tapOn:
-    id: "route-mode-walking"
+    id: "route-mode-cycling"
 
 # Car mode
 - assertVisible:

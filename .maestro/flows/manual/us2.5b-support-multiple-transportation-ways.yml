@@ -82,11 +82,11 @@ appId: host.exp.Exponent
 - assertVisible:
     id: "route-steps-popup"
 
-# Bike mode (internal walking profile)
+# Cycling mode (cross-campus)
 - assertVisible:
-    id: "route-mode-walking"
+    id: "route-mode-cycling"
 - tapOn:
-    id: "route-mode-walking"
+    id: "route-mode-cycling"
 
 # Car mode
 - assertVisible:
