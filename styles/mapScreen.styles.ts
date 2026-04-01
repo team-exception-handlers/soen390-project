@@ -825,8 +825,8 @@ export function createMapScreenStyles({
     },
     poiButton: {
       position: "absolute",
-      right: 16,
-      bottom: "18%",
+      left: 16,
+      bottom: bottomInset + tabBarHeight + 16,
       width: 100,
       height: 48,
       borderRadius: 24,
