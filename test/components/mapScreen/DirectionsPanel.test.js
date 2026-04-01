@@ -485,4 +485,28 @@ describe("components/mapScreen/DirectionsPanel", () => {
     suggestion.props.onPress();
     expect(onRoomSuggestionSelect).toHaveBeenCalledWith("H-801", "from");
   });
+
+  test("renders POI name in TO field when no destination building but destinationPOIName is set", () => {
+    const props = createProps({
+      destinationBuilding: null,
+      destinationPOIName: "Nice Cafe",
+    });
+    const el = renderTree(DirectionsPanel(props));
+
+    const toValue = findByTestID(el, "direction-to-value-empty");
+    expect(toValue).not.toBeNull();
+    expect(toValue.props.children).toBe("Nice Cafe");
+  });
+
+  test("renders 'Where to?' when no destination building and no POI name", () => {
+    const props = createProps({
+      destinationBuilding: null,
+      destinationPOIName: null,
+    });
+    const el = renderTree(DirectionsPanel(props));
+
+    const toValue = findByTestID(el, "direction-to-value-empty");
+    expect(toValue).not.toBeNull();
+    expect(toValue.props.children).toBe("Where to?");
+  });
 });
