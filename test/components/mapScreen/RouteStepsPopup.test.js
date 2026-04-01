@@ -394,8 +394,21 @@ describe("components/mapScreen/RouteStepsPopup", () => {
   test("renders plain numbered instructions when not in shuttle or transit mode", () => {
     const el = renderTree(RouteStepsPopup(createProps()));
 
+    expect(findText(el, "🚶 Walking Directions")).toBeTruthy();
     expect(findText(el, "1. Head north")).toBeTruthy();
     expect(findText(el, "2. Turn right")).toBeTruthy();
+  });
+
+  test("renders driving heading for driving route mode", () => {
+    const el = renderTree(RouteStepsPopup(createProps({ routeMode: "driving" })));
+
+    expect(findText(el, "🚗 Car Directions")).toBeTruthy();
+  });
+
+  test("renders cycling heading for cycling route mode", () => {
+    const el = renderTree(RouteStepsPopup(createProps({ routeMode: "cycling" })));
+
+    expect(findText(el, "🚴 Bike Directions")).toBeTruthy();
   });
 
   test("applies popup max height when provided", () => {

@@ -276,6 +276,28 @@ describe("components/mapScreen/DirectionsPanel", () => {
         createProps({
           isDirectionsMode: true,
           isSameCampus: false,
+          routeMode: "cycling",
+          modeDurations: { cycling: 15, driving: null, transit: null },
+        }),
+      ),
+    );
+
+    renderTree(
+      DirectionsPanel(
+        createProps({
+          isDirectionsMode: true,
+          isSameCampus: false,
+          routeMode: "cycling",
+          modeDurations: { cycling: null, driving: null, transit: null },
+        }),
+      ),
+    );
+
+    renderTree(
+      DirectionsPanel(
+        createProps({
+          isDirectionsMode: true,
+          isSameCampus: false,
           routeMode: "transit",
           modeDurations: { walking: null, driving: null, transit: null },
         }),
