@@ -2,6 +2,14 @@ const React = require("react");
 
 // ── mocks ──────────────────────────────────────────────────────────────
 jest.mock("lucide-react-native", () => ({
+  Coffee: (props) => React.createElement("Coffee", props),
+  Dumbbell: (props) => React.createElement("Dumbbell", props),
+  Landmark: (props) => React.createElement("Landmark", props),
+  Library: (props) => React.createElement("Library", props),
+  Pill: (props) => React.createElement("Pill", props),
+  ShoppingCart: (props) => React.createElement("ShoppingCart", props),
+  Toilet: (props) => React.createElement("Toilet", props),
+  UtensilsCrossed: (props) => React.createElement("UtensilsCrossed", props),
   X: (props) => React.createElement("X", props),
 }));
 

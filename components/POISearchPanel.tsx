@@ -1,4 +1,15 @@
-import { X } from "lucide-react-native";
+import {
+    Coffee,
+    Dumbbell,
+    Landmark,
+    Library,
+    Pill,
+    ShoppingCart,
+    Toilet,
+    UtensilsCrossed,
+    X,
+    type LucideIcon,
+} from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
@@ -16,9 +27,9 @@ import {
     formatDistance,
     getCategoryLabel,
     getIndoorWashroomPOIs,
+    sortPOIsByDistance,
     type POICategory,
     type POIResult,
-    sortPOIsByDistance,
 } from "../utils/poiSearch";
 
 const DISTANCE_OPTIONS = [
@@ -28,15 +39,15 @@ const DISTANCE_OPTIONS = [
   { label: "5 km", meters: 5000, km: 5 },
 ];
 
-const CATEGORY_ICONS: Record<POICategory, string> = {
-  restaurant: "🍽️",
-  cafe: "☕",
-  washroom: "🚻",
-  pharmacy: "💊",
-  library: "📚",
-  gym: "🏋️",
-  bank: "🏦",
-  grocery: "🛒",
+const CATEGORY_ICONS: Record<POICategory, LucideIcon> = {
+  restaurant: UtensilsCrossed,
+  cafe: Coffee,
+  washroom: Toilet,
+  pharmacy: Pill,
+  library: Library,
+  gym: Dumbbell,
+  bank: Landmark,
+  grocery: ShoppingCart,
 };
 
 type Props = {
@@ -149,7 +160,17 @@ export default function POISearchPanel({
             ]}
             onPress={() => handleCategoryPress(cat)}
           >
-            <Text style={styles.chipIcon}>{CATEGORY_ICONS[cat]}</Text>
+            {(() => {
+              const Icon = CATEGORY_ICONS[cat];
+              const isActive = selectedCategory === cat;
+              return (
+                <Icon
+                  size={14}
+                  color={isActive ? "#FFFFFF" : "#4A4A55"}
+                  strokeWidth={2.25}
+                />
+              );
+            })()}
             <Text
               style={[
                 styles.chipText,
@@ -219,9 +240,21 @@ export default function POISearchPanel({
               testID={`poi-result-${poi.id}`}
             >
               <View style={styles.resultHeader}>
-                <Text style={styles.resultName} numberOfLines={1}>
-                  {CATEGORY_ICONS[poi.category]} {poi.name}
-                </Text>
+                <View style={styles.resultNameWrap}>
+                  {(() => {
+                    const Icon = CATEGORY_ICONS[poi.category];
+                    return (
+                      <Icon
+                        size={14}
+                        color="#5D5D66"
+                        strokeWidth={2.25}
+                      />
+                    );
+                  })()}
+                  <Text style={styles.resultName} numberOfLines={1}>
+                    {poi.name}
+                  </Text>
+                </View>
                 <Text style={styles.resultDistance}>
                   {formatDistance(poi.distance)}
                 </Text>
@@ -304,9 +337,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#1668C7",
     borderColor: "#0d4a8c",
   },
-  chipIcon: {
-    fontSize: 14,
-  },
   chipText: {
     fontSize: 12,
     fontWeight: "600",
@@ -376,8 +406,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  resultName: {
+  resultNameWrap: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginRight: 8,
+  },
+  resultName: {
     fontSize: 13,
     fontWeight: "600",
     color: "#1F1F24",
