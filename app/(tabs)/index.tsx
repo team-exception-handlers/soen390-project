@@ -38,7 +38,9 @@ import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
 import { createMapScreenStyles } from "../../styles/mapScreen.styles";
+import { useFocusEffect } from "@react-navigation/native";
 import { parseLocationParts } from "../../utils/classLocation";
+import { getToken } from "../../utils/googleCalendarAuth";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
   findIndoorRoute,
@@ -302,6 +304,7 @@ export default function MapScreen() {
   const [routeStarted, setRouteStarted] = useState(false);
   const [nextClassLoading, setNextClassLoading] = useState(false);
   const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
+  const [hasCalendarToken, setHasCalendarToken] = useState(false);
   const [directionsPanelBottom, setDirectionsPanelBottom] = useState(0);
   const [mapViewportRegion, setMapViewportRegion] = useState(() =>
     getCampusRegion("SGW", SGW_POLYGONS.features),
@@ -377,6 +380,12 @@ export default function MapScreen() {
   useEffect(() => {
     campusRef.current = campus;
   }, [campus]);
+
+  useFocusEffect(
+    useCallback(() => {
+      getToken().then((token) => setHasCalendarToken(token !== null));
+    }, []),
+  );
 
   useEffect(() => {
     if (!nextClassMessage) return;
@@ -2324,16 +2333,18 @@ export default function MapScreen() {
         </Text>
       </Pressable>
 
-      <Pressable
-        testID="next-class-floating-button"
-        style={styles.nextClassButton}
-        onPress={handleNextClassDirections}
-        disabled={nextClassLoading}
-      >
-        <Text style={styles.nextClassButtonText}>
-          {nextClassLoading ? "…" : "Go to Next Class"}
-        </Text>
-      </Pressable>
+      {hasCalendarToken && (
+        <Pressable
+          testID="next-class-floating-button"
+          style={styles.nextClassButton}
+          onPress={handleNextClassDirections}
+          disabled={nextClassLoading}
+        >
+          <Text style={styles.nextClassButtonText}>
+            {nextClassLoading ? "…" : "Go to Next Class"}
+          </Text>
+        </Pressable>
+      )}
 
       {nextClassMessage && (
         <View style={styles.nextClassAlert}>
