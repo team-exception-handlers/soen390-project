@@ -434,6 +434,16 @@ describe("components/mapScreen/RouteStepsPopup", () => {
     expect(findText(el, "2. Turn right")).toBeTruthy();
   });
 
+  test("renders fallback text when no route instructions are available", () => {
+    const el = renderTree(
+      RouteStepsPopup(createProps({ routeInstructions: [] })),
+    );
+
+    expect(
+      findText(el, "Route loaded. No step-by-step directions available."),
+    ).toBeTruthy();
+  });
+
   test("applies popup max height when provided", () => {
     const el = renderTree(RouteStepsPopup(createProps({ popupMaxHeight: 320 })));
 

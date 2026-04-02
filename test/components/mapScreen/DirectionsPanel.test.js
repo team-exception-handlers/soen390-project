@@ -551,4 +551,18 @@ describe("components/mapScreen/DirectionsPanel", () => {
     expect(toValue).not.toBeNull();
     expect(toValue.props.children).toBe("Where to?");
   });
+
+  test("uses default optional state values when POI name and room suggestion state are omitted", () => {
+    const props = createProps();
+    delete props.state.destinationPOIName;
+    delete props.state.focusedRoom;
+    delete props.state.roomSuggestions;
+
+    const el = renderTree(DirectionsPanel(props));
+
+    expect(findByTestID(el, "direction-to-value-EV").props.children).toBe(
+      "EV - Engineering",
+    );
+    expect(findByTestID(el, "room-suggestions-list")).toBeNull();
+  });
 });
