@@ -47,9 +47,12 @@ jest.mock("react-native", () => {
     PanResponder: { create: jest.fn(() => ({ panHandlers: {} })) },
     Platform: { OS: "web" },
     Pressable,
+    ScrollView: host("ScrollView"),
+    StyleSheet: { create: (styles) => styles },
     Text: host("Text"),
     TextInput: host("TextInput"),
     TouchableOpacity: host("TouchableOpacity"),
+    useWindowDimensions: () => ({ width: 1280, height: 800 }),
     View: host("View"),
   };
 });
@@ -98,6 +101,7 @@ jest.mock("../../components/AppHeader", () => {
 [
   "../../components/BuildingInformation",
   "../../components/IndoorDirectionsModal",
+  "../../components/POISearchPanel",
   "../../components/mapScreen/CurrentBuildingBanner",
   "../../components/mapScreen/DirectionsPanel",
   "../../components/mapScreen/FloorPlanModal",
@@ -173,6 +177,10 @@ jest.mock("@react-native-async-storage/async-storage", () => ({
   getItem: jest.fn(),
 }));
 
+jest.mock("../../utils/googleCalendarAuth", () => ({
+  getToken: jest.fn(async () => null),
+}));
+
 function createStyles() {
   const store = {};
   return new Proxy(store, {
@@ -239,6 +247,7 @@ function mockUseStateSequence(values) {
   for (let index = 1; index < values.length; index += 1) {
     useStateMock.mockImplementationOnce((initial) => [values[index] ?? initial, setters[index]]);
   }
+  useStateMock.mockImplementation((initial) => [initial, jest.fn()]);
   return setters;
 }
 

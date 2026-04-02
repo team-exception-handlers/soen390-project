@@ -1,5 +1,4 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "@react-navigation/native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import { useLocalSearchParams } from "expo-router";
@@ -70,17 +69,12 @@ import { fetchOsrmRoute } from "../../utils/osrmDirections";
 
 import POISearchPanel from "../../components/POISearchPanel";
 import {
-    getFloorPlanLabelForKey,
-    getFloorPlanOptionsForBuilding,
-} from "../../utils/floorPlanCatalog";
-import {
     findUserBuilding,
     getInitialLocationFix,
     hasLocationPermission,
     requestLocationPermission,
     startWatchingLocation,
 } from "../../utils/locationUtils";
-import { getCampusRegion } from "../../utils/mapRegions";
 import {
     NativeMapCallout,
     NativeMapMarker,
@@ -89,7 +83,6 @@ import {
     NativeMapView,
 } from "../../utils/nativeMaps";
 import {
-    fetchOsrmRoute,
     type RouteInstruction,
     type RouteProfile,
 } from "../../utils/osrmDirections";
@@ -194,6 +187,7 @@ export default function MapScreen() {
   const {
     state: routeState,
     actions: routeActions,
+    routeInstructionsDismissedRef,
   } = useMapRouteState();
 
   const {
@@ -236,19 +230,12 @@ export default function MapScreen() {
     }),
   ).current;
 
-  const mapRef = useRef<any>(null);
   const webViewRef = useRef<any>(null);
-  const [userLocation, setUserLocation] = useState<any>(null);
-  const [currentBuilding, setCurrentBuilding] = useState<
-    string | null | undefined
-  >(undefined);
   const [webMapReady, setWebMapReady] = useState(false);
   const locationSubscription = useRef<any>(null);
   const campusRef = useRef<Campus>(campus);
   const originModeRef = useRef<"auto" | "manual">("auto");
   const hasInitializedCampusFromLocationRef = useRef(false);
-  const [locationPermissionDenied, setLocationPermissionDenied] =
-    useState(false);
   const [showPOIPanel, setShowPOIPanel] = useState(false);
   const [poiResults, setPOIResults] = useState<POIResult[]>([]);
   const [destinationPOI, setDestinationPOI] = useState<POIResult | null>(null);
@@ -262,7 +249,6 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
 
-  const isWebPlatform = Platform.OS === "web";
   const webFrameTargetOrigin =
     isWebPlatform && typeof globalThis.window !== "undefined"
       ? globalThis.window.location.origin
@@ -279,7 +265,7 @@ export default function MapScreen() {
   const postToWebIframe = useCallback(
     (message: unknown) => {
       if (!isWebPlatform || !webFrameTargetOrigin) return;
-      webIframeRef.current?.contentWindow?.postMessage(
+      webViewRef.current?.contentWindow?.postMessage(
         message,
         webFrameTargetOrigin,
       );
@@ -291,11 +277,9 @@ export default function MapScreen() {
     campusRef.current = campus;
   }, [campus]);
 
-  useFocusEffect(
-    useCallback(() => {
-      getToken().then((token) => setHasCalendarToken(token !== null));
-    }, []),
-  );
+  useEffect(() => {
+    getToken().then((token) => setHasCalendarToken(token !== null));
+  }, []);
 
   useEffect(() => {
     if (!nextClassMessage) return;
@@ -356,6 +340,21 @@ export default function MapScreen() {
     setOriginRoom("");
     setDestinationRoom("");
   }, []);
+
+  const handleCampusChange = useCallback(
+    (nextCampus: Campus) => {
+      setCampus(nextCampus);
+      setSearchText("");
+      setSelectedBuilding(null);
+      focusMapRegion(
+        getCampusRegion(
+          nextCampus,
+          nextCampus === "SGW" ? SGW_POLYGONS.features : LOY_POLYGONS.features,
+        ),
+      );
+    },
+    [focusMapRegion],
+  );
 
   const campusPolygons = useMemo(
     () => (campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS),
@@ -494,8 +493,8 @@ export default function MapScreen() {
     const loadDurations = async () => {
       const walkOrBikeProfile = isSameCampus ? "walking" : "cycling";
       const [walkOrBike, drive] = await Promise.allSettled([
-        fetchOsrmRoute(actualOriginPoint, destinationBuilding, walkOrBikeProfile),
-        fetchOsrmRoute(actualOriginPoint, destinationBuilding, "driving"),
+        fetchOsrmRoute(actualOriginPoint, resolvedDestination, walkOrBikeProfile),
+        fetchOsrmRoute(actualOriginPoint, resolvedDestination, "driving"),
       ]);
 
       if (cancelled) return;
@@ -544,32 +543,35 @@ export default function MapScreen() {
   const exitDirectionsMode = useCallback(() => {
     setIsDirectionsMode(false);
     setDestinationPOI(null);
-    resetRouteState();
-  };
+    routeActions.resetAll();
+  }, [routeActions]);
 
-  const setDestinationAndEnterDirectionsMode = useCallback((
-    building: string | null,
-    room?: string | null,
-    clearInputs = true,
-  ) => {
-    if (!building) return;
-    setDestinationBuildingCode(building);
-    setDestinationRoom(room ?? "");
-    setIsDirectionsMode(true);
-    setEditingField(undefined);
-    if (clearInputs) {
-      setSelectedBuilding(null);
-      setSearchText("");
-    }
-    routeInstructionsDismissedRef.current = false;
-    setShowRouteInstructions(true);
-    setDestinationPOI(null);
+  const setDestinationAndEnterDirectionsMode = useCallback(
+    (
+      building: string | null,
+      room?: string | null,
+      clearInputs = true,
+    ) => {
+      if (!building) return;
+      setDestinationBuildingCode(building);
+      setDestinationRoom(room ?? "");
+      setIsDirectionsMode(true);
+      setEditingField(undefined);
+      if (clearInputs) {
+        setSelectedBuilding(null);
+        setSearchText("");
+      }
+      routeInstructionsDismissedRef.current = false;
+      routeActions.showInstructions();
+      setDestinationPOI(null);
 
-    const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
-    if (destinationRecord && destinationRecord.campus !== campus) {
-      setCampus(destinationRecord.campus);
-    }
-  };
+      const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
+      if (destinationRecord && destinationRecord.campus !== campus) {
+        setCampus(destinationRecord.campus);
+      }
+    },
+    [campus, routeActions, routeInstructionsDismissedRef],
+  );
 
   const handlePOIPress = useCallback(
     (poi: POIResult) => {
@@ -589,9 +591,9 @@ export default function MapScreen() {
       setSearchText("");
       setShowPOIPanel(false);
       routeInstructionsDismissedRef.current = false;
-      setShowRouteInstructions(true);
+      routeActions.showInstructions();
     },
-    [routeInstructionsDismissedRef],
+    [routeActions, routeInstructionsDismissedRef],
   );
 
   const handleWashroomPickerSelect = useCallback(
@@ -646,9 +648,9 @@ export default function MapScreen() {
         });
       }
 
-      setCampus(nextCampus);
+      setCampus(targetCampus);
     },
-    [focusMapRegion, isDirectionsMode],
+    [isWebPlatform, postToWebIframe],
   );
 
   const handleNextClassDirections = useCallback(async () => {
@@ -806,7 +808,7 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (!isDirectionsMode || !resolvedDestination || !actualOriginPoint) {
-      clearRouteState();
+      routeActions.resetAll();
       return;
     }
 
@@ -1067,6 +1069,7 @@ export default function MapScreen() {
           editingField,
           originBuilding,
           destinationBuilding,
+          destinationPOIName: destinationPOI?.name ?? null,
           isDirectionsMode,
           isSameCampus,
           routeMode,

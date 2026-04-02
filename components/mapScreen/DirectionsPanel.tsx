@@ -243,6 +243,7 @@ export type DirectionsPanelState = Readonly<{
   editingField: EditingField;
   originBuilding: BuildingRecord | null;
   destinationBuilding: BuildingRecord | null;
+  destinationPOIName?: string | null;
   isDirectionsMode: boolean;
   isSameCampus: boolean;
   routeMode: RouteMode;
@@ -301,6 +302,7 @@ export default function DirectionsPanel({
     editingField,
     originBuilding,
     destinationBuilding,
+    destinationPOIName = null,
     isDirectionsMode,
     isSameCampus,
     routeMode,

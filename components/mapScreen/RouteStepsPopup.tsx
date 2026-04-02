@@ -191,6 +191,7 @@ type RouteStepsPopupProps = Readonly<{
   actions: RouteStepsPopupActions;
   helpers: RouteStepsPopupHelpers;
   styles: MapScreenStyles;
+  popupMaxHeight?: number;
 }>;
 
 export default function RouteStepsPopup({
@@ -198,6 +199,7 @@ export default function RouteStepsPopup({
   actions,
   helpers,
   styles,
+  popupMaxHeight: popupMaxHeightProp,
 }: RouteStepsPopupProps) {
   const {
     routeSheetPanResponder,
@@ -221,9 +223,10 @@ export default function RouteStepsPopup({
     setExpandedItineraries,
     setExpandedIntermediateStops,
     setSelectedShuttleDeparture,
-    popupMaxHeight,
+    popupMaxHeight: popupMaxHeightFromActions,
   } = actions;
   const { formatTime } = helpers;
+  const popupMaxHeight = popupMaxHeightFromActions ?? popupMaxHeightProp;
 
   const hasTransitItineraries =
     routeMode === "transit" && transitItineraries.length > 0;
@@ -360,7 +363,7 @@ export default function RouteStepsPopup({
     <View
       style={[
         styles.routeStepsPopup,
-        popupMaxHeight === undefined ? null : { maxHeight: popupMaxHeight },
+        ...(popupMaxHeight === undefined ? [] : [{ maxHeight: popupMaxHeight }]),
       ]}
       testID="route-steps-popup"
     >

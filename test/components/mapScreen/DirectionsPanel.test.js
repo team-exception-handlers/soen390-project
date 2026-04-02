@@ -130,6 +130,7 @@ function createProps(overrides = {}) {
     editingField: undefined,
     originBuilding,
     destinationBuilding,
+    destinationPOIName: null,
     isDirectionsMode: false,
     isSameCampus: false,
     routeMode: "walking",
