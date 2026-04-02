@@ -79,7 +79,7 @@ function roomLabelMatchesForSearch(
   return normalizedNodeLabel === `${prefix}-${normalizedUserLabel}`;
 }
 
-const WASHROOM_ROOMS: WashroomRoom[] = INDOOR_WASHROOM_SOURCES.flatMap(
+export const WASHROOM_ROOMS: WashroomRoom[] = INDOOR_WASHROOM_SOURCES.flatMap(
   (floorData) =>
     floorData.nodes
       .filter(

@@ -422,7 +422,9 @@ export default function DirectionsPanel({
             >
               {destinationBuilding
                 ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
-                : "Where to?"}
+                : destinationPOIName
+                  ? destinationPOIName
+                  : "Where to?"}
             </Text>
           </Pressable>
           <RoomInputGroup

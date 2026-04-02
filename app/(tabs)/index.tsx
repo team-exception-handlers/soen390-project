@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import { useLocalSearchParams } from "expo-router";
@@ -55,25 +56,64 @@ import {
   getFloorPlanLabelForKey,
   getFloorPlanOptionsForBuilding,
 } from "../../utils/floorPlanCatalog";
+import { getToken } from "../../utils/googleCalendarAuth";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
-  findIndoorRoute,
-  getFloorBounds,
-  getGraphFloorBounds,
-  getSpecialNodesForFloor,
-  type IndoorRoute,
+    findIndoorRoute,
+    getFloorBounds,
+    getGraphFloorBounds,
+    getSpecialNodesForFloor,
+    type IndoorRoute,
 } from "../../utils/indoorDirections";
-import { requestLocationPermission } from "../../utils/locationUtils";
 import { getCampusRegion } from "../../utils/mapRegions";
 import { fetchOsrmRoute } from "../../utils/osrmDirections";
-import { getRoomDetails, getRoomsForBuilding, roomLabelMatchesSearchPrefix } from "../../utils/roomUtils";
+
+import POISearchPanel from "../../components/POISearchPanel";
 import {
-  calculateOsrmRouteHelper,
-  calculateShuttleRouteHelper,
-  calculateTransitRouteHelper,
+    getFloorPlanLabelForKey,
+    getFloorPlanOptionsForBuilding,
+} from "../../utils/floorPlanCatalog";
+import {
+    findUserBuilding,
+    getInitialLocationFix,
+    hasLocationPermission,
+    requestLocationPermission,
+    startWatchingLocation,
+} from "../../utils/locationUtils";
+import { getCampusRegion } from "../../utils/mapRegions";
+import {
+    NativeMapCallout,
+    NativeMapMarker,
+    NativeMapPolygon,
+    NativeMapPolyline,
+    NativeMapView,
+} from "../../utils/nativeMaps";
+import {
+    fetchOsrmRoute,
+    type RouteInstruction,
+    type RouteProfile,
+} from "../../utils/osrmDirections";
+import type { POIResult } from "../../utils/poiSearch";
+import {
+    getRoomDetails,
+    getRoomsForBuilding,
+    roomLabelMatchesSearchPrefix,
+} from "../../utils/roomUtils";
+import {
+    calculateOsrmRouteHelper,
+    calculateShuttleRouteHelper,
+    calculateTransitRouteHelper,
 } from "../../utils/routeCalculators";
-import { fetchTransitItineraries, formatTime } from "../../utils/transitousDirections";
-import { findNearestWashroomTarget } from "../../utils/washroomSearch";
+import {
+    decodePolyline,
+    fetchTransitItineraries,
+    formatTime,
+    type TransitItinerary,
+} from "../../utils/transitousDirections";
+import {
+    findNearestWashroomTarget,
+    type WashroomCategory
+} from "../../utils/washroomSearch";
 
 const parseFloorPlanKey = (key: string): { building: string; floor: number } | null => {
   const match = key.match(/^([A-Z]+)-(-?\d+)$/);
@@ -138,6 +178,7 @@ export default function MapScreen() {
   });
   const [nextClassLoading, setNextClassLoading] = useState(false);
   const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
+  const [hasCalendarToken, setHasCalendarToken] = useState(false);
   const [directionsPanelBottom, setDirectionsPanelBottom] = useState(0);
   const [mapViewportRegion, setMapViewportRegion] = useState(() =>
     getCampusRegion("SGW", SGW_POLYGONS.features),
@@ -195,11 +236,66 @@ export default function MapScreen() {
     }),
   ).current;
 
+  const mapRef = useRef<any>(null);
+  const webViewRef = useRef<any>(null);
+  const [userLocation, setUserLocation] = useState<any>(null);
+  const [currentBuilding, setCurrentBuilding] = useState<
+    string | null | undefined
+  >(undefined);
+  const [webMapReady, setWebMapReady] = useState(false);
+  const locationSubscription = useRef<any>(null);
+  const campusRef = useRef<Campus>(campus);
+  const originModeRef = useRef<"auto" | "manual">("auto");
+  const hasInitializedCampusFromLocationRef = useRef(false);
+  const [locationPermissionDenied, setLocationPermissionDenied] =
+    useState(false);
+  const [showPOIPanel, setShowPOIPanel] = useState(false);
+  const [poiResults, setPOIResults] = useState<POIResult[]>([]);
+  const [destinationPOI, setDestinationPOI] = useState<POIResult | null>(null);
+  const [washroomPickerBuilding, setWashroomPickerBuilding] = useState<
+    string | null
+  >(null);
+
   const isExpoGo =
     Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
   const isWebPlatform = Platform.OS === "web";
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
+
+  const isWebPlatform = Platform.OS === "web";
+  const webFrameTargetOrigin =
+    isWebPlatform && typeof globalThis.window !== "undefined"
+      ? globalThis.window.location.origin
+      : null;
+  const serializedWebFrameTargetOrigin = JSON.stringify(
+    webFrameTargetOrigin ?? "*",
+  );
+  const showE2EHooks =
+    Platform.OS !== "web" && process.env.EXPO_PUBLIC_ENABLE_E2E_HOOKS === "1";
+  const userLat = isWebPlatform ? userLocation?.coords.latitude || null : null;
+  const userLng = isWebPlatform ? userLocation?.coords.longitude || null : null;
+  const currentBuildingForHTML = isWebPlatform ? currentBuilding : null;
+
+  const postToWebIframe = useCallback(
+    (message: unknown) => {
+      if (!isWebPlatform || !webFrameTargetOrigin) return;
+      webIframeRef.current?.contentWindow?.postMessage(
+        message,
+        webFrameTargetOrigin,
+      );
+    },
+    [isWebPlatform, webFrameTargetOrigin],
+  );
+
+  useEffect(() => {
+    campusRef.current = campus;
+  }, [campus]);
+
+  useFocusEffect(
+    useCallback(() => {
+      getToken().then((token) => setHasCalendarToken(token !== null));
+    }, []),
+  );
 
   useEffect(() => {
     if (!nextClassMessage) return;
@@ -377,8 +473,18 @@ export default function MapScreen() {
     );
   }, [destinationBuilding, destinationRoom, originBuilding, originRoom]);
 
+  const resolvedDestination = useMemo(() => {
+    if (destinationPOI) {
+      return {
+        latitude: destinationPOI.latitude,
+        longitude: destinationPOI.longitude,
+      };
+    }
+    return destinationBuilding;
+  }, [destinationPOI, destinationBuilding]);
+
   useEffect(() => {
-    if (!destinationBuilding || !actualOriginPoint) {
+    if (!resolvedDestination || !actualOriginPoint) {
       setModeDurations({ walking: null, driving: null, transit: null });
       return;
     }
@@ -410,7 +516,7 @@ export default function MapScreen() {
         try {
           const itineraries = await fetchTransitItineraries(
             actualOriginPoint,
-            destinationBuilding,
+            resolvedDestination,
           );
           if (!cancelled) {
             setModeDurations((previous) => ({
@@ -433,13 +539,13 @@ export default function MapScreen() {
     return () => {
       cancelled = true;
     };
-  }, [actualOriginPoint, destinationBuilding, isSameCampus]);
+  }, [actualOriginPoint, resolvedDestination, isSameCampus]);
 
   const exitDirectionsMode = useCallback(() => {
     setIsDirectionsMode(false);
-    routeActions.resetAll();
-    clearRoomInputs();
-  }, [clearRoomInputs, routeActions]);
+    setDestinationPOI(null);
+    resetRouteState();
+  };
 
   const setDestinationAndEnterDirectionsMode = useCallback((
     building: string | null,
@@ -455,21 +561,89 @@ export default function MapScreen() {
       setSelectedBuilding(null);
       setSearchText("");
     }
-    routeActions.showInstructions();
+    routeInstructionsDismissedRef.current = false;
+    setShowRouteInstructions(true);
+    setDestinationPOI(null);
+
     const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
     if (destinationRecord && destinationRecord.campus !== campus) {
       setCampus(destinationRecord.campus);
     }
-  }, [campus, routeActions]);
+  };
 
-  const handleCampusChange = useCallback(
-    (nextCampus: Campus) => {
-      if (isDirectionsMode) {
-        setCampus(nextCampus);
-        const polygons =
-          nextCampus === "SGW" ? SGW_POLYGONS.features : LOY_POLYGONS.features;
-        focusMapRegion(getCampusRegion(nextCampus, polygons));
+  const handlePOIPress = useCallback(
+    (poi: POIResult) => {
+      // Indoor washroom POIs: show male/female picker
+      if (poi.id.startsWith("indoor-wc-")) {
+        const buildingCode = poi.id.replace("indoor-wc-", "");
+        setWashroomPickerBuilding(buildingCode);
         return;
+      }
+
+      setDestinationPOI(poi);
+      setDestinationBuildingCode("");
+      setDestinationRoom("");
+      setIsDirectionsMode(true);
+      setEditingField(undefined);
+      setSelectedBuilding(null);
+      setSearchText("");
+      setShowPOIPanel(false);
+      routeInstructionsDismissedRef.current = false;
+      setShowRouteInstructions(true);
+    },
+    [routeInstructionsDismissedRef],
+  );
+
+  const handleWashroomPickerSelect = useCallback(
+    (category: WashroomCategory) => {
+      if (!washroomPickerBuilding) return;
+      const target = findNearestWashroomTarget(category, {
+        campusBuildings,
+        actualOriginPoint,
+        originBuildingCode: originBuildingCode,
+        originRoom,
+        destinationBuildingCode: washroomPickerBuilding,
+        destinationRoom: "",
+      });
+      setWashroomPickerBuilding(null);
+      setShowPOIPanel(false);
+      setPOIResults([]);
+      if (target) {
+        setDestinationAndEnterDirectionsMode(
+          target.building.code,
+          target.roomLabel,
+          true,
+        );
+      }
+    },
+    [
+      washroomPickerBuilding,
+      campusBuildings,
+      actualOriginPoint,
+      originBuildingCode,
+      originRoom,
+    ],
+  );
+
+  const animateMapToRegion = useCallback(
+    (region: any, targetCampus: Campus) => {
+      setMapViewportRegion(region);
+
+      if (!isWebPlatform) {
+        mapRef.current?.animateToRegion?.(region, 450);
+      }
+
+      if (Platform.OS === "web") {
+        const minLat = region.latitude - region.latitudeDelta / 2;
+        const maxLat = region.latitude + region.latitudeDelta / 2;
+        const minLng = region.longitude - region.longitudeDelta / 2;
+        const maxLng = region.longitude + region.longitudeDelta / 2;
+        postToWebIframe({
+          type: "focusBounds",
+          bounds: [[minLat, minLng], [maxLat, maxLng]],
+          campus: targetCampus,
+          padding: [20, 20],
+        });
       }
 
       setCampus(nextCampus);
@@ -625,23 +799,14 @@ export default function MapScreen() {
     Keyboard.dismiss();
   }, [campus, handleCampusChange]);
 
-  const handleWashroomSearchResultPress = (
-    building: BuildingRecord,
-    roomLabel: string,
-  ) => {
-    setDestinationAndEnterDirectionsMode(building.code, roomLabel, true);
-    Keyboard.dismiss();
-  };
-
   useEffect(() => {
     setSearchText("");
     setSelectedBuilding(null);
   }, [campusBuildings]);
 
   useEffect(() => {
-    if (!isDirectionsMode || !destinationBuilding || !actualOriginPoint) {
-      routeActions.resetAll();
-      clearRoomInputs();
+    if (!isDirectionsMode || !resolvedDestination || !actualOriginPoint) {
+      clearRouteState();
       return;
     }
 
@@ -656,7 +821,7 @@ export default function MapScreen() {
         );
       }
       if (routeMode === "transit") {
-        return calculateTransitRouteHelper(actualOriginPoint, destinationBuilding);
+        return calculateTransitRouteHelper(actualOriginPoint, resolvedDestination);
       }
       return calculateOsrmRouteHelper(
         actualOriginPoint,
@@ -694,6 +859,8 @@ export default function MapScreen() {
       cancelled = true;
     };
   }, [
+    isDirectionsMode,
+    resolvedDestination,
     actualOriginPoint,
     clearRoomInputs,
     destinationBuilding,
@@ -802,34 +969,72 @@ export default function MapScreen() {
         searchInputRef={searchInputRef}
       />
 
-      {(washroomSearchResults.length > 0 || searchResults.length > 0) && (
-        <View style={styles.searchResultsContainer} testID="search-results">
-          <Text style={styles.searchResultsHint}>
-            {washroomSearchResults.length > 0
-              ? "Tap an option to locate the nearest washroom."
-              : "Tap a building to set destination (To)."}
-          </Text>
-          {washroomSearchResults.map((result) => (
+      {showPOIPanel && (
+        <POISearchPanel
+          userLocation={actualOriginPoint}
+          onResultsChange={setPOIResults}
+          onSelectPOI={handlePOIPress}
+          onClose={() => {
+            setShowPOIPanel(false);
+            setPOIResults([]);
+          }}
+        />
+      )}
+
+      <Modal
+        visible={washroomPickerBuilding !== null}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setWashroomPickerBuilding(null)}
+      >
+        <Pressable
+          style={styles.washroomPickerOverlay}
+          onPress={() => setWashroomPickerBuilding(null)}
+        >
+          <View style={styles.washroomPickerCard}>
+            <Text style={styles.washroomPickerTitle}>
+              Select washroom type
+            </Text>
             <Pressable
-              key={result.key}
-              testID={`search-result-${result.key}`}
-              style={styles.searchResultItem}
-              onPress={() =>
-                handleWashroomSearchResultPress(
-                  result.building,
-                  result.roomLabel,
-                )
-              }
+              testID="washroom-picker-male"
+              style={({ pressed }) => [
+                styles.washroomPickerOption,
+                pressed && styles.washroomPickerOptionPressed,
+              ]}
+              onPress={() => handleWashroomPickerSelect("male_washroom")}
             >
-              <Text style={styles.searchResultCode}>{result.building.code}</Text>
-              <Text style={styles.searchResultName} numberOfLines={1}>
-                {result.label}
-              </Text>
-              <Text style={styles.searchResultAddress} numberOfLines={1}>
-                {`Room ${result.roomLabel} - ${result.building.longName}`}
+              <Text style={styles.washroomPickerOptionText}>
+                Male washroom
               </Text>
             </Pressable>
-          ))}
+            <Pressable
+              testID="washroom-picker-female"
+              style={({ pressed }) => [
+                styles.washroomPickerOption,
+                pressed && styles.washroomPickerOptionPressed,
+              ]}
+              onPress={() => handleWashroomPickerSelect("female_washroom")}
+            >
+              <Text style={styles.washroomPickerOptionText}>
+                Female washroom
+              </Text>
+            </Pressable>
+            <Pressable
+              testID="washroom-picker-cancel"
+              style={styles.washroomPickerCancel}
+              onPress={() => setWashroomPickerBuilding(null)}
+            >
+              <Text style={styles.washroomPickerCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {searchResults.length > 0 && (
+        <View style={styles.searchResultsContainer} testID="search-results">
+          <Text style={styles.searchResultsHint}>
+            Tap a building to set destination (To).
+          </Text>
           {searchResults.map((building) => (
             <Pressable
               key={building.code}
@@ -972,15 +1177,30 @@ export default function MapScreen() {
       )}
 
       <Pressable
-        testID="next-class-floating-button"
-        style={styles.nextClassButton}
-        onPress={handleNextClassDirections}
-        disabled={nextClassLoading}
+        testID="poi-floating-button"
+        style={styles.poiButton}
+        onPress={() => {
+          setShowPOIPanel((prev) => !prev);
+          if (showPOIPanel) setPOIResults([]);
+        }}
       >
-        <Text style={styles.nextClassButtonText}>
-          {nextClassLoading ? "…" : "Go to Next Class"}
+        <Text style={styles.poiButtonText}>
+          {showPOIPanel ? "Close" : "Nearby"}
         </Text>
       </Pressable>
+
+      {hasCalendarToken && (
+        <Pressable
+          testID="next-class-floating-button"
+          style={styles.nextClassButton}
+          onPress={handleNextClassDirections}
+          disabled={nextClassLoading}
+        >
+          <Text style={styles.nextClassButtonText}>
+            {nextClassLoading ? "…" : "Go to Next Class"}
+          </Text>
+        </Pressable>
+      )}
 
       {nextClassMessage && (
         <View style={styles.nextClassAlert}>
