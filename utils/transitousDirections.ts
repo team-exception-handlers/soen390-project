@@ -2,6 +2,7 @@
  * Fetches public transit routes using the Transitous MOTIS 2 API.
  * Endpoint: https://api.transitous.org/api/v1/plan
  */
+import type { LatLng } from "../types/map";
 
 const MOTIS_BASE_URL = "https://api.transitous.org/api/v1/plan";
 
@@ -30,18 +31,18 @@ export type TransitItinerary = {
     arrivalTime: string;
     legs: TransitLeg[];
     instructions: { text: string; distanceMeters: number }[];
-    coordinates: { latitude: number; longitude: number }[];
+    coordinates: LatLng[];
 };
 
 
 export function decodePolyline(
     encoded: string,
     precision = 7,
-): { latitude: number; longitude: number }[] {
+): LatLng[] {
     if (typeof encoded !== "string" || encoded.length === 0) {
         return [];
     }
-    const coords: { latitude: number; longitude: number }[] = [];
+    const coords: LatLng[] = [];
     const factor = Math.pow(10, precision);
     let index = 0;
     let lat = 0;
@@ -126,8 +127,8 @@ function formatLegInstruction(leg: TransitLeg): string {
 // URL builder 
 
 export function buildTransitousUrl(
-    origin: { latitude: number; longitude: number },
-    destination: { latitude: number; longitude: number },
+    origin: LatLng,
+    destination: LatLng,
     departureTime?: string,
 ): string {
     const params = new URLSearchParams({
@@ -206,8 +207,8 @@ function parseItinerary(itinerary: any): TransitItinerary {
 
 // Main fetch: returns up to 3 itineraries
 export async function fetchTransitItineraries(
-    origin: { latitude: number; longitude: number },
-    destination: { latitude: number; longitude: number },
+    origin: LatLng,
+    destination: LatLng,
     departureTime?: string,
 ): Promise<TransitItinerary[]> {
     const url = buildTransitousUrl(origin, destination, departureTime);
