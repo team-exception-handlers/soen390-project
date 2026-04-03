@@ -1,67 +1,67 @@
-# Shared hook: assume app is launched; select From=MB (SGW), To=SP (Loyola).
-# Use via runFlow from flows that need MB->SP cross-campus selection.
+# # Shared hook: assume app is launched; select From=MB (SGW), To=SP (Loyola).
+# # Use via runFlow from flows that need MB->SP cross-campus selection.
 
-appId: com.anonymous.concordiaclassfinder
+# appId: com.anonymous.concordiaclassfinder
 
----
-- extendedWaitUntil:
-    visible:
-      id: "header-title"
-    timeout: 25000
-- assertVisible: "Where to?"
-- assertVisible:
-    id: "directions-panel"
-- assertVisible:
-    id: "direction-go-button"
+# ---
+# - extendedWaitUntil:
+#     visible:
+#       id: "header-title"
+#     timeout: 25000
+# - assertVisible: "Where to?"
+# - assertVisible:
+#     id: "directions-panel"
+# - assertVisible:
+#     id: "direction-go-button"
 
-- tapOn:
-    id: "direction-from-button"
-- tapOn:
-    id: "search-input"
-- inputText: "John molson"
-- extendedWaitUntil:
-    visible:
-      id: "search-results"
-    timeout: 5000
-- tapOn:
-    id: "search-result-MB"
-- extendedWaitUntil:
-    visible:
-      id: "building-info-directions"
-    timeout: 5000
-- tapOn:
-    id: "building-info-directions"
+# - tapOn:
+#     id: "direction-from-button"
+# - tapOn:
+#     id: "search-input"
+# - inputText: "John molson"
+# - extendedWaitUntil:
+#     visible:
+#       id: "search-results"
+#     timeout: 5000
+# - tapOn:
+#     id: "search-result-MB"
+# - extendedWaitUntil:
+#     visible:
+#       id: "building-info-directions"
+#     timeout: 5000
+# - tapOn:
+#     id: "building-info-directions"
 
-- tapOn:
-    id: "campus-toggle-loyola"
-- extendedWaitUntil:
-    visible:
-      text: "Loyola"
-    timeout: 3000
+# - tapOn:
+#     id: "campus-toggle-loyola"
+# - extendedWaitUntil:
+#     visible:
+#       text: "Loyola"
+#     timeout: 3000
 
-- tapOn:
-    id: "direction-to-button"
-- tapOn:
-    id: "search-input"
-- inputText: "Renaud"
-- extendedWaitUntil:
-    visible:
-      id: "search-results"
-    timeout: 5000
-- tapOn:
-    id: "search-result-SP"
-- extendedWaitUntil:
-    visible:
-      id: "building-info-directions"
-    timeout: 5000
-- tapOn:
-    id: "building-info-directions"
+# - tapOn:
+#     id: "direction-to-button"
+# - tapOn:
+#     id: "search-input"
+# - inputText: "Renaud"
+# - extendedWaitUntil:
+#     visible:
+#       id: "search-results"
+#     timeout: 5000
+# - tapOn:
+#     id: "search-result-SP"
+# - extendedWaitUntil:
+#     visible:
+#       id: "building-info-directions"
+#     timeout: 5000
+# - tapOn:
+#     id: "building-info-directions"
 
-- extendedWaitUntil:
-    visible:
-      id: "direction-from-value-MB"
-    timeout: 5000
-- extendedWaitUntil:
-    visible:
-      id: "direction-to-value-SP"
-    timeout: 5000
+# - extendedWaitUntil:
+#     visible:
+#       id: "direction-from-value-MB"
+#     timeout: 5000
+# - extendedWaitUntil:
+#     visible:
+#       id: "direction-to-value-SP"
+#     timeout: 5000
