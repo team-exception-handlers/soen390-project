@@ -3,7 +3,7 @@ import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
 import type { PolygonFeature, MapRegion } from "../../utils/mapRegions";
 import { findUserBuilding } from "../../utils/locationUtils";
-import type { MapBounds } from "../../types/map";
+import type { LatLng, MapBounds } from "../../types/map";
 
 export type FloorPlanAsset = unknown | null;
 export type PinVisibilityMode = "all" | "campus-summary";
@@ -13,6 +13,27 @@ export type DetectedBuilding = {
 };
 
 export const roundCoord = (value: number) => Number(value.toFixed(4));
+
+export const getDistanceBetweenCoordsMeters = (
+  start: LatLng,
+  end: LatLng,
+) => {
+  const earthRadiusMeters = 6371000;
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const deltaLatitude = toRadians(end.latitude - start.latitude);
+  const deltaLongitude = toRadians(end.longitude - start.longitude);
+  const startLatitude = toRadians(start.latitude);
+  const endLatitude = toRadians(end.latitude);
+
+  const a =
+    Math.sin(deltaLatitude / 2) ** 2 +
+    Math.cos(startLatitude) *
+      Math.cos(endLatitude) *
+      Math.sin(deltaLongitude / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return earthRadiusMeters * c;
+};
 
 export const formatDuration = (minutes: number) => {
   if (minutes < 60) return `${minutes} min`;
