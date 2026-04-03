@@ -92,9 +92,9 @@ function TransitItineraryCard({
               {transfersText}
             </Text>
             <View style={styles.itineraryLegsRow}>
-            {itinerary.legs.map((leg) => (
+            {itinerary.legs.map((leg, legIdx) => (
                 <Text
-                key={`${leg.mode}-${leg.startTime}-${leg.endTime}`}
+                key={`leg-${legIdx}-${leg.mode}-${leg.startTime}-${leg.endTime}`}
                   style={[styles.legPill, getLegColor(leg.mode, styles)]}
                 >
                   {leg.mode === "WALK" ? "Walk" : leg.route || leg.mode}
@@ -313,7 +313,7 @@ function TransitSection({ state, actions, helpers, styles }: RouteSectionProps) 
     <>
       {transitItineraries.map((itinerary, index) => (
         <TransitItineraryCard
-          key={`${itinerary.departureTime}-${itinerary.arrivalTime}-${itinerary.transfers}-${itinerary.distanceMeters}`}
+          key={`itinerary-${index}-${itinerary.departureTime}-${itinerary.arrivalTime}`}
           itinerary={itinerary}
           index={index}
           isExpanded={expandedItineraries.includes(index)}
@@ -354,7 +354,7 @@ function DefaultInstructionsSection({
     <>
       {routeInstructions.map((instruction, index) => (
         <Text
-          key={`${instruction.text}-${instruction.distanceMeters}`}
+          key={`instruction-${index}-${instruction.text}`}
           style={styles.routeStepText}
         >
           {`${index + 1}. ${instruction.text}`}
