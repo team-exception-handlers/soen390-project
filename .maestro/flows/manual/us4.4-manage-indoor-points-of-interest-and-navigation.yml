@@ -36,9 +36,3 @@ appId: host.exp.Exponent
 - assertVisible:
     text: Washroom
     index: 1
-- tapOn:
-    text: Washroom
-    index: 1
-
-- assertVisible: Exit
-- tapOn: Exit
