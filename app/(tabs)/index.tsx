@@ -1,60 +1,45 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Location from "expo-location";
 import { useLocalSearchParams } from "expo-router";
 import { ChevronUp, X } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import {
-  Image,
-  Keyboard,
-  Linking,
-  Modal,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
-  type LayoutChangeEvent,
+    Image,
+    Keyboard,
+    Linking,
+    Modal,
+    PanResponder,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
+    type LayoutChangeEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
-import AppHeader from "../../components/AppHeader";
+import AppHeader, { Campus } from "../../components/AppHeader";
 import BuildingInformation from "../../components/BuildingInformation";
 import IndoorDirectionsModal from "../../components/IndoorDirectionsModal";
-import CurrentBuildingBanner from "../../components/mapScreen/CurrentBuildingBanner";
 import DirectionsPanel from "../../components/mapScreen/DirectionsPanel";
-import LocationPermissionBanner from "../../components/mapScreen/LocationPermissionBanner";
-import NativeCampusMap from "../../components/mapScreen/NativeCampusMap";
 import RouteStepsPopup from "../../components/mapScreen/RouteStepsPopup";
-import WebCampusMap from "../../components/mapScreen/WebCampusMap";
-import {
-  buildingHasPolygon,
-  formatDuration,
-  getBoundsFromRegion,
-  getFloorPlanAsset,
-  getPinVisibilityMode,
-  resolveBuildingByCode,
-  roundCoord,
-  shouldShowBuildingPin,
-  type FloorPlanAsset,
-} from "../../components/mapScreen/mapScreen.helpers";
-import { BUILDINGS, type BuildingRecord, type Campus } from "../../constants/buildings";
+import { BUILDINGS, type BuildingRecord } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
 import SGW_POLYGONS from "../../constants/maps/outdoor/SGW-polygons";
-import { useMapRouteState } from "../../hooks/useMapRouteState";
-import { useUserCampusLocation } from "../../hooks/useUserCampusLocation";
 import { createMapScreenStyles } from "../../styles/mapScreen.styles";
-import type { MapBounds, RouteMode } from "../../types/map";
 import { parseLocationParts } from "../../utils/classLocation";
-import {
-  getFloorPlanLabelForKey,
-  getFloorPlanOptionsForBuilding,
-} from "../../utils/floorPlanCatalog";
 import { getToken } from "../../utils/googleCalendarAuth";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
@@ -64,10 +49,12 @@ import {
     getSpecialNodesForFloor,
     type IndoorRoute,
 } from "../../utils/indoorDirections";
-import { getCampusRegion } from "../../utils/mapRegions";
-import { fetchOsrmRoute } from "../../utils/osrmDirections";
 
 import POISearchPanel from "../../components/POISearchPanel";
+import {
+    getFloorPlanLabelForKey,
+    getFloorPlanOptionsForBuilding,
+} from "../../utils/floorPlanCatalog";
 import {
     findUserBuilding,
     getInitialLocationFix,
@@ -75,6 +62,7 @@ import {
     requestLocationPermission,
     startWatchingLocation,
 } from "../../utils/locationUtils";
+import { getCampusRegion } from "../../utils/mapRegions";
 import {
     NativeMapCallout,
     NativeMapMarker,
@@ -83,6 +71,7 @@ import {
     NativeMapView,
 } from "../../utils/nativeMaps";
 import {
+    fetchOsrmRoute,
     type RouteInstruction,
     type RouteProfile,
 } from "../../utils/osrmDirections";
@@ -96,6 +85,7 @@ import {
     calculateOsrmRouteHelper,
     calculateShuttleRouteHelper,
     calculateTransitRouteHelper,
+    RouteLoaderResult,
 } from "../../utils/routeCalculators";
 import {
     decodePolyline,
@@ -108,7 +98,86 @@ import {
     type WashroomCategory
 } from "../../utils/washroomSearch";
 
+let WebView: React.ComponentType<any> | null = null;
+if (Platform.OS !== "web") {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    WebView = require("react-native-webview").WebView;
+  } catch {
+    WebView = null;
+  }
+}
+
+const roundCoord = (value: number) => Number(value.toFixed(4));
+
+const formatDuration = (minutes: number) => {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins === 0 ? `${hours} h` : `${hours} h ${mins} min`;
+};
+
+const DEFAULT_START_BUILDING_CODE = "H";
+const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
+type PinVisibilityMode = "all" | "campus-summary";
+
+const getPinVisibilityMode = (zoomOutFactor: number): PinVisibilityMode => {
+  if (zoomOutFactor > 1.08) return "campus-summary";
+  return "all";
+};
+
+const shouldShowBuildingPin = (visibilityMode: PinVisibilityMode): boolean => {
+  return visibilityMode === "all";
+};
+
+const resolveBuildingByCode = (
+  code: string | null | undefined,
+  buildings: BuildingRecord[],
+) => {
+  if (!code) return null;
+  const exact = buildings.find((building) => building.code === code);
+  if (exact) return exact;
+  return buildings.find((building) => building.code.startsWith(code)) ?? null;
+};
+
+const detectBuildingFromLocation = (
+  latitude: number,
+  longitude: number,
+): { code: string | null; campus: Campus | null } => {
+  const sgwBuilding = findUserBuilding(
+    latitude,
+    longitude,
+    SGW_POLYGONS as any,
+  );
+  if (sgwBuilding) return { code: sgwBuilding, campus: "SGW" };
+
+  const loyBuilding = findUserBuilding(
+    latitude,
+    longitude,
+    LOY_POLYGONS as any,
+  );
+  if (loyBuilding) return { code: loyBuilding, campus: "LOY" };
+
+  return { code: null, campus: null };
+};
+const getFloorPlanAsset = (key: string): any => {
+  const assets: Record<string, () => any> = {
+    "H-1": () => require("../../assets/floor_plans/png/H1.png"),
+    "H-2": () => require("../../assets/floor_plans/png/H2.png"),
+    "H-8": () => require("../../assets/floor_plans/png/hall8.png"),
+    "H-9": () => require("../../assets/floor_plans/png/hall9.png"),
+    "MB-1": () => require("../../assets/floor_plans/png/mb_1.png"),
+    "MB--2": () => require("../../assets/floor_plans/png/mb_s2.png"),
+    "VE-1": () => require("../../assets/floor_plans/png/ve1.png"),
+    "VE-2": () => require("../../assets/floor_plans/png/ve2.png"),
+    "VL-1": () => require("../../assets/floor_plans/png/vl_1.png"),
+    "VL-2": () => require("../../assets/floor_plans/png/vl_2.png"),
+  };
+  return assets[key] ? assets[key]() : null;
+};
+
 const parseFloorPlanKey = (key: string): { building: string; floor: number } | null => {
+  // Parse floor plan keys like "H-1", "H-2", "MB-1", "MB--2"
   const match = key.match(/^([A-Z]+)-(-?\d+)$/);
   if (!match) return null;
   const building = match[1];
@@ -117,17 +186,39 @@ const parseFloorPlanKey = (key: string): { building: string; floor: number } | n
 };
 
 const SPECIAL_NODE_COLORS: Record<string, { fill: string; label: string }> = {
-  bathroom: { fill: "#2196F3", label: "Bathroom" },
-  stairs: { fill: "#FF9800", label: "Stairs" },
-  elevator: { fill: "#F44336", label: "Elevator" },
-  escalator: { fill: "#4CAF50", label: "Escalator" },
+  bathroom: { fill: "#2196F3", label: "Bathroom" }, // Blue
+  stairs: { fill: "#FF9800", label: "Stairs" }, // Orange
+  elevator: { fill: "#F44336", label: "Elevator" }, // Red
+  escalator: { fill: "#4CAF50", label: "Escalator" }, // Green
 };
 
-const DEFAULT_START_BUILDING_CODE = "H";
-const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
+/* these make it so we can view selected campus and building from the map level */
+const getTransitColor = (mode: string, route?: string) => {
+  if (mode === "WALK") return "#2E7D32";
+  if (mode === "BUS") return "#007AFF";
+  if (mode === "TRAM") return "#9C27B0";
+
+  // STM metro colors
+  if (mode === "SUBWAY" || mode === "RAIL" || mode === "METRO") {
+    const line = (route ?? "").trim();
+    if (line === "1") return "#009E60"; // GREEN LINE
+    if (line === "2") return "#FF6600"; // ORANGE LINE
+    if (line === "4") return "#FFD700"; // YELLOW LINE
+    if (line === "5") return "#0075BF"; // BLUE LINE
+    return "#007AFF"; // fallback: blue
+  }
+
+  return "#1668C7";
+};
 
 export default function MapScreen() {
   const { height: windowHeight } = useWindowDimensions();
+  // Tracks whether the user is editing the start or destination
+  const [editingField, setEditingField] = useState<"from" | "to" | undefined>(
+    undefined,
+  );
+  const [floorPlanModalVisible, setFloorPlanModalVisible] = useState(false);
+  const [activeFloorPlan, setActiveFloorPlan] = useState<any>(null);
   const [floorPlanModalOptions, setFloorPlanModalOptions] = useState<
     { key: string; label: string }[]
   >([]);
@@ -138,71 +229,11 @@ export default function MapScreen() {
     toBuilding?: string;
     toRoom?: string;
   }>();
-
-  const [editingField, setEditingField] = useState<"from" | "to" | undefined>(
-    undefined,
-  );
-  const [floorPlanModalVisible, setFloorPlanModalVisible] = useState(false);
-  const [activeFloorPlan, setActiveFloorPlan] = useState<FloorPlanAsset>(null);
   const [campus, setCampus] = useState<Campus>("SGW");
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const [destinationBuildingCode, setDestinationBuildingCode] =
     useState<string>(DEFAULT_DESTINATION_BUILDING_CODE);
-  const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
-    null,
-  );
-  const [originRoom, setOriginRoom] = useState("");
-  const [destinationRoom, setDestinationRoom] = useState("");
-  const [focusedRoom, setFocusedRoom] = useState<"from" | "to" | null>(null);
-  const [isDirectionsMode, setIsDirectionsMode] = useState(false);
-  const [indoorRoute, setIndoorRoute] = useState<IndoorRoute | null | undefined>(
-    undefined,
-  );
-  const [indoorDirectionsModalVisible, setIndoorDirectionsModalVisible] =
-    useState(false);
-  const [routeMode, setRouteMode] = useState<RouteMode>("walking");
-  const [modeDurations, setModeDurations] = useState<
-    Record<string, number | null>
-  >({
-    walking: null,
-    driving: null,
-    transit: null,
-  });
-  const [nextClassLoading, setNextClassLoading] = useState(false);
-  const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
-  const [hasCalendarToken, setHasCalendarToken] = useState(false);
-  const [directionsPanelBottom, setDirectionsPanelBottom] = useState(0);
-  const [mapViewportRegion, setMapViewportRegion] = useState(() =>
-    getCampusRegion("SGW", SGW_POLYGONS.features),
-  );
-  const [focusedBounds, setFocusedBounds] = useState<MapBounds>(() =>
-    getBoundsFromRegion(getCampusRegion("SGW", SGW_POLYGONS.features)),
-  );
-  const [mapFocusRequestKey, setMapFocusRequestKey] = useState(0);
-
-  const mapRef = useRef<any>(null);
-  const searchInputRef = useRef<TextInput>(null);
-
-  const {
-    state: routeState,
-    actions: routeActions,
-    routeInstructionsDismissedRef,
-  } = useMapRouteState();
-
-  const {
-    userLocation,
-    currentBuilding,
-    locationPermissionDenied,
-    setOriginMode,
-    restoreAutoOriginFromCurrentLocation,
-  } = useUserCampusLocation({
-    campus,
-    setCampus,
-    setOriginBuildingCode,
-    defaultOriginBuildingCode: DEFAULT_START_BUILDING_CODE,
-  });
-
   useEffect(() => {
     if (typeof toBuilding === "string" && toBuilding.trim()) {
       setDestinationBuildingCode(toBuilding.trim().toUpperCase());
@@ -214,28 +245,107 @@ export default function MapScreen() {
     }
   }, [toBuilding, toRoom]);
 
+  // Tracks the selected origin building (or null if using current location)i
+  const [originBuildingCode, setOriginBuildingCode] = useState<string | null>(
+    null,
+  );
+  const [originRoom, setOriginRoom] = useState<string>("");
+  const [destinationRoom, setDestinationRoom] = useState<string>("");
+  const [focusedRoom, setFocusedRoom] = useState<"from" | "to" | null>(null);
+  const roomSuggestionPressedRef = useRef(false);
+  const [isDirectionsMode, setIsDirectionsMode] = useState(false);
+  const [indoorRoute, setIndoorRoute] = useState<IndoorRoute | null | undefined>(
+    undefined,
+  );
+  const [indoorDirectionsModalVisible, setIndoorDirectionsModalVisible] =
+    useState(false);
+
+  const [routeMode, setRouteMode] = useState<
+    RouteProfile | "transit" | "shuttle"
+  >("walking");
+
+  const [routeCoordinates, setRouteCoordinates] = useState<
+    { latitude: number; longitude: number }[]
+  >([]);
+  const [, setRouteDurationMinutes] = useState<number | null>(null);
+  const [, setRouteDistanceMeters] = useState<number | null>(null);
+  const [, setRouteLoading] = useState(false);
+  const [routeInstructions, setRouteInstructions] = useState<
+    RouteInstruction[]
+  >([]);
+  const [showRouteInstructions, setShowRouteInstructions] = useState(false);
+  const [modeDurations, setModeDurations] = useState<
+    Record<string, number | null>
+  >({
+    walking: null,
+    driving: null,
+    transit: null,
+  });
+
+  const [transitItineraries, setTransitItineraries] = useState<
+    TransitItinerary[]
+  >([]);
+  const [selectedItineraryIndex, setSelectedItineraryIndex] = useState(0);
+
+  const [selectedShuttleDeparture] = useState<
+    string | null
+  >(null);
+  const [shuttleWalkToCoords, setShuttleWalkToCoords] = useState<
+    { latitude: number; longitude: number }[]
+  >([]);
+  const [shuttleDriveCoords, setShuttleDriveCoords] = useState<
+    { latitude: number; longitude: number }[]
+  >([]);
+  const [shuttleWalkFromCoords, setShuttleWalkFromCoords] = useState<
+    { latitude: number; longitude: number }[]
+  >([]);
+
+  const [expandedItineraries, setExpandedItineraries] = useState<number[]>([]);
+  const [expandedIntermediateStops, setExpandedIntermediateStops] = useState<
+    Set<string>
+  >(new Set());
+  const [routeStarted, setRouteStarted] = useState(false);
+  const [nextClassLoading, setNextClassLoading] = useState(false);
+  const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
+  const [hasCalendarToken, setHasCalendarToken] = useState(false);
+  const [directionsPanelBottom, setDirectionsPanelBottom] = useState(0);
+  const [mapViewportRegion, setMapViewportRegion] = useState(() =>
+    getCampusRegion("SGW", SGW_POLYGONS.features),
+  );
+
+  const routeInstructionsDismissedRef = useRef(false);
+  const webIframeRef = useRef<HTMLIFrameElement | null>(null);
   const routeSheetPanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) =>
         Math.abs(gestureState.dy) > 6,
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dy > 24) {
-          routeActions.hideInstructions();
+          routeInstructionsDismissedRef.current = true;
+          setShowRouteInstructions(false);
           return;
         }
         if (gestureState.dy < -24) {
-          routeActions.showInstructions();
+          routeInstructionsDismissedRef.current = false;
+          setShowRouteInstructions(true);
         }
       },
     }),
   ).current;
 
+  const mapRef = useRef<any>(null);
   const webViewRef = useRef<any>(null);
+  const [userLocation, setUserLocation] = useState<any>(null);
+  const [currentBuilding, setCurrentBuilding] = useState<
+    string | null | undefined
+  >(undefined);
   const [webMapReady, setWebMapReady] = useState(false);
   const locationSubscription = useRef<any>(null);
   const campusRef = useRef<Campus>(campus);
   const originModeRef = useRef<"auto" | "manual">("auto");
   const hasInitializedCampusFromLocationRef = useRef(false);
+  const [locationPermissionDenied, setLocationPermissionDenied] =
+    useState(false);
   const [showPOIPanel, setShowPOIPanel] = useState(false);
   const [poiResults, setPOIResults] = useState<POIResult[]>([]);
   const [destinationPOI, setDestinationPOI] = useState<POIResult | null>(null);
@@ -245,10 +355,11 @@ export default function MapScreen() {
 
   const isExpoGo =
     Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-  const isWebPlatform = Platform.OS === "web";
+
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
 
+  const isWebPlatform = Platform.OS === "web";
   const webFrameTargetOrigin =
     isWebPlatform && typeof globalThis.window !== "undefined"
       ? globalThis.window.location.origin
@@ -265,7 +376,7 @@ export default function MapScreen() {
   const postToWebIframe = useCallback(
     (message: unknown) => {
       if (!isWebPlatform || !webFrameTargetOrigin) return;
-      webViewRef.current?.contentWindow?.postMessage(
+      webIframeRef.current?.contentWindow?.postMessage(
         message,
         webFrameTargetOrigin,
       );
@@ -277,20 +388,21 @@ export default function MapScreen() {
     campusRef.current = campus;
   }, [campus]);
 
-  useEffect(() => {
-    getToken().then((token) => setHasCalendarToken(token !== null));
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      getToken().then((token) => setHasCalendarToken(token !== null));
+    }, []),
+  );
 
   useEffect(() => {
     if (!nextClassMessage) return;
 
     const timeout = setTimeout(() => {
       setNextClassMessage(null);
-    }, 4000);
+    }, 4000); // disappears after 4 seconds
 
     return () => clearTimeout(timeout);
   }, [nextClassMessage]);
-
   const styles = useMemo(
     () =>
       createMapScreenStyles({
@@ -299,7 +411,7 @@ export default function MapScreen() {
         bottomInset: insets.bottom,
         tabBarHeight: TAB_BAR_HEIGHT,
       }),
-    [insets.bottom, insets.top, isWebPlatform],
+    [isWebPlatform, insets.top, insets.bottom],
   );
   const routeStepsPopupMaxHeight = useMemo(() => {
     const preferredMaxHeight = isWebPlatform ? 360 : 300;
@@ -324,37 +436,164 @@ export default function MapScreen() {
     [],
   );
 
-  const focusMapRegion = useCallback(
-    (nextRegion: typeof mapViewportRegion) => {
-      setMapViewportRegion(nextRegion);
-      setFocusedBounds(getBoundsFromRegion(nextRegion));
-      setMapFocusRequestKey((value) => value + 1);
-      if (!isWebPlatform && mapRef.current?.animateToRegion) {
-        mapRef.current.animateToRegion(nextRegion, 450);
+  const MapViewComponent = !isWebPlatform && !isExpoGo ? NativeMapView : null;
+  const MapMarkerComponent =
+    !isWebPlatform && !isExpoGo ? NativeMapMarker : null;
+  const MapCalloutComponent =
+    !isWebPlatform && !isExpoGo ? NativeMapCallout : null;
+  const MapPolygonComponent =
+    !isWebPlatform && !isExpoGo ? NativeMapPolygon : null;
+  const MapPolylineComponent =
+    !isWebPlatform && !isExpoGo ? NativeMapPolyline : null;
+
+  useEffect(() => {
+    if (!isWebPlatform || !webFrameTargetOrigin) return;
+
+    const handler = (event: MessageEvent) => {
+      if (event.origin !== webFrameTargetOrigin) return;
+      if (event.source !== webIframeRef.current?.contentWindow) return;
+
+      try {
+        const data =
+          typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+
+        if (data?.type === "buildingSelected") {
+          setSelectedBuilding(data.buildingCode);
+        }
+        if (data?.type === "buildingDeselected") {
+          setSelectedBuilding(null);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [isWebPlatform, webFrameTargetOrigin]);
+
+  const applyDetectedLocationState = useCallback(
+    (
+      detected: { code: string | null; campus: Campus | null },
+      options: {
+        forceOriginSync?: boolean;
+        syncOriginWhenAuto?: boolean;
+        syncCampusMode?: "never" | "once" | "always";
+      } = {},
+    ) => {
+      const {
+        forceOriginSync = false,
+        syncOriginWhenAuto = false,
+        syncCampusMode = "never",
+      } = options;
+
+      setCurrentBuilding((previous) =>
+        previous === detected.code ? previous : detected.code,
+      );
+
+      if (
+        forceOriginSync ||
+        (syncOriginWhenAuto && originModeRef.current === "auto")
+      ) {
+        setOriginBuildingCode((previous) =>
+          previous === detected.code ? previous : detected.code,
+        );
+      }
+
+      if (!detected.campus) return;
+
+      if (syncCampusMode === "always") {
+        hasInitializedCampusFromLocationRef.current = true;
+        if (campusRef.current !== detected.campus) {
+          setCampus(detected.campus);
+        }
+        return;
+      }
+
+      if (
+        syncCampusMode === "once" &&
+        !hasInitializedCampusFromLocationRef.current
+      ) {
+        hasInitializedCampusFromLocationRef.current = true;
+        if (campusRef.current !== detected.campus) {
+          setCampus(detected.campus);
+        }
       }
     },
-    [isWebPlatform],
+    [],
   );
 
-  const clearRoomInputs = useCallback(() => {
-    setOriginRoom("");
-    setDestinationRoom("");
-  }, []);
+  const handleLocationUpdate = useCallback(
+    (location: Location.LocationObject) => {
+      const coords = location?.coords;
+      if (
+        !coords ||
+        typeof coords.latitude !== "number" ||
+        typeof coords.longitude !== "number"
+      ) {
+        return;
+      }
+      const { latitude, longitude } = coords;
+      const detected = detectBuildingFromLocation(latitude, longitude);
 
-  const handleCampusChange = useCallback(
-    (nextCampus: Campus) => {
-      setCampus(nextCampus);
-      setSearchText("");
-      setSelectedBuilding(null);
-      focusMapRegion(
-        getCampusRegion(
-          nextCampus,
-          nextCampus === "SGW" ? SGW_POLYGONS.features : LOY_POLYGONS.features,
-        ),
-      );
+      setUserLocation(location);
+      setLocationPermissionDenied(false);
+      applyDetectedLocationState(detected, {
+        syncOriginWhenAuto: true,
+        syncCampusMode: "once",
+      });
     },
-    [focusMapRegion],
+    [applyDetectedLocationState],
   );
+
+  // Start tracking user location
+  useEffect(() => {
+    async function setupLocation() {
+      const permission = await hasLocationPermission();
+
+      if (!permission) {
+        const granted = await requestLocationPermission();
+        if (!granted) {
+          setLocationPermissionDenied(true);
+          setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
+          return;
+        }
+      }
+
+      try {
+        const initialLocation = await getInitialLocationFix();
+        if (initialLocation) {
+          handleLocationUpdate(initialLocation);
+        } else {
+          setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
+        }
+      } catch {
+        // If a location fix isn't available, fall back to a default origin building.
+        setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
+      }
+
+      const subscription = await startWatchingLocation(handleLocationUpdate);
+      if (subscription) {
+        locationSubscription.current = subscription;
+      }
+    }
+
+    setupLocation();
+
+    return () => {
+      if (locationSubscription.current) {
+        try {
+          if (typeof locationSubscription.current.remove === "function") {
+            locationSubscription.current.remove();
+          }
+        } catch (error) {
+          console.error("Failed to remove location subscription", error);
+        } finally {
+          locationSubscription.current = null;
+        }
+      }
+    };
+  }, [handleLocationUpdate]);
 
   const campusPolygons = useMemo(
     () => (campus === "SGW" ? SGW_POLYGONS : LOY_POLYGONS),
@@ -378,19 +617,21 @@ export default function MapScreen() {
     () => getCampusRegion("LOY", LOY_POLYGONS.features),
     [],
   );
+
   const defaultSgwRegion = useMemo(
     () => getCampusRegion("SGW", SGW_POLYGONS.features),
     [],
   );
 
   const actualOriginPoint = useMemo(() => {
+    // If user selected a building as origin, use that building's coordinates
     if (originBuildingCode) {
-      const building = BUILDINGS.find((value) => value.code === originBuildingCode);
-      if (building) {
+      const building = BUILDINGS.find((b) => b.code === originBuildingCode);
+      if (building)
         return { latitude: building.latitude, longitude: building.longitude };
-      }
     }
 
+    // Fallback to current location
     const latitude = userLocation?.coords?.latitude;
     const longitude = userLocation?.coords?.longitude;
     if (typeof latitude === "number" && typeof longitude === "number") {
@@ -407,49 +648,39 @@ export default function MapScreen() {
     () => resolveBuildingByCode(destinationBuildingCode, BUILDINGS),
     [destinationBuildingCode],
   );
+
   const originBuilding = useMemo(
     () => resolveBuildingByCode(originBuildingCode, BUILDINGS),
     [originBuildingCode],
-  );
-  const selectedBuildingRecord = useMemo(
-    () => BUILDINGS.find((building) => building.code === selectedBuilding) ?? null,
-    [selectedBuilding],
-  );
-  const currentBuildingRecord = useMemo(
-    () => BUILDINGS.find((building) => building.code === currentBuilding) ?? null,
-    [currentBuilding],
   );
 
   const isSameCampus = useMemo(() => {
     if (!originBuilding || !destinationBuilding) return true;
     return originBuilding.campus === destinationBuilding.campus;
-  }, [destinationBuilding, originBuilding]);
+  }, [originBuilding, destinationBuilding]);
 
   const roomSuggestions = useMemo(() => {
     if (!focusedRoom) return [];
-    const building = focusedRoom === "from" ? originBuilding : destinationBuilding;
+    const building =
+      focusedRoom === "from" ? originBuilding : destinationBuilding;
     if (!building) return [];
-
     const currentRoom = (
       focusedRoom === "from" ? originRoom : destinationRoom
-    )
-      .trim()
-      .toLowerCase();
+    ).trim().toLowerCase();
     const allRooms = getRoomsForBuilding(building.code);
-
     if (!currentRoom) return allRooms.slice(0, 10);
-
     return allRooms
-      .filter((room) =>
-        roomLabelMatchesSearchPrefix(building.code, room, currentRoom),
+      .filter((r) =>
+        roomLabelMatchesSearchPrefix(building.code, r, currentRoom),
       )
       .slice(0, 10);
-  }, [destinationBuilding, destinationRoom, focusedRoom, originBuilding, originRoom]);
+  }, [focusedRoom, originBuilding, destinationBuilding, originRoom, destinationRoom]);
 
   useEffect(() => {
     if (isSameCampus) setRouteMode("walking");
   }, [isSameCampus]);
 
+  // Compute indoor route whenever same building + both rooms are filled
   useEffect(() => {
     const originCode = originBuilding?.code;
     const destinationCode = destinationBuilding?.code;
@@ -467,10 +698,13 @@ export default function MapScreen() {
       return;
     }
 
-    setIndoorRoute(
-      findIndoorRoute(originCode, trimmedOriginRoom, trimmedDestinationRoom),
+    const route = findIndoorRoute(
+      originCode,
+      trimmedOriginRoom,
+      trimmedDestinationRoom,
     );
-  }, [destinationBuilding, destinationRoom, originBuilding, originRoom]);
+    setIndoorRoute(route);
+  }, [originBuilding, destinationBuilding, originRoom, destinationRoom]);
 
   const resolvedDestination = useMemo(() => {
     if (destinationPOI) {
@@ -487,20 +721,21 @@ export default function MapScreen() {
       setModeDurations({ walking: null, driving: null, transit: null });
       return;
     }
-
     let cancelled = false;
-
-    const loadDurations = async () => {
+    const go = async () => {
+      // For same campus: walk. For different campus: bike
       const walkOrBikeProfile = isSameCampus ? "walking" : "cycling";
       const [walkOrBike, drive] = await Promise.allSettled([
-        fetchOsrmRoute(actualOriginPoint, resolvedDestination, walkOrBikeProfile),
+        fetchOsrmRoute(
+          actualOriginPoint,
+          resolvedDestination,
+          walkOrBikeProfile,
+        ),
         fetchOsrmRoute(actualOriginPoint, resolvedDestination, "driving"),
       ]);
-
       if (cancelled) return;
-
-      setModeDurations((previous) => ({
-        ...previous,
+      setModeDurations((p) => ({
+        ...p,
         walking:
           walkOrBike.status === "fulfilled"
             ? Math.round(walkOrBike.value.durationSeconds / 60)
@@ -510,68 +745,93 @@ export default function MapScreen() {
             ? Math.round(drive.value.durationSeconds / 60)
             : null,
       }));
-
       if (!isSameCampus) {
         try {
-          const itineraries = await fetchTransitItineraries(
+          const itins = await fetchTransitItineraries(
             actualOriginPoint,
             resolvedDestination,
           );
-          if (!cancelled) {
-            setModeDurations((previous) => ({
-              ...previous,
-              transit: itineraries[0]
-                ? Math.round(itineraries[0].durationSeconds / 60)
+          if (!cancelled)
+            setModeDurations((p) => ({
+              ...p,
+              transit: itins[0]
+                ? Math.round(itins[0].durationSeconds / 60)
                 : null,
             }));
-          }
         } catch {
-          if (!cancelled) {
-            setModeDurations((previous) => ({ ...previous, transit: null }));
-          }
+          if (!cancelled) setModeDurations((p) => ({ ...p, transit: null }));
         }
       }
     };
-
-    loadDurations();
-
+    go();
     return () => {
       cancelled = true;
     };
   }, [actualOriginPoint, resolvedDestination, isSameCampus]);
 
-  const exitDirectionsMode = useCallback(() => {
+  const clearRouteState = () => {
+    setRouteCoordinates([]);
+    setRouteInstructions([]);
+    setShowRouteInstructions(false);
+    setTransitItineraries([]);
+    setSelectedItineraryIndex(0);
+    setExpandedItineraries([]);
+    setExpandedIntermediateStops(new Set());
+    setRouteStarted(false);
+    setShuttleWalkToCoords([]);
+    setShuttleDriveCoords([]);
+    setShuttleWalkFromCoords([]);
+    routeInstructionsDismissedRef.current = false;
+  };
+
+  const resetRouteState = () => {
+    clearRouteState();
+    setOriginRoom("");
+    setDestinationRoom("");
+  };
+
+  const resetRouteGeometryState = () => {
+    setRouteCoordinates([]);
+    setRouteInstructions([]);
+    setTransitItineraries([]);
+    setSelectedItineraryIndex(0);
+    setExpandedItineraries([]);
+    setExpandedIntermediateStops(new Set());
+    setShuttleWalkToCoords([]);
+    setShuttleDriveCoords([]);
+    setShuttleWalkFromCoords([]);
+  };
+
+  const exitDirectionsMode = () => {
     setIsDirectionsMode(false);
     setDestinationPOI(null);
-    routeActions.resetAll();
-  }, [routeActions]);
+    resetRouteState();
+  };
 
-  const setDestinationAndEnterDirectionsMode = useCallback(
-    (
-      building: string | null,
-      room?: string | null,
-      clearInputs = true,
-    ) => {
-      if (!building) return;
-      setDestinationBuildingCode(building);
-      setDestinationRoom(room ?? "");
-      setIsDirectionsMode(true);
-      setEditingField(undefined);
-      if (clearInputs) {
-        setSelectedBuilding(null);
-        setSearchText("");
-      }
-      routeInstructionsDismissedRef.current = false;
-      routeActions.showInstructions();
-      setDestinationPOI(null);
+  const setDestinationAndEnterDirectionsMode = (
+    building: string | null,
+    room?: string | null,
+    clearInputs = true,
+  ) => {
+    if (!building) return; // Safeguard: building is required
+    
+    setDestinationBuildingCode(building);
+    setDestinationRoom(room ?? "");
+    setIsDirectionsMode(true);
+    setEditingField(undefined);
+    if (clearInputs) {
+      setSelectedBuilding(null);
+      setSearchText("");
+    }
+    routeInstructionsDismissedRef.current = false;
+    setShowRouteInstructions(true);
+    setDestinationPOI(null);
 
-      const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
-      if (destinationRecord && destinationRecord.campus !== campus) {
-        setCampus(destinationRecord.campus);
-      }
-    },
-    [campus, routeActions, routeInstructionsDismissedRef],
-  );
+    const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
+    if (destinationRecord && destinationRecord.campus !== campus) {
+      setCampus(destinationRecord.campus);
+    }
+  };
 
   const handlePOIPress = useCallback(
     (poi: POIResult) => {
@@ -591,9 +851,9 @@ export default function MapScreen() {
       setSearchText("");
       setShowPOIPanel(false);
       routeInstructionsDismissedRef.current = false;
-      routeActions.showInstructions();
+      setShowRouteInstructions(true);
     },
-    [routeActions, routeInstructionsDismissedRef],
+    [routeInstructionsDismissedRef],
   );
 
   const handleWashroomPickerSelect = useCallback(
@@ -648,10 +908,45 @@ export default function MapScreen() {
         });
       }
 
-      setCampus(targetCampus);
+      if (webViewRef.current && webMapReady) {
+        const bounds: [number, number][] = [
+          [
+            region.latitude - region.latitudeDelta / 2,
+            region.longitude - region.longitudeDelta / 2,
+          ],
+          [
+            region.latitude + region.latitudeDelta / 2,
+            region.longitude + region.longitudeDelta / 2,
+          ],
+        ];
+        const script = `
+          (function() {
+            if (window.setMapBounds) {
+              window.setMapBounds(${JSON.stringify(bounds)}, [20, 20], ${JSON.stringify(targetCampus)});
+            }
+          })();
+          true;
+        `;
+        webViewRef.current.injectJavaScript(script);
+      }
     },
-    [isWebPlatform, postToWebIframe],
+    [isWebPlatform, postToWebIframe, webMapReady],
   );
+
+  const transformCoordPair = (coords: Array<{ latitude: number; longitude: number }>) =>
+    coords.map((point) => [point.latitude, point.longitude]);
+
+  const handleCampusChange = (nextCampus: Campus) => {
+    if (isDirectionsMode) {
+      setCampus(nextCampus);
+      const polygons =
+        nextCampus === "SGW" ? SGW_POLYGONS.features : LOY_POLYGONS.features;
+      const newRegion = getCampusRegion(nextCampus, polygons);
+      animateMapToRegion(newRegion, nextCampus);
+      return;
+    }
+    setCampus(nextCampus);
+  };
 
   const handleNextClassDirections = useCallback(async () => {
     setNextClassLoading(true);
@@ -659,6 +954,7 @@ export default function MapScreen() {
 
     try {
       const accessToken = await AsyncStorage.getItem("google_access_token");
+
       if (!accessToken) {
         setNextClassMessage("Please sign in to Google Calendar first.");
         return;
@@ -668,12 +964,14 @@ export default function MapScreen() {
         accessToken,
         "primary",
       );
+
       if (!nextEvent) {
         setNextClassMessage("No upcoming classes today.");
         return;
       }
 
       const { building, room } = parseLocationParts(nextEvent.location);
+
       if (!building) {
         setNextClassMessage(
           "Your next class does not have a valid location in Google Calendar.",
@@ -692,32 +990,49 @@ export default function MapScreen() {
     } finally {
       setNextClassLoading(false);
     }
-  }, [campus, routeActions]);
+  }, [campus, routeInstructionsDismissedRef]);
 
-  const clearDirections = useCallback(() => {
+  const clearDirections = () => {
     setSearchText("");
     setSelectedBuilding(null);
 
     if (!isDirectionsMode) {
-      routeActions.resetDismissed();
+      routeInstructionsDismissedRef.current = false;
       setIsDirectionsMode(true);
       return;
     }
 
     exitDirectionsMode();
-    const restoredCampus = restoreAutoOriginFromCurrentLocation();
-    const mapCampus = restoredCampus ?? campus;
-    const polygons =
-      mapCampus === "SGW" ? SGW_POLYGONS.features : LOY_POLYGONS.features;
-    focusMapRegion(getCampusRegion(mapCampus, polygons));
-  }, [
-    campus,
-    exitDirectionsMode,
-    focusMapRegion,
-    isDirectionsMode,
-    restoreAutoOriginFromCurrentLocation,
-    routeActions,
-  ]);
+    originModeRef.current = "auto";
+    let restoredCampus: Campus | null = null;
+
+    const latitude = userLocation?.coords?.latitude;
+    const longitude = userLocation?.coords?.longitude;
+    if (typeof latitude === "number" && typeof longitude === "number") {
+      const detected = detectBuildingFromLocation(latitude, longitude);
+      restoredCampus = detected.campus;
+      applyDetectedLocationState(detected, {
+        forceOriginSync: true,
+        syncCampusMode: "always",
+      });
+    } else {
+      setOriginBuildingCode(DEFAULT_START_BUILDING_CODE);
+    }
+
+    if (restoredCampus && restoredCampus !== campus) {
+      setCampus(restoredCampus);
+    }
+
+    if (!isWebPlatform) {
+      const mapCampus = restoredCampus ?? campus;
+      const polygons =
+        mapCampus === "SGW" ? SGW_POLYGONS.features : LOY_POLYGONS.features;
+      mapRef.current?.animateToRegion?.(
+        getCampusRegion(mapCampus, polygons),
+        450,
+      );
+    }
+  };
 
   const searchResults = useMemo(() => {
     const query = searchText.trim().toLowerCase();
@@ -735,71 +1050,14 @@ export default function MapScreen() {
     }).slice(0, 8);
   }, [searchText]);
 
-  const washroomSearchResults = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-    const isWashroomQuery =
-      query.includes("washroom") || query.includes("bathroom");
-    if (!isWashroomQuery) return [];
-
-    const washroomParams = {
-      campusBuildings,
-      actualOriginPoint,
-      originBuildingCode: originBuilding?.code ?? null,
-      originRoom,
-      destinationBuildingCode: destinationBuilding?.code ?? null,
-      destinationRoom,
-    };
-
-    const maleWashroomTarget = findNearestWashroomTarget(
-      "male_washroom",
-      washroomParams,
-    );
-    const femaleWashroomTarget = findNearestWashroomTarget(
-      "female_washroom",
-      washroomParams,
-    );
-
-    return [
-      maleWashroomTarget
-        ? {
-          key: "nearest-male-washroom",
-          label: "Nearest male washroom",
-          building: maleWashroomTarget.building,
-          roomLabel: maleWashroomTarget.roomLabel,
-        }
-        : null,
-      femaleWashroomTarget
-        ? {
-          key: "nearest-female-washroom",
-          label: "Nearest female washroom",
-          building: femaleWashroomTarget.building,
-          roomLabel: femaleWashroomTarget.roomLabel,
-        }
-        : null,
-    ].filter((result): result is {
-      key: string;
-      label: string;
-      building: BuildingRecord;
-      roomLabel: string;
-    } => result !== null);
-  }, [
-    actualOriginPoint,
-    campusBuildings,
-    destinationBuilding?.code,
-    destinationRoom,
-    originBuilding?.code,
-    originRoom,
-    searchText,
-  ]);
-
-  const handleSearchResultPress = useCallback((building: BuildingRecord) => {
+  const handleSearchResultPress = (building: BuildingRecord) => {
     if (building.campus !== campus) {
       handleCampusChange(building.campus);
     }
     setSelectedBuilding(building.code);
     setSearchText("");
     Keyboard.dismiss();
-  }, [campus, handleCampusChange]);
+  };
 
   useEffect(() => {
     setSearchText("");
@@ -808,50 +1066,61 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (!isDirectionsMode || !resolvedDestination || !actualOriginPoint) {
-      routeActions.resetAll();
+      clearRouteState();
       return;
     }
 
     let cancelled = false;
 
+    const applyRouteResult = (res: RouteLoaderResult) => {
+      setRouteCoordinates(res.routeCoordinates);
+      setRouteDurationMinutes(res.routeDurationMinutes);
+      setRouteDistanceMeters(res.routeDistanceMeters);
+      setRouteInstructions(res.routeInstructions);
+      const hasRoute = res.routeCoordinates.length > 0 || res.routeInstructions.length > 0;
+
+      if (hasRoute && !routeInstructionsDismissedRef.current) {
+        setShowRouteInstructions(true);
+      }
+    };
+
     const fetchRoute = async () => {
       if (routeMode === "shuttle") {
-        return calculateShuttleRouteHelper(
-          actualOriginPoint,
-          destinationBuilding,
-          routeState.selectedShuttleDeparture,
-        );
+        return calculateShuttleRouteHelper(actualOriginPoint, resolvedDestination, selectedShuttleDeparture);
       }
       if (routeMode === "transit") {
         return calculateTransitRouteHelper(actualOriginPoint, resolvedDestination);
       }
-      return calculateOsrmRouteHelper(
-        actualOriginPoint,
-        destinationBuilding,
-        routeMode,
-        isSameCampus,
-      );
+      return calculateOsrmRouteHelper(actualOriginPoint, resolvedDestination, routeMode, isSameCampus);
     };
 
     const loadRoute = async () => {
-      routeActions.resetGeometry();
-      routeActions.setRouteLoading(true);
+      resetRouteGeometryState();
+      setRouteLoading(true);
 
       try {
-        const result = await fetchRoute();
-        if (cancelled || !result) return;
+        const res = await fetchRoute();
 
-        routeActions.applyRouteResult(result, {
-          routeMode,
-          showInstructions: routeActions.shouldShowInstructionsForResult(result),
-        });
-      } catch {
-        if (!cancelled) {
-          routeActions.resetAll();
-          clearRoomInputs();
+        if (cancelled || !res) return;
+
+        applyRouteResult(res);
+
+        if (routeMode === "transit") {
+          setTransitItineraries(res.transitItineraries);
+          setSelectedItineraryIndex(0);
+          setExpandedItineraries([]);
+          setRouteStarted(false);
+        } else if (routeMode === "shuttle") {
+          setTransitItineraries(res.transitItineraries);
+          setShuttleWalkToCoords(res.shuttleWalkToCoords);
+          setShuttleDriveCoords(res.shuttleDriveCoords);
+          setShuttleWalkFromCoords(res.shuttleWalkFromCoords);
         }
+      } catch {
+        if (cancelled) return;
+        resetRouteState();
       } finally {
-        routeActions.setRouteLoading(false);
+        setRouteLoading(false);
       }
     };
 
@@ -864,22 +1133,27 @@ export default function MapScreen() {
     isDirectionsMode,
     resolvedDestination,
     actualOriginPoint,
-    clearRoomInputs,
-    destinationBuilding,
-    isDirectionsMode,
-    isSameCampus,
-    routeActions,
     routeMode,
-    routeState.selectedShuttleDeparture,
+    isSameCampus,
+    selectedShuttleDeparture,
   ]);
 
-  const buildingsWithPolygons = useMemo(
-    () =>
-      BUILDINGS.filter((building) =>
-        buildingHasPolygon(building, allPolygons.features),
-      ),
-    [allPolygons.features],
-  );
+  // Only show pins for buildings that have a polygon (exact or parent e.g. CJ for CJA)
+  const buildingsWithPolygons = useMemo(() => {
+    const buildingHasPolygon = (building: { code: string }) => {
+      const hasExact = allPolygons.features.some(
+        (f: { properties: { code: string } }) =>
+          f.properties.code === building.code,
+      );
+      const hasParent = allPolygons.features.some(
+        (f: { properties: { code: string } }) =>
+          building.code.startsWith(f.properties.code) &&
+          f.properties.code.length >= 2,
+      );
+      return hasExact || hasParent;
+    };
+    return BUILDINGS.filter(buildingHasPolygon);
+  }, [allPolygons]);
 
   const region = useMemo(
     () => getCampusRegion(campus, campusPolygons.features),
@@ -903,6 +1177,7 @@ export default function MapScreen() {
   );
 
   const showCampusSummaryMarkers = pinVisibilityMode === "campus-summary";
+
   const campusMarkerData = useMemo(
     () => [
       {
@@ -919,18 +1194,945 @@ export default function MapScreen() {
     [defaultLoyRegion, defaultSgwRegion],
   );
 
+  const campusBounds = useMemo(() => {
+    const minLat = region.latitude - region.latitudeDelta / 2;
+    const maxLat = region.latitude + region.latitudeDelta / 2;
+    const minLng = region.longitude - region.longitudeDelta / 2;
+    const maxLng = region.longitude + region.longitudeDelta / 2;
+
+    return [
+      [minLat, minLng],
+      [maxLat, maxLng],
+    ];
+  }, [region]);
+
+  const b = BUILDINGS.find((building) => building.code === selectedBuilding);
+  let buildingInfo = b?.description;
+  let buildingName = b?.longName;
+  let buildingPhotoLink = b?.photoLink;
+
+  useEffect(() => {
+    if (
+      webViewRef.current &&
+      Platform.OS !== "web" &&
+      userLocation &&
+      webMapReady
+    ) {
+      const { latitude, longitude } = userLocation.coords;
+
+      const script = `
+      (function() {
+        try {
+          if (typeof L !== 'undefined' && window.map) {
+            if (window.userMarker) {
+              window.userMarker.setLatLng([${latitude}, ${longitude}]);
+              console.log('User marker updated to:', ${latitude}, ${longitude});
+            } else {
+              const userIcon = L.divIcon({
+                className: 'user-marker',
+                html: '<div style="width: 14px; height: 14px; background: #007AFF; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+              });
+              window.userMarker = L.marker([${latitude}, ${longitude}], { icon: userIcon }).addTo(window.map);
+              console.log('User marker created at:', ${latitude}, ${longitude});
+            }
+          }
+        } catch (e) {
+          console.log('User marker error:', e);
+        }
+      })();
+      true;
+    `;
+      webViewRef.current?.injectJavaScript(script);
+    }
+  }, [userLocation, webMapReady]);
+
   useEffect(() => {
     if (isDirectionsMode) return;
-    focusMapRegion(region);
-  }, [focusMapRegion, isDirectionsMode, region]);
+    animateMapToRegion(region, campus);
+  }, [campus, isDirectionsMode, region, animateMapToRegion]);
 
-  const shouldUseWebFallback = Platform.OS === "web" || isExpoGo;
-  const routeContentAvailable =
-    routeState.routeInstructions.length > 0 ||
-    routeState.routeCoordinates.length > 0 ||
-    routeMode === "shuttle";
+  useEffect(() => {
+    if (Platform.OS === "web" || !webViewRef.current || !webMapReady) return;
+
+    const script = `
+      (function() {
+        try {
+          if (typeof L === 'undefined' || !window.polygonMap) return;
+          const nextCode = ${JSON.stringify(currentBuilding ?? null)};
+          const selectedCode =
+            (window.selectedPolygon && window.selectedPolygon.__buildingCode) ||
+            window.selectedBuildingCode ||
+            null;
+
+          if (
+            window.currentBuildingCode &&
+            window.currentBuildingCode !== selectedCode &&
+            window.currentBuildingPolygon
+          ) {
+            window.currentBuildingPolygon.setStyle({
+              color: '#A32638',
+              fillColor: '#A32638',
+              fillOpacity: 0.2,
+              weight: 2
+            });
+          }
+
+          if (nextCode && window.polygonMap[nextCode]) {
+            window.currentBuildingPolygon = window.polygonMap[nextCode];
+            window.currentBuildingCode = nextCode;
+            if (nextCode !== selectedCode) {
+              window.currentBuildingPolygon.setStyle({
+                color: '#FFA500',
+                fillColor: '#FFA500',
+                fillOpacity: 0.5,
+                weight: 3
+              });
+            }
+          } else {
+            window.currentBuildingPolygon = null;
+            window.currentBuildingCode = null;
+          }
+        } catch (e) {
+          console.log('Current building highlight error:', e);
+        }
+      })();
+      true;
+    `;
+
+    webViewRef.current?.injectJavaScript(script);
+  }, [currentBuilding, userLocation, selectedBuilding, webMapReady]);
+
+  // Precompute per-leg transit segments for Leaflet
+  const webTransitSegments = useMemo(() => {
+    if (routeMode !== "transit") return [];
+    const itin = transitItineraries[selectedItineraryIndex];
+    if (!itin) return [];
+
+    return itin.legs
+      .filter((leg) => !!leg.legGeometry?.points)
+      .map((leg) => {
+        const precision = (leg.legGeometry as any)?.precision ?? 7;
+        const coords = decodePolyline(leg.legGeometry!.points, precision).map(
+          (p) => [p.latitude, p.longitude],
+        );
+        return {
+          mode: leg.mode,
+          route: leg.route ?? "",
+          coords,
+        };
+      });
+  }, [routeMode, transitItineraries, selectedItineraryIndex]);
+
+  // Generate HTML for web map
+  const mapHTML = useMemo(() => {
+    const { latitude, longitude, latitudeDelta, longitudeDelta } =
+      defaultSgwRegion;
+    const buildingData = buildingsWithPolygons.map(
+      ({
+        latitude: lat,
+        longitude: lng,
+        code,
+        shortName,
+        campus: buildingCampus,
+      }) => ({
+        latitude: lat,
+        longitude: lng,
+        code,
+        shortName,
+        campus: buildingCampus,
+      }),
+    );
+    const campusSummaryData = campusMarkerData.map(
+      ({ campus: summaryCampus, latitude: lat, longitude: lng }) => ({
+        campus: summaryCampus,
+        latitude: lat,
+        longitude: lng,
+      }),
+    );
+
+    const minLat = latitude - latitudeDelta / 2;
+    const maxLat = latitude + latitudeDelta / 2;
+    const minLng = longitude - longitudeDelta / 2;
+    const maxLng = longitude + longitudeDelta / 2;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+          <style>
+              body { margin: 0; padding: 0; }
+              #map { width: 100%; height: 100vh; }
+              .building-marker { background: transparent; border: none; }
+              .marker-badge {
+                  min-width: 30px;
+                  height: 28px;
+                  padding: 0 8px;
+                  border-radius: 14px;
+                  background: #A32638;
+                  color: #ffffff;
+                  font-size: 12px;
+                  font-weight: 700;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  border: 2px solid #ffffff;
+                  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+              }
+              .marker-stem {
+                  width: 0;
+                  height: 0;
+                  margin: -2px auto 0;
+                  border-left: 6px solid transparent;
+                  border-right: 6px solid transparent;
+                  border-top: 8px solid #A32638;
+                  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
+              }
+              .user-marker { background: transparent; border: none; }
+              .campus-marker { background: transparent; border: none; }
+              .campus-badge {
+                  min-width: 38px;
+                  height: 38px;
+                  padding: 0 10px;
+                  background: #A32638;
+                  color: #ffffff;
+                  border: 2px solid #ffffff;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+                  font-size: 11px;
+                  font-weight: 800;
+                  letter-spacing: 0.2px;
+                  border-radius: 19px;
+              }
+          </style>
+      </head>
+      <body>
+          <div id="map"></div>
+          <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+          <script>
+              const map = L.map('map', { maxZoom: 22 }).setView([${latitude}, ${longitude}], 20);
+              window.map = map;
+              const parentMessageTargetOrigin = ${serializedWebFrameTargetOrigin};
+              const notifyHost = (payload) => {
+                  if (window.ReactNativeWebView) {
+                      window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+                      return;
+                  }
+
+                  window.parent.postMessage(payload, parentMessageTargetOrigin);
+              };
+
+              const buildings = ${JSON.stringify(buildingData)};
+              const campusMarkers = ${JSON.stringify(campusSummaryData)};
+              const polygonData = ${JSON.stringify(allPolygons)};
+              const currentBuilding = ${JSON.stringify(currentBuildingForHTML)};
+              const routeMode = ${JSON.stringify(routeMode)};
+              const transformCoords = (coords) => coords.map((p) => [p.latitude, p.longitude]);
+              const routeCoordinates = ${JSON.stringify(transformCoordPair(routeCoordinates))};
+              const shuttleWalkToCoords = ${JSON.stringify(transformCoordPair(shuttleWalkToCoords))};
+              const shuttleDriveCoords = ${JSON.stringify(transformCoordPair(shuttleDriveCoords))};
+              const shuttleWalkFromCoords = ${JSON.stringify(transformCoordPair(shuttleWalkFromCoords))};
+
+              // Per-leg transit segments for Leaflet
+              const transitSegments = ${JSON.stringify(webTransitSegments)};
+
+              let selectedPolygon = null;
+              let markerRecords = [];
+              window.polygonMap = {};
+              window.currentBuildingPolygon = null;
+              window.currentBuildingCode = null;
+              window.selectedBuildingCode = null;
+              window.selectedPolygon = null;
+              window.userMarker = null;
+              window.followUser = false;
+              window.hasCenteredOnUser = false;
+              window.selectedCampus = "SGW";
+              window.defaultCampusZoom = null;
+
+              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                  attribution: '© OpenStreetMap contributors',
+                  maxZoom: 22,
+                  maxNativeZoom: 19
+              }).addTo(map);
+
+              const defaultPolygonStyle = { color: '#A32638', fillColor: '#A32638', fillOpacity: 0.2, weight: 2 };
+              const currentPolygonStyle = { color: '#FFA500', fillColor: '#FFA500', fillOpacity: 0.5, weight: 3 };
+              const selectedPolygonStyle = { color: '#238c51', fillColor: '#238c51', fillOpacity: 0.5, weight: 3 };
+
+              const resetPolygonStyle = (polygon) => {
+                  if (!polygon) return;
+                  const code = polygon.__buildingCode || null;
+                  if (code && window.currentBuildingCode === code) polygon.setStyle(currentPolygonStyle);
+                  else polygon.setStyle(defaultPolygonStyle);
+              };
+
+              const bounds = [[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]];
+              const getPinVisibilityMode = () => {
+                  const defaultCampusZoom =
+                    typeof window.defaultCampusZoom === 'number'
+                      ? window.defaultCampusZoom
+                      : map.getZoom();
+                  const zoomOutDelta = defaultCampusZoom - map.getZoom();
+                  if (zoomOutDelta > 0.45) return 'campus-summary';
+                  return 'all';
+              };
+              const shouldShowMarker = (record, visibilityMode) => {
+                  if (record.type === 'campus') return visibilityMode === 'campus-summary';
+                  return visibilityMode === 'all';
+              };
+              const updateMarkerVisibility = () => {
+                  const visibilityMode = getPinVisibilityMode();
+                  markerRecords.forEach((record) => {
+                      const shouldShow = shouldShowMarker(record, visibilityMode);
+                      const marker = record.marker;
+                      const isVisible = map.hasLayer(marker);
+                      if (shouldShow && !isVisible) marker.addTo(map);
+                      if (!shouldShow && isVisible) map.removeLayer(marker);
+                  });
+              };
+              window.updateMarkerVisibility = updateMarkerVisibility;
+              window.setMapBounds = (nextBounds, padding = [20, 20], nextCampus = window.selectedCampus) => {
+                  if (!Array.isArray(nextBounds) || nextBounds.length !== 2) return;
+                  if (nextCampus) window.selectedCampus = nextCampus;
+                  window.defaultCampusZoom = map.getBoundsZoom(
+                    nextBounds,
+                    false,
+                    L.point(padding[0], padding[1])
+                  );
+                  map.fitBounds(nextBounds, { padding });
+                  updateMarkerVisibility();
+              };
+
+              const fitRouteBounds = (bounds) => {
+                  if (bounds) map.fitBounds(bounds, { padding: [50, 50] });
+              };
+
+              const addRouteMarker = (coordinate, color, fillColor) => {
+                  return L.circleMarker(coordinate, {
+                      radius: 6,
+                      color,
+                      fillColor,
+                      fillOpacity: 1,
+                      weight: 2
+                  }).addTo(map);
+              };
+
+             const segmentColor = (mode, route) => {
+                  if (mode === "WALK") return "#2E7D32";
+                  if (mode === "BUS") return "#007AFF";    
+                  if (mode === "TRAM") return "#9C27B0";  
+
+                  // STM metro colours
+                  if (mode === "SUBWAY" || mode === "RAIL" || mode === "METRO") {
+                    const line = (route || "").trim();
+                    if (line === "1") return "#009E60"; // GREEN LINE
+                    if (line === "2") return "#FF6600"; // ORANGE LINE
+                    if (line === "4") return "#FFD700"; // YELLOW LINE
+                    if (line === "5") return "#0075BF"; // BLUE LINE
+                    return "#007AFF";
+                  }
+
+                  return "#1668C7";
+                };
+
+
+              let routeLayers = [];
+              let hasAnyRoute = false;
+
+              if (routeMode === "transit" && Array.isArray(transitSegments) && transitSegments.length) {
+                transitSegments.forEach((seg) => {
+                  if (!seg.coords || seg.coords.length < 2) return;
+
+                  const poly = L.polyline(seg.coords, {
+                    color: segmentColor(seg.mode, seg.route),
+                    weight: 6,
+                    opacity: 0.9,
+                    lineCap: "round",
+                    lineJoin: "round",
+                    dashArray: seg.mode === "WALK" ? "2 12" : undefined
+                  }).addTo(map);
+
+                  routeLayers.push(poly);
+                });
+
+                if (routeLayers.length) {
+                  hasAnyRoute = true;
+                  const group = L.featureGroup(routeLayers);
+                  fitRouteBounds(group.getBounds());
+                }
+              }
+
+              if (!hasAnyRoute && routeMode === 'shuttle' && shuttleDriveCoords.length > 1) {
+                  const walkingStyle = {
+                      color: '#2E7D32',
+                      weight: 6,
+                      opacity: 0.9,
+                      lineCap: 'round',
+                      lineJoin: 'round',
+                      dashArray: '2 12'
+                  };
+                  const drivingStyle = {
+                      color: '#912338',
+                      weight: 6,
+                      opacity: 0.9,
+                      lineCap: 'round',
+                      lineJoin: 'round'
+                  };
+
+                  if (shuttleWalkToCoords.length > 1) {
+                      routeLayers.push(L.polyline(shuttleWalkToCoords, walkingStyle).addTo(map));
+                  }
+                  routeLayers.push(L.polyline(shuttleDriveCoords, drivingStyle).addTo(map));
+                  if (shuttleWalkFromCoords.length > 1) {
+                      routeLayers.push(L.polyline(shuttleWalkFromCoords, walkingStyle).addTo(map));
+                  }
+
+                  const group = L.featureGroup(routeLayers);
+                  fitRouteBounds(group.getBounds());
+                  hasAnyRoute = true;
+              }
+
+              // Existing non-transit behavior (walking/driving): draw single polyline
+              if (!hasAnyRoute && routeCoordinates.length > 1) {
+                  const routeStyle = {
+                      color: '#1668C7',
+                      weight: routeMode === 'walking' ? 7 : 6,
+                      opacity: 0.88,
+                      lineCap: 'round',
+                      lineJoin: 'round'
+                  };
+
+                  if (routeMode === 'walking') {
+                      routeStyle.dashArray = '1 12';
+                  }
+
+                  const routePolyline = L.polyline(routeCoordinates, routeStyle).addTo(map);
+                  routeLayers.push(routePolyline);
+
+                  addRouteMarker(routeCoordinates[0], '#14532D', '#22C55E');
+                  addRouteMarker(routeCoordinates[routeCoordinates.length - 1], '#7F1D1D', '#EF4444');
+
+                  map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
+                  hasAnyRoute = true;
+              }
+
+              if (!hasAnyRoute) {
+                  window.setMapBounds(bounds, [20, 20], window.selectedCampus);
+              }
+
+              window.addEventListener('message', function(event) {
+                  if (event.origin !== parentMessageTargetOrigin) return;
+
+                  const data = event.data;
+                  if (data?.type === 'focusBounds') {
+                      window.setMapBounds(data.bounds, data.padding, data.campus);
+                  }
+              });
+
+              const disableFollow = () => { window.followUser = false; };
+              map.on('dragstart', disableFollow);
+              map.on('zoomstart', disableFollow);
+              map.on('movestart', disableFollow);
+              map.on('zoomend', updateMarkerVisibility);
+              map.on('moveend', updateMarkerVisibility);
+
+              const deselectBuilding = () => {
+                  if (selectedPolygon) {
+                      resetPolygonStyle(selectedPolygon);
+                      selectedPolygon = null;
+                      window.selectedBuildingCode = null;
+                      window.selectedPolygon = null;
+                      notifyHost({ type: 'buildingDeselected' });
+                  }
+              };
+              const selectBuilding = (buildingCode, polygon) => {
+                  window.selectedBuildingCode = buildingCode;
+                  window.selectedPolygon = polygon;
+                  notifyHost({ type: 'buildingSelected', buildingCode: buildingCode });
+              };
+
+              const handlePolygonSelect = (polygon, buildingCode) => {
+                  if (selectedPolygon) resetPolygonStyle(selectedPolygon);
+
+                  if (selectedPolygon === polygon) {
+                      deselectBuilding();
+                  } else {
+                      polygon.setStyle(selectedPolygonStyle);
+                      selectedPolygon = polygon;
+                      selectBuilding(buildingCode, polygon);
+                  }
+              };
+
+              polygonData.features.forEach((feature) => {
+                  const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
+                  const buildingCode = feature.properties.code;
+
+                  const polygon = L.polygon(coordinates, defaultPolygonStyle).addTo(map);
+
+                  window.polygonMap[buildingCode] = polygon;
+                  polygon.__buildingCode = buildingCode;
+
+                  polygon.on('click', function(e) {
+                      handlePolygonSelect(this, buildingCode);
+                      L.DomEvent.stopPropagation(e);
+                  });
+
+                  polygon.on('mouseover', function() {
+                      if (this !== selectedPolygon) this.setStyle({ fillOpacity: 0.3 });
+                  });
+
+                  polygon.on('mouseout', function() {
+                      if (this !== selectedPolygon) this.setStyle({ fillOpacity: 0.2 });
+                  });
+              });
+
+              if (currentBuilding && window.polygonMap[currentBuilding]) {
+                  window.currentBuildingPolygon = window.polygonMap[currentBuilding];
+                  window.currentBuildingCode = currentBuilding;
+                  window.currentBuildingPolygon.setStyle(currentPolygonStyle);
+              }
+
+              map.on('click', function() {
+                  deselectBuilding();
+              });
+
+              const createBuildingIcon = (code) => L.divIcon({
+                  className: 'building-marker',
+                  html: '<div class="marker-badge">' + code + '</div><div class="marker-stem"></div>',
+                  iconSize: [40, 44],
+                  iconAnchor: [20, 44],
+                  popupAnchor: [0, -40]
+              });
+              const createCampusIcon = (campusCode) => {
+                  return L.divIcon({
+                      className: 'campus-marker',
+                      html: '<div class="campus-badge">' + campusCode + '</div>',
+                      iconSize: [40, 40],
+                      iconAnchor: [20, 20],
+                      popupAnchor: [0, -20]
+                  });
+              };
+
+              buildings.forEach((building) => {
+                  const marker = L.marker([building.latitude, building.longitude], { icon: createBuildingIcon(building.code) });
+
+                  marker.on('click', function(e) {
+                      let polygon = window.polygonMap[building.code];
+                      if (!polygon && building.code.length > 2) {
+                          const baseCode = building.code.slice(0, -1);
+                          polygon = window.polygonMap[baseCode];
+                      }
+
+                      if (polygon) {
+                          handlePolygonSelect(polygon, building.code);
+                      } else {
+                          deselectBuilding();
+                      }
+
+                      L.DomEvent.stopPropagation(e);
+                  });
+
+                  markerRecords.push({ type: 'building', building, marker });
+              });
+
+              campusMarkers.forEach((campusMarker) => {
+                  const marker = L.marker(
+                    [campusMarker.latitude, campusMarker.longitude],
+                    { icon: createCampusIcon(campusMarker.campus) }
+                  );
+
+                  markerRecords.push({ type: 'campus', campus: campusMarker.campus, marker });
+              });
+
+              updateMarkerVisibility();
+
+              ${userLat && userLng
+        ? `
+              console.log('Adding user marker at:', ${userLat}, ${userLng});
+              const userIcon = L.divIcon({
+                  className: 'user-marker',
+                  html: '<div style="width: 14px; height: 14px; background: #007AFF; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                  iconSize: [20, 20],
+                  iconAnchor: [10, 10]
+              });
+              window.userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
+              `
+        : 'console.log("No user location available");'
+      }
+          </script>
+      </body>
+      </html>
+    `;
+  }, [
+    allPolygons,
+    buildingsWithPolygons,
+    campusMarkerData,
+    currentBuildingForHTML,
+    routeCoordinates,
+    routeMode,
+    shuttleWalkToCoords,
+    shuttleDriveCoords,
+    shuttleWalkFromCoords,
+    userLat,
+    userLng,
+    serializedWebFrameTargetOrigin,
+    webTransitSegments,
+    defaultSgwRegion,
+  ]);
+
+  const webViewSource = useMemo(() => ({ html: mapHTML }), [mapHTML]);
+
+  const shouldUseWebFallback = Platform.OS === "web" || !MapViewComponent;
+
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      setWebMapReady(false);
+    }
+  }, [mapHTML]);
+
+  const renderWebMapContent = () => {
+    if (Platform.OS === "web") {
+      return (
+        <iframe
+          ref={webIframeRef}
+          srcDoc={mapHTML}
+          style={{ ...(StyleSheet.flatten(styles.map) as object), border: 0 }}
+          allowFullScreen
+          title="Concordia map"
+          onLoad={() =>
+            postToWebIframe({
+              type: "focusBounds",
+              bounds: campusBounds,
+              campus,
+              padding: [20, 20],
+            })
+          }
+        />
+      );
+    }
+
+    if (WebView) {
+      return (
+        <WebView
+          testID="map-webview"
+          ref={webViewRef}
+          source={webViewSource}
+          style={styles.map}
+          javaScriptEnabled
+          domStorageEnabled
+          startInLoadingState
+          scalesPageToFit
+          originWhitelist={["*"]}
+          injectedJavaScriptBeforeContentLoaded={`
+            window.ReactNativeWebView = {
+              postMessage: function(data) {
+                window.location.href = 'rnmsg://' + encodeURIComponent(data);
+              }
+            };
+            true;
+          `}
+          onLoadEnd={() => setWebMapReady(true)}
+          onShouldStartLoadWithRequest={(request: { url: string }) => {
+            if (request.url.startsWith("rnmsg://")) {
+              try {
+                const data = JSON.parse(
+                  decodeURIComponent(request.url.replace("rnmsg://", "")),
+                );
+                if (data?.type === "buildingSelected")
+                  setSelectedBuilding(data.buildingCode);
+                if (data?.type === "buildingDeselected")
+                  setSelectedBuilding(null);
+              } catch { }
+              return false;
+            }
+            return true;
+          }}
+        />
+      );
+    }
+
+    return null;
+  };
+
+  const webMapContent = renderWebMapContent();
+
+  const nativeMapContent =
+    MapViewComponent &&
+      MapMarkerComponent &&
+      MapCalloutComponent &&
+      MapPolygonComponent ? (
+      <MapViewComponent
+        ref={mapRef}
+        testID="map-native"
+        style={styles.map}
+        initialRegion={region}
+        onRegionChangeComplete={setMapViewportRegion}
+        showsUserLocation
+        showsMyLocationButton
+        onPress={() => setSelectedBuilding(null)}
+      >
+        {(() => {
+          if (!MapPolylineComponent || !isDirectionsMode) return null;
+
+          if (
+            routeMode === "transit" &&
+            transitItineraries[selectedItineraryIndex]
+          ) {
+            return (
+              <>
+                {transitItineraries[selectedItineraryIndex].legs.map(
+                  (leg, index) => {
+                    console.log(`Rendering leg ${index}:`, leg.mode);
+
+                    if (!leg.legGeometry?.points) return null;
+
+                    const precision = (leg.legGeometry as any)?.precision ?? 7;
+                    const coordinates = decodePolyline(
+                      leg.legGeometry.points,
+                      precision,
+                    );
+                    if (coordinates.length < 2) return null;
+
+                    const strokeColor = getTransitColor(leg.mode, leg.route);
+
+                    const legKey = [
+                      leg.mode ?? "unknown",
+                      leg.route ?? "",
+                      leg.from?.name ?? "",
+                      leg.to?.name ?? "",
+                      leg.legGeometry.points ?? "",
+                    ].join("|");
+
+                    return (
+                      <MapPolylineComponent
+                        key={legKey}
+                        coordinates={coordinates}
+                        strokeColor={strokeColor}
+                        strokeWidth={leg.mode === "WALK" ? 4 : 6}
+                        lineDashPattern={
+                          leg.mode === "WALK" ? [2, 8] : undefined
+                        }
+                        lineCap="round"
+                      />
+                    );
+                  },
+                )}
+              </>
+            );
+          }
+
+          if (routeMode === "shuttle") {
+            const shuttleWalkStyle = {
+              strokeColor: "#2E7D32",
+              strokeWidth: 6,
+              lineDashPattern: [2, 12],
+              lineCap: "round" as const,
+            };
+
+            const shuttleDriveStyle = {
+              strokeColor: "#912338",
+              strokeWidth: 6,
+              lineCap: "round" as const,
+            };
+
+            return (
+              <>
+                {shuttleWalkToCoords.length > 1 && (
+                  <MapPolylineComponent
+                    testID="route-polyline-shuttle-walk-to"
+                    coordinates={shuttleWalkToCoords}
+                    {...shuttleWalkStyle}
+                  />
+                )}
+                {shuttleDriveCoords.length > 1 && (
+                  <MapPolylineComponent
+                    testID="route-polyline-shuttle-drive"
+                    coordinates={shuttleDriveCoords}
+                    {...shuttleDriveStyle}
+                  />
+                )}
+                {shuttleWalkFromCoords.length > 1 && (
+                  <MapPolylineComponent
+                    testID="route-polyline-shuttle-walk-from"
+                    coordinates={shuttleWalkFromCoords}
+                    {...shuttleWalkStyle}
+                  />
+                )}
+              </>
+            );
+          }
+
+          if (routeCoordinates.length > 1) {
+            return (
+              <MapPolylineComponent
+                testID="route-polyline"
+                coordinates={routeCoordinates}
+                strokeColor="#1668C7"
+                strokeWidth={routeMode === "walking" ? 6 : 5}
+                lineDashPattern={routeMode === "walking" ? [1, 12] : undefined}
+                lineCap="round"
+              />
+            );
+          }
+
+          return null;
+        })()}
+
+        {allPolygons.features.map((feature: any) => {
+          const coordinates = feature.geometry.coordinates[0].map(
+            (coord: number[]) => ({
+              latitude: coord[1],
+              longitude: coord[0],
+            }),
+          );
+
+          const buildingCode = feature.properties.code;
+          const isSelected = selectedBuilding === buildingCode;
+          const isCurrent = currentBuilding === buildingCode;
+
+          let strokeColor = "#A32638";
+          let fillColor = "rgba(163, 38, 56, 0.2)";
+          let strokeWidth = 2;
+
+          if (isSelected) {
+            strokeColor = "#238c51";
+            fillColor = "rgba(35, 140, 81, 0.5)";
+            strokeWidth = 3;
+          } else if (isCurrent) {
+            strokeColor = "#FFA500";
+            fillColor = "rgba(255, 165, 0, 0.5)";
+            strokeWidth = 3;
+          }
+
+          return (
+            <MapPolygonComponent
+              key={buildingCode}
+              testID={`polygon-${buildingCode}`}
+              coordinates={coordinates}
+              strokeColor={strokeColor}
+              fillColor={fillColor}
+              strokeWidth={strokeWidth}
+              tappable
+              onPress={() =>
+                setSelectedBuilding(
+                  selectedBuilding === buildingCode ? null : buildingCode,
+                )
+              }
+            />
+          );
+        })}
+
+        {visibleBuildingsWithPolygons.map((building) => {
+          const hasExactPolygon = allPolygons.features.some(
+            (f: any) => f.properties.code === building.code,
+          );
+
+          const polygonCode = hasExactPolygon
+            ? building.code
+            : allPolygons.features.find(
+              (f: any) =>
+                building.code.startsWith(f.properties.code) &&
+                f.properties.code.length >= 2,
+            )?.properties.code || building.code;
+
+          return (
+            <MapMarkerComponent
+              key={building.code}
+              testID={`marker-${building.code}`}
+              identifier={`marker-${building.code}`}
+              accessible
+              accessibilityLabel={`marker-${building.code}`}
+              accessibilityRole="button"
+              coordinate={{
+                latitude: building.latitude,
+                longitude: building.longitude,
+              }}
+              onPress={() =>
+                setSelectedBuilding(
+                  selectedBuilding === polygonCode ? null : polygonCode,
+                )
+              }
+            >
+              <View
+                style={styles.markerContainer}
+                testID={`marker-view-${building.code}`}
+                accessible
+                accessibilityLabel={`marker-${building.code}`}
+                accessibilityRole="button"
+              >
+                <View style={styles.markerBadge}>
+                  <Text style={styles.markerText}>{building.code}</Text>
+                </View>
+                <View style={styles.markerStem} />
+              </View>
+            </MapMarkerComponent>
+          );
+        })}
+
+        {showCampusSummaryMarkers &&
+          campusMarkerData.map((campusMarker) => (
+            <MapMarkerComponent
+              key={`campus-marker-${campusMarker.campus}`}
+              testID={`campus-marker-${campusMarker.campus}`}
+              identifier={`campus-marker-${campusMarker.campus}`}
+              accessible={false}
+              accessibilityLabel={`campus-marker-${campusMarker.campus}`}
+              coordinate={{
+                latitude: campusMarker.latitude,
+                longitude: campusMarker.longitude,
+              }}
+            >
+              <View style={styles.campusMarkerContainer}>
+                <View style={styles.campusMarkerBadge}>
+                  <Text style={styles.campusMarkerText}>
+                    {campusMarker.campus}
+                  </Text>
+                </View>
+              </View>
+            </MapMarkerComponent>
+          ))}
+
+        {poiResults.map((poi) => (
+          <MapMarkerComponent
+            key={`poi-${poi.id}`}
+            testID={`poi-marker-${poi.id}`}
+            identifier={`poi-marker-${poi.id}`}
+            accessible
+            accessibilityLabel={`poi-marker-${poi.name}`}
+            coordinate={{
+              latitude: poi.latitude,
+              longitude: poi.longitude,
+            }}
+            onPress={() => handlePOIPress(poi)}
+          >
+            <View style={styles.markerContainer}>
+              <View style={styles.poiMarkerBadge}>
+                <Text style={styles.poiMarkerText} numberOfLines={1}>
+                  {poi.name}
+                </Text>
+              </View>
+              <View style={styles.poiMarkerStem} />
+            </View>
+          </MapMarkerComponent>
+        ))}
+      </MapViewComponent>
+    ) : (
+      <View style={styles.webFallback}>
+        <Text style={styles.webFallbackText}>
+          Map view is unavailable in this environment.
+        </Text>
+      </View>
+    );
+
+  const searchInputRef = useRef<TextInput>(null);
   const hasIndoorRoute =
     indoorRoute === undefined ? undefined : indoorRoute !== null;
+
   const selectedBuildingFloorPlans = useMemo(
     () => getFloorPlanOptionsForBuilding(selectedBuilding),
     [selectedBuilding],
@@ -1064,120 +2266,96 @@ export default function MapScreen() {
       )}
 
       <DirectionsPanel
-        state={{
-          searchInputRef,
-          editingField,
-          originBuilding,
-          destinationBuilding,
-          destinationPOIName: destinationPOI?.name ?? null,
-          isDirectionsMode,
-          isSameCampus,
-          routeMode,
-          modeDurations,
-          originRoom,
-          destinationRoom,
-          focusedRoom,
-          roomSuggestions,
-          hasIndoorRoute,
-        }}
-        actions={{
-          setSearchText,
-          setEditingField,
-          clearDirections,
-          setRouteMode,
-          setRouteStarted: routeActions.setRouteStarted,
-          showRouteInstructions: routeActions.showInstructions,
-          setOriginRoom,
-          setDestinationRoom,
-          setActiveFloorPlan,
-          setFloorPlanModalVisible,
-          openFloorPlanModal,
-          setFocusedRoom,
-          onRoomSuggestionPressIn: () => {
-            // reserved for suggestion tap timing parity
-          },
-          onRoomSuggestionSelect: (room, field) => {
-            if (field === "from") setOriginRoom(room);
-            else setDestinationRoom(room);
-            setFocusedRoom(null);
-          },
-          onLayout: handleDirectionsPanelLayout,
-        }}
-        helpers={{
-          getRoomDetails,
-          getFloorPlanAsset,
-          formatDuration,
-        }}
+        setSearchText={setSearchText}
+        setEditingField={setEditingField}
+        searchInputRef={searchInputRef}
+        editingField={editingField}
+        originBuilding={originBuilding}
+        destinationBuilding={destinationBuilding}
+        destinationPOIName={destinationPOI?.name ?? null}
+        clearDirections={clearDirections}
+        isDirectionsMode={isDirectionsMode}
+        isSameCampus={isSameCampus}
+        routeMode={routeMode}
+        setRouteMode={setRouteMode}
+        modeDurations={modeDurations}
+        setRouteStarted={setRouteStarted}
+        routeInstructionsDismissedRef={routeInstructionsDismissedRef}
+        setShowRouteInstructions={setShowRouteInstructions}
         styles={styles}
+        formatDuration={formatDuration}
+        originRoom={originRoom}
+        setOriginRoom={setOriginRoom}
+        destinationRoom={destinationRoom}
+        setDestinationRoom={setDestinationRoom}
+        openFloorPlanModal={openFloorPlanModal}
+        getRoomDetails={getRoomDetails}
+        getFloorPlanAsset={getFloorPlanAsset}
         onShowIndoorDirections={() => setIndoorDirectionsModalVisible(true)}
-      />
-
-      <CurrentBuildingBanner
-        building={currentBuildingRecord}
-        isWebPlatform={isWebPlatform}
-        topInset={insets.top}
-        styles={styles}
-      />
-
-      <LocationPermissionBanner
-        visible={locationPermissionDenied}
-        bottomOffset={insets.bottom + TAB_BAR_HEIGHT + 10}
-        styles={styles}
-        onPress={async () => {
-          const { canAskAgain } = await Location.getForegroundPermissionsAsync();
-          if (canAskAgain) {
-            await requestLocationPermission();
-          } else {
-            await Linking.openSettings();
-          }
+        hasIndoorRoute={hasIndoorRoute}
+        focusedRoom={focusedRoom}
+        setFocusedRoom={setFocusedRoom}
+        roomSuggestions={roomSuggestions}
+        onRoomSuggestionPressIn={() => {
+          roomSuggestionPressedRef.current = true;
         }}
+        onRoomSuggestionSelect={(room, field) => {
+          roomSuggestionPressedRef.current = false;
+          if (field === "from") setOriginRoom(room);
+          else setDestinationRoom(room);
+          setFocusedRoom(null);
+        }}
+        onLayout={handleDirectionsPanelLayout}
       />
 
-      {shouldUseWebFallback ? (
-        <WebCampusMap
-          styles={styles}
-          defaultRegion={defaultSgwRegion}
-          buildingsWithPolygons={buildingsWithPolygons}
-          campusMarkerData={campusMarkerData}
-          allPolygons={allPolygons}
-          currentBuilding={currentBuilding}
-          selectedBuilding={selectedBuilding}
-          routeMode={routeMode}
-          routeCoordinates={routeState.routeCoordinates}
-          shuttleWalkToCoords={routeState.shuttleWalkToCoords}
-          shuttleDriveCoords={routeState.shuttleDriveCoords}
-          shuttleWalkFromCoords={routeState.shuttleWalkFromCoords}
-          transitItineraries={routeState.transitItineraries}
-          selectedItineraryIndex={routeState.selectedItineraryIndex}
-          userLocation={userLocation}
-          campus={campus}
-          focusBounds={focusedBounds}
-          focusRequestKey={mapFocusRequestKey}
-          setSelectedBuilding={setSelectedBuilding}
-        />
-      ) : (
-        <NativeCampusMap
-          mapRef={mapRef}
-          styles={styles}
-          region={region}
-          isDirectionsMode={isDirectionsMode}
-          routeMode={routeMode}
-          routeCoordinates={routeState.routeCoordinates}
-          transitItineraries={routeState.transitItineraries}
-          selectedItineraryIndex={routeState.selectedItineraryIndex}
-          shuttleWalkToCoords={routeState.shuttleWalkToCoords}
-          shuttleDriveCoords={routeState.shuttleDriveCoords}
-          shuttleWalkFromCoords={routeState.shuttleWalkFromCoords}
-          allPolygons={allPolygons as any}
-          selectedBuilding={selectedBuilding}
-          currentBuilding={currentBuilding}
-          visibleBuildingsWithPolygons={visibleBuildingsWithPolygons}
-          showCampusSummaryMarkers={showCampusSummaryMarkers}
-          campusMarkerData={campusMarkerData}
-          setSelectedBuilding={setSelectedBuilding}
-          setMapViewportRegion={setMapViewportRegion}
-        />
+      {currentBuilding &&
+        (() => {
+          const building = BUILDINGS.find((b) => b.code === currentBuilding);
+          return building ? (
+            <View
+              style={[
+                styles.buildingInfo,
+                !isWebPlatform && { top: insets.top + 44 },
+              ]}
+              testID="current-building-info"
+            >
+              <Text style={styles.buildingInfoTitle}>Current Building:</Text>
+              <Text
+                style={styles.buildingInfoText}
+                testID="current-building-name"
+              >
+                {building.longName} ({building.shortName}) - [{building.code}]
+              </Text>
+            </View>
+          ) : null;
+        })()}
+
+      {locationPermissionDenied && (
+        <TouchableOpacity
+          testID="location-permission-banner"
+          style={[
+            styles.permissionBanner,
+            { bottom: insets.bottom + TAB_BAR_HEIGHT + 10 },
+          ]}
+          onPress={async () => {
+            const { canAskAgain } =
+              await Location.getForegroundPermissionsAsync();
+            if (canAskAgain) {
+              await requestLocationPermission();
+            } else {
+              await Linking.openSettings();
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.permissionText}>
+            Enable location permissions to see where you are on campus. Tap
+            here.
+          </Text>
+        </TouchableOpacity>
       )}
+
+      {shouldUseWebFallback ? webMapContent : nativeMapContent}
 
       <Pressable
         testID="poi-floating-button"
@@ -1210,86 +2388,85 @@ export default function MapScreen() {
           <Text style={styles.nextClassAlertText}>{nextClassMessage}</Text>
         </View>
       )}
+      {showE2EHooks && (
+        <View style={styles.e2eControls} pointerEvents="box-none">
+          <TouchableOpacity
+            testID="e2e-select-H"
+            accessibilityLabel="e2e-select-H"
+            accessibilityRole="button"
+            style={styles.e2eButton}
+            onPress={() => setSelectedBuilding("H")}
+          >
+            <Text style={styles.e2eButtonText}>H</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="e2e-select-SP"
+            accessibilityLabel="e2e-select-SP"
+            accessibilityRole="button"
+            style={styles.e2eButton}
+            onPress={() => setSelectedBuilding("SP")}
+          >
+            <Text style={styles.e2eButtonText}>SP</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-      {Platform.OS !== "web" &&
-        process.env.EXPO_PUBLIC_ENABLE_E2E_HOOKS === "1" && (
-          <View style={styles.e2eControls} pointerEvents="box-none">
-            <TouchableOpacity
-              testID="e2e-select-H"
-              accessibilityLabel="e2e-select-H"
-              accessibilityRole="button"
-              style={styles.e2eButton}
-              onPress={() => setSelectedBuilding("H")}
-            >
-              <Text style={styles.e2eButtonText}>H</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              testID="e2e-select-SP"
-              accessibilityLabel="e2e-select-SP"
-              accessibilityRole="button"
-              style={styles.e2eButton}
-              onPress={() => setSelectedBuilding("SP")}
-            >
-              <Text style={styles.e2eButtonText}>SP</Text>
-            </TouchableOpacity>
-          </View>
+      {isDirectionsMode &&
+        showRouteInstructions &&
+        (routeInstructions.length > 0 || routeCoordinates.length > 0 || routeMode === "shuttle") && (
+          <RouteStepsPopup
+            styles={styles}
+            formatTime={formatTime}
+            routeSheetPanResponder={routeSheetPanResponder}
+            routeInstructionsDismissedRef={routeInstructionsDismissedRef}
+            setShowRouteInstructions={setShowRouteInstructions}
+            routeMode={routeMode}
+            actualOriginPoint={actualOriginPoint}
+            destinationBuilding={destinationBuilding ?? (destinationPOI ? { ...destinationPOI, code: "", shortName: destinationPOI.name, longName: destinationPOI.name, campus: campus, address: destinationPOI.address ?? "", description: undefined, photoLink: undefined } as any : null)}
+            transitItineraries={transitItineraries}
+            routeStarted={routeStarted}
+            selectedItineraryIndex={selectedItineraryIndex}
+            expandedItineraries={expandedItineraries}
+            setSelectedItineraryIndex={setSelectedItineraryIndex}
+            setRouteDurationMinutes={setRouteDurationMinutes}
+            setRouteDistanceMeters={setRouteDistanceMeters}
+            setRouteInstructions={setRouteInstructions}
+            setExpandedItineraries={setExpandedItineraries}
+            expandedIntermediateStops={expandedIntermediateStops}
+            setExpandedIntermediateStops={setExpandedIntermediateStops}
+            routeInstructions={routeInstructions}
+            popupMaxHeight={routeStepsPopupMaxHeight}
+          />
         )}
 
-      {isDirectionsMode && routeState.showRouteInstructions && routeContentAvailable && (
-        <RouteStepsPopup
-          state={{
-            routeSheetPanResponder,
-            routeMode,
-            actualOriginPoint,
-            destinationBuilding,
-            transitItineraries: routeState.transitItineraries,
-            routeStarted: routeState.routeStarted,
-            selectedItineraryIndex: routeState.selectedItineraryIndex,
-            expandedItineraries: routeState.expandedItineraries,
-            expandedIntermediateStops: routeState.expandedIntermediateStops,
-            routeInstructions: routeState.routeInstructions,
-            selectedShuttleDeparture: routeState.selectedShuttleDeparture,
-          }}
-          actions={{
-            hideInstructions: routeActions.hideInstructions,
-            setSelectedItineraryIndex: routeActions.setSelectedItineraryIndex,
-            setRouteDurationMinutes: routeActions.setRouteDurationMinutes,
-            setRouteDistanceMeters: routeActions.setRouteDistanceMeters,
-            setRouteInstructions: routeActions.setRouteInstructions,
-            setExpandedItineraries: routeActions.setExpandedItineraries,
-            setExpandedIntermediateStops:
-              routeActions.setExpandedIntermediateStops,
-            setSelectedShuttleDeparture:
-              routeActions.setSelectedShuttleDeparture,
-          }}
-          helpers={{ formatTime }}
-          styles={styles}
-        />
-      )}
-
-      {isDirectionsMode && !routeState.showRouteInstructions && routeContentAvailable && (
-        <Pressable
-          {...routeSheetPanResponder.panHandlers}
-          style={styles.routeStepsCollapsedTab}
-          testID="route-steps-collapsed-tab"
-          onPress={routeActions.showInstructions}
-        >
-          <ChevronUp size={24} color="#1F1F24" strokeWidth={2.5} />
-        </Pressable>
-      )}
+      {isDirectionsMode &&
+        !showRouteInstructions &&
+        (routeInstructions.length > 0 || routeCoordinates.length > 0 || routeMode === "shuttle") && (
+          <Pressable
+            {...routeSheetPanResponder.panHandlers}
+            style={styles.routeStepsCollapsedTab}
+            testID="route-steps-collapsed-tab"
+            onPress={() => {
+              routeInstructionsDismissedRef.current = false;
+              setShowRouteInstructions(true);
+            }}
+          >
+            <ChevronUp size={24} color="#1F1F24" strokeWidth={2.5} />
+          </Pressable>
+        )}
 
       <BuildingInformation
         buildingCode={selectedBuilding}
         onClose={() => setSelectedBuilding(null)}
-        buildingName={selectedBuildingRecord?.longName}
-        buildingInfo={selectedBuildingRecord?.description}
-        buildingPhotoLink={selectedBuildingRecord?.photoLink}
+        buildingName={buildingName}
+        buildingInfo={buildingInfo}
+        buildingPhotoLink={buildingPhotoLink}
         editingField={editingField}
         floorPlanOptions={selectedBuildingFloorPlans}
         onOpenFloorPlans={openBuildingFloorPlansFromMap}
         onSelectDestination={(code: string) => {
           if (editingField === "from") {
-            setOriginMode("manual");
+            originModeRef.current = "manual";
             setOriginBuildingCode(code);
           } else {
             setDestinationAndEnterDirectionsMode(code);
@@ -1299,7 +2476,6 @@ export default function MapScreen() {
           setEditingField(undefined);
         }}
       />
-
       <Modal
         visible={floorPlanModalVisible}
         animationType="fade"
@@ -1352,10 +2528,11 @@ export default function MapScreen() {
             ) : null}
 
             <View style={styles.floorPlanModalBody}>
-              {(activeFloorPlan != null && selectedFloorPlanKey != null) ? (() => {
+              {activeFloorPlan && selectedFloorPlanKey && (() => {
                 const parsedKey = parseFloorPlanKey(selectedFloorPlanKey);
                 if (!parsedKey) {
-                  return (Platform.OS === "web" ? (
+                  // Fallback rendering without nodes
+                  return Platform.OS === "web" ? (
                     <Image
                       source={activeFloorPlan}
                       style={styles.floorPlanImage}
@@ -1379,7 +2556,7 @@ export default function MapScreen() {
                         </Svg>
                       );
                     })()
-                  )) as React.ReactNode;
+                  );
                 }
 
                 const specialNodes = getSpecialNodesForFloor(parsedKey.building, parsedKey.floor);
@@ -1450,7 +2627,7 @@ export default function MapScreen() {
                     </Svg>
                   );
                 }
-              })() : null}
+              })()}
             </View>
             <View style={styles.floorPlanLegend}>
               {Object.entries(SPECIAL_NODE_COLORS).map(([type, { fill, label }]) => (
@@ -1468,11 +2645,16 @@ export default function MapScreen() {
         visible={indoorDirectionsModalVisible}
         onClose={() => setIndoorDirectionsModalVisible(false)}
         route={indoorRoute ?? null}
-        buildingCode={originBuilding?.code ?? destinationBuilding?.code ?? ""}
+        buildingCode={
+          originBuilding?.code ?? destinationBuilding?.code ?? ""
+        }
         originRoom={originRoom}
         destinationRoom={destinationRoom}
         floorBounds={(floor) =>
-          getFloorBounds(originBuilding?.code ?? destinationBuilding?.code ?? "", floor)
+          getFloorBounds(
+            originBuilding?.code ?? destinationBuilding?.code ?? "",
+            floor,
+          )
         }
         graphFloorBounds={(floor) =>
           getGraphFloorBounds(

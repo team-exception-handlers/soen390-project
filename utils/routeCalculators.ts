@@ -2,17 +2,16 @@ import { fetchOsrmRoute, RouteInstruction, RouteProfile } from "./osrmDirections
 import { TransitItinerary, fetchTransitItineraries } from "./transitousDirections";
 import { getNearestStop, STOPS } from "./locationLogic";
 import { getShuttleInfo, calculateArrivalTime } from "./shuttleLogic";
-import type { LatLng } from "../types/map";
 
 export interface RouteLoaderResult {
-  routeCoordinates: LatLng[];
+  routeCoordinates: { latitude: number; longitude: number }[];
   routeDurationMinutes: number | null;
   routeDistanceMeters: number | null;
   routeInstructions: RouteInstruction[];
   transitItineraries: TransitItinerary[];
-  shuttleWalkToCoords: LatLng[];
-  shuttleDriveCoords: LatLng[];
-  shuttleWalkFromCoords: LatLng[];
+  shuttleWalkToCoords: { latitude: number; longitude: number }[];
+  shuttleDriveCoords: { latitude: number; longitude: number }[];
+  shuttleWalkFromCoords: { latitude: number; longitude: number }[];
 }
 
 export const emptyRouteResult = (): RouteLoaderResult => ({

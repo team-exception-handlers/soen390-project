@@ -4,8 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import { BuildingRecord } from '../constants/buildings';
 import { getNearestStop, STOPS } from '../utils/locationLogic';
 import { fetchOsrmRoute, RoutePoint } from '../utils/osrmDirections';
-import type { Campus } from "../constants/buildings";
-import { calculateArrivalTime, getShuttleInfo, ShuttleInfo } from '../utils/shuttleLogic';
+import { calculateArrivalTime, Campus, getShuttleInfo, ShuttleInfo } from '../utils/shuttleLogic';
 
 interface ShuttleDirectionsProps {
     origin: RoutePoint | null;
