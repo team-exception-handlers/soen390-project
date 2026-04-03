@@ -1,1 +1,25 @@
 # US-5.1: Filter, Sort, and Display Points of Interest Search Results
+
+appId: host.exp.Exponent
+
+---
+- setPermissions:
+    permissions:
+      location: inuse
+- setLocation:
+    latitude: 45.497092
+    longitude: -73.5788
+- runFlow:
+    file: _launch-expo-go.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+
+- tapOn: Nearby
+- assertVisible: Coffee Shop
+- tapOn: Coffee Shop
+- assertVisible: Hive Café
+- tapOn: Washroom
+- assertVisible: Henry F. Hall Building (Indoor)
