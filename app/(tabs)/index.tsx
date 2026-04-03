@@ -5,28 +5,28 @@ import * as Location from "expo-location";
 import { useLocalSearchParams } from "expo-router";
 import { ChevronUp, X } from "lucide-react-native";
 import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 import {
-    Image,
-    Keyboard,
-    Linking,
-    Modal,
-    PanResponder,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
-    type LayoutChangeEvent,
+  Image,
+  Keyboard,
+  Linking,
+  Modal,
+  PanResponder,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+  type LayoutChangeEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -43,59 +43,59 @@ import { parseLocationParts } from "../../utils/classLocation";
 import { getToken } from "../../utils/googleCalendarAuth";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
-    findIndoorRoute,
-    getFloorBounds,
-    getGraphFloorBounds,
-    getSpecialNodesForFloor,
-    type IndoorRoute,
+  findIndoorRoute,
+  getFloorBounds,
+  getGraphFloorBounds,
+  getSpecialNodesForFloor,
+  type IndoorRoute,
 } from "../../utils/indoorDirections";
 
 import POISearchPanel from "../../components/POISearchPanel";
 import {
-    getFloorPlanLabelForKey,
-    getFloorPlanOptionsForBuilding,
+  getFloorPlanLabelForKey,
+  getFloorPlanOptionsForBuilding,
 } from "../../utils/floorPlanCatalog";
 import {
-    findUserBuilding,
-    getInitialLocationFix,
-    hasLocationPermission,
-    requestLocationPermission,
-    startWatchingLocation,
+  findUserBuilding,
+  getInitialLocationFix,
+  hasLocationPermission,
+  requestLocationPermission,
+  startWatchingLocation,
 } from "../../utils/locationUtils";
 import { getCampusRegion } from "../../utils/mapRegions";
 import {
-    NativeMapCallout,
-    NativeMapMarker,
-    NativeMapPolygon,
-    NativeMapPolyline,
-    NativeMapView,
+  NativeMapCallout,
+  NativeMapMarker,
+  NativeMapPolygon,
+  NativeMapPolyline,
+  NativeMapView,
 } from "../../utils/nativeMaps";
 import {
-    fetchOsrmRoute,
-    type RouteInstruction,
-    type RouteProfile,
+  fetchOsrmRoute,
+  type RouteInstruction,
+  type RouteProfile,
 } from "../../utils/osrmDirections";
 import type { POIResult } from "../../utils/poiSearch";
 import {
-    getRoomDetails,
-    getRoomsForBuilding,
-    roomLabelMatchesSearchPrefix,
+  getRoomDetails,
+  getRoomsForBuilding,
+  roomLabelMatchesSearchPrefix,
 } from "../../utils/roomUtils";
 import {
-    calculateOsrmRouteHelper,
-    calculateShuttleRouteHelper,
-    calculateTransitRouteHelper,
-    RouteLoaderResult,
+  calculateOsrmRouteHelper,
+  calculateShuttleRouteHelper,
+  calculateTransitRouteHelper,
+  RouteLoaderResult,
 } from "../../utils/routeCalculators";
 import {
-    decodePolyline,
-    fetchTransitItineraries,
-    formatTime,
-    type TransitItinerary,
+  decodePolyline,
+  fetchTransitItineraries,
+  formatTime,
+  type TransitItinerary,
 } from "../../utils/transitousDirections";
 import {
-    findNearestWashroomTarget,
-    type WashroomCategory
+  findNearestWashroomTarget,
+  type WashroomCategory
 } from "../../utils/washroomSearch";
 
 let WebView: React.ComponentType<any> | null = null;
@@ -1453,8 +1453,8 @@ export default function MapScreen() {
               window.hasCenteredOnUser = false;
               window.selectedCampus = "SGW";
               window.defaultCampusZoom = null;
-
-              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              
+              L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                   attribution: '© OpenStreetMap contributors',
                   maxZoom: 22,
                   maxNativeZoom: 19

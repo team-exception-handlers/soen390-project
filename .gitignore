@@ -24,6 +24,7 @@ expo-env.d.ts
 
 # Maestro E2E output
 .maestro/output/
+.maestro/flows/manual/_launch-expo-go.yaml
 
 # Metro
 .metro-health-check*
