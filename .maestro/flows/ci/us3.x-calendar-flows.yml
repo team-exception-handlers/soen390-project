@@ -1,61 +1,61 @@
-# # US-3.1: Google Calendar OAuth + US-3.2 (multi-calendar) + US-3.4 (directions from calendar).
+# US-3.1: Google Calendar OAuth + US-3.2 (multi-calendar) + US-3.4 (directions from calendar).
 
-# appId: com.anonymous.concordiaclassfinder
+appId: com.anonymous.concordiaclassfinder
 
-# ---
-# - runFlow:
-#     file: _launch-app.yaml
+---
+- runFlow:
+    file: _launch-app.yaml
 
-# - extendedWaitUntil:
-#     visible:
-#       id: "header-title"
-#     timeout: 25000
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 25000
 
-# - extendedWaitUntil:
-#     visible:
-#       id: "tab-calendar"
-#     timeout: 20000
-# - tapOn:
-#     id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "tab-calendar"
+    timeout: 20000
+- tapOn:
+    id: "tab-calendar"
 
-# - extendedWaitUntil:
-#     visible:
-#       text: "Upcoming Events"
-#     timeout: 120000
+- extendedWaitUntil:
+    visible:
+      text: "Upcoming Events"
+    timeout: 120000
 
-# # --- US-3.2: toggle secondary calendar ---
-# - extendedWaitUntil:
-#     visible:
-#       text: "Primary Calendar"
-#     timeout: 30000
+# --- US-3.2: toggle secondary calendar ---
+- extendedWaitUntil:
+    visible:
+      text: "Primary Calendar"
+    timeout: 30000
 
-# - tapOn:
-#     text: "Holidays in Canada"
+- tapOn:
+    text: "Holidays in Canada"
 
-# - extendedWaitUntil:
-#     visible:
-#       text: "Holidays in Canada"
-#     timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: "Holidays in Canada"
+    timeout: 30000
 
-# - tapOn:
-#     text: "Primary Calendar"
+- tapOn:
+    text: "Primary Calendar"
 
-# - extendedWaitUntil:
-#     visible:
-#       text: "Primary Calendar"
-#     timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: "Primary Calendar"
+    timeout: 30000
 
-# - assertVisible: "Primary Calendar"
+- assertVisible: "Primary Calendar"
 
-# # --- US-3.4: directions from calendar ---
-# - extendedWaitUntil:
-#     visible:
-#       text: "Directions"
-#     timeout: 30000
-# - tapOn:
-#     text: "Directions"
+# --- US-3.4: directions from calendar ---
+- extendedWaitUntil:
+    visible:
+      text: "Directions"
+    timeout: 30000
+- tapOn:
+    text: "Directions"
 
-# - extendedWaitUntil:
-#     visible:
-#       id: "route-steps-popup"
-#     timeout: 45000
+- extendedWaitUntil:
+    visible:
+      id: "route-steps-popup"
+    timeout: 45000

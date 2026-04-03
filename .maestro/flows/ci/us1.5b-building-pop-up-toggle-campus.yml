@@ -1,94 +1,94 @@
-# # US-1.5b: Building pop-up and toggle between campuses
+# US-1.5b: Building pop-up and toggle between campuses
 
-# appId: com.anonymous.concordiaclassfinder
+appId: com.anonymous.concordiaclassfinder
 
-# ---
-# - setPermissions:
-#     permissions:
-#       location: inuse
-# - setLocation:
-#     latitude: 45.495376
-#     longitude: -73.577997
-# - runFlow:
-#     file: _launch-app.yaml
+---
+- setPermissions:
+    permissions:
+      location: inuse
+- setLocation:
+    latitude: 45.495376
+    longitude: -73.577997
+- runFlow:
+    file: _launch-app.yaml
 
-# - extendedWaitUntil:
-#     visible:
-#       id: "header-title"
-#     timeout: 25000
-# - assertVisible:
-#     id: "campus-toggle-sgw"
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 25000
+- assertVisible:
+    id: "campus-toggle-sgw"
 
-# - extendedWaitUntil:
-#     visible:
-#       id: "map-native"
-#     timeout: 30000
-# - extendedWaitUntil:
-#     visible:
-#       id: "e2e-select-H"
-#     timeout: 30000
-# - tapOn:
-#     id: "e2e-select-H"
+- extendedWaitUntil:
+    visible:
+      id: "map-native"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "e2e-select-H"
+    timeout: 30000
+- tapOn:
+    id: "e2e-select-H"
 
-# - extendedWaitUntil:
-#     visible:
-#       id: "building-info-close"
-#     timeout: 20000
-# - extendedWaitUntil:
-#     visible: "Henry F. Hall Building"
-#     timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "building-info-close"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Henry F. Hall Building"
+    timeout: 10000
 
-# - tapOn:
-#     id: "building-info-close"
+- tapOn:
+    id: "building-info-close"
 
-# - assertNotVisible:
-#     id: "building-info-drawer"
+- assertNotVisible:
+    id: "building-info-drawer"
 
-# - tapOn:
-#     id: "campus-toggle-loyola"
-# - extendedWaitUntil:
-#     visible:
-#       id: "campus-toggle-loyola"
-#     timeout: 5000
-# - extendedWaitUntil:
-#     visible:
-#       id: "e2e-select-SP"
-#     timeout: 30000
+- tapOn:
+    id: "campus-toggle-loyola"
+- extendedWaitUntil:
+    visible:
+      id: "campus-toggle-loyola"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "e2e-select-SP"
+    timeout: 30000
 
-# - tapOn:
-#     id: "campus-toggle-sgw"
-# - extendedWaitUntil:
-#     visible:
-#       id: "campus-toggle-sgw"
-#     timeout: 5000
-# - extendedWaitUntil:
-#     visible:
-#       id: "e2e-select-H"
-#     timeout: 30000
+- tapOn:
+    id: "campus-toggle-sgw"
+- extendedWaitUntil:
+    visible:
+      id: "campus-toggle-sgw"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "e2e-select-H"
+    timeout: 30000
 
-# - tapOn:
-#     id: "campus-toggle-loyola"
-# - extendedWaitUntil:
-#     visible:
-#       id: "campus-toggle-loyola"
-#     timeout: 5000
-# - extendedWaitUntil:
-#     visible:
-#       id: "e2e-select-SP"
-#     timeout: 30000
-# - tapOn:
-#     id: "e2e-select-SP"
+- tapOn:
+    id: "campus-toggle-loyola"
+- extendedWaitUntil:
+    visible:
+      id: "campus-toggle-loyola"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "e2e-select-SP"
+    timeout: 30000
+- tapOn:
+    id: "e2e-select-SP"
 
-# - extendedWaitUntil:
-#     visible:
-#       id: "building-info-close"
-#     timeout: 20000
-# - extendedWaitUntil:
-#     visible: "Richard J. Renaud Science Complex"
-#     timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "building-info-close"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Richard J. Renaud Science Complex"
+    timeout: 10000
 
-# - tapOn:
-#     id: "building-info-close"
+- tapOn:
+    id: "building-info-close"
 
-# - assertNotVisible:
-#     id: "building-info-drawer"
+- assertNotVisible:
+    id: "building-info-drawer"

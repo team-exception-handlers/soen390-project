@@ -1,45 +1,45 @@
-# # US-2.5b: Support multiple transportation ways – Bike, Car, Transit (cross campus) – CI
+# US-2.5b: Support multiple transportation ways – Bike, Car, Transit (cross campus) – CI
 
-# appId: com.anonymous.concordiaclassfinder
+appId: com.anonymous.concordiaclassfinder
 
-# ---
-# - runFlow:
-#     file: _launch-app.yaml
-# - runFlow:
-#     file: _hook-select-mb-to-sp.yml
+---
+- runFlow:
+    file: _launch-app.yaml
+- runFlow:
+    file: _hook-select-mb-to-sp.yml
 
-# - assertVisible:
-#     id: "direction-start-button"
-# - tapOn:
-#     id: "direction-start-button"
+- assertVisible:
+    id: "direction-start-button"
+- tapOn:
+    id: "direction-start-button"
 
-# - extendedWaitUntil:
-#     visible:
-#       id: "route-steps-popup"
-#     timeout: 45000
+- extendedWaitUntil:
+    visible:
+      id: "route-steps-popup"
+    timeout: 45000
 
-# - assertVisible:
-#     id: "route-steps-popup"
+- assertVisible:
+    id: "route-steps-popup"
 
-# # Walking mode (default)
-# - assertVisible:
-#     id: "route-mode-walking"
-# - tapOn:
-#     id: "route-mode-walking"
+# Walking mode (default)
+- assertVisible:
+    id: "route-mode-walking"
+- tapOn:
+    id: "route-mode-walking"
 
-# # Car mode
-# - assertVisible:
-#     id: "route-mode-driving"
-# - tapOn:
-#     id: "route-mode-driving"
+# Car mode
+- assertVisible:
+    id: "route-mode-driving"
+- tapOn:
+    id: "route-mode-driving"
 
-# # Public transit mode
-# - assertVisible:
-#     id: "route-mode-transit"
-# - tapOn:
-#     id: "route-mode-transit"
+# Public transit mode
+- assertVisible:
+    id: "route-mode-transit"
+- tapOn:
+    id: "route-mode-transit"
 
-# - extendedWaitUntil:
-#     visible:
-#       id: "route-steps-popup"
-#     timeout: 45000
+- extendedWaitUntil:
+    visible:
+      id: "route-steps-popup"
+    timeout: 45000
