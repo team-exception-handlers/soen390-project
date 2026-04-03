@@ -1,7 +1,6 @@
 import { ChevronDown, ChevronUp, X } from "lucide-react-native";
 import {
   type Dispatch,
-  type MutableRefObject,
   type SetStateAction,
 } from "react";
 import {
@@ -13,16 +12,11 @@ import {
 } from "react-native";
 import type { BuildingRecord } from "../../constants/buildings";
 import type { MapScreenStyles } from "../../styles/mapScreen.styles";
-import type {
-  RouteInstruction,
-  RoutePoint,
-  RouteProfile,
-} from "../../utils/osrmDirections";
+import type { RouteMode } from "../../types/map";
+import type { RouteInstruction, RoutePoint } from "../../utils/osrmDirections";
 import type { TransitItinerary } from "../../utils/transitousDirections";
 import ShuttleDirections from "../ShuttleDirections";
 import TransitLegTimeline from "../TransitLegTimeline";
-
-type RouteMode = RouteProfile | "transit" | "shuttle";
 
 function getLegColor(mode: string, styles: MapScreenStyles) {
   if (mode === "WALK") return styles.legPillWalk;
@@ -162,12 +156,8 @@ function TransitItineraryCard({
   );
 }
 
-type RouteStepsPopupProps = Readonly<{
-  styles: MapScreenStyles;
+export type RouteStepsPopupState = Readonly<{
   routeSheetPanResponder: { panHandlers: GestureResponderHandlers };
-  formatTime: (iso: string) => string;
-  routeInstructionsDismissedRef: MutableRefObject<boolean>;
-  setShowRouteInstructions: (show: boolean) => void;
   routeMode: RouteMode;
   actualOriginPoint: RoutePoint | null;
   destinationBuilding: BuildingRecord | null;
@@ -175,44 +165,69 @@ type RouteStepsPopupProps = Readonly<{
   routeStarted: boolean;
   selectedItineraryIndex: number;
   expandedItineraries: number[];
+  expandedIntermediateStops: Set<string>;
+  routeInstructions: RouteInstruction[];
+  selectedShuttleDeparture?: string | null;
+}>;
+
+export type RouteStepsPopupActions = Readonly<{
+  hideInstructions: () => void;
   setSelectedItineraryIndex: (index: number) => void;
   setRouteDurationMinutes: (durationMinutes: number | null) => void;
   setRouteDistanceMeters: (distanceMeters: number | null) => void;
   setRouteInstructions: (instructions: RouteInstruction[]) => void;
   setExpandedItineraries: Dispatch<SetStateAction<number[]>>;
-  expandedIntermediateStops: Set<string>;
   setExpandedIntermediateStops: Dispatch<SetStateAction<Set<string>>>;
-  routeInstructions: RouteInstruction[];
-  selectedShuttleDeparture?: string | null;
   setSelectedShuttleDeparture?: (time: string) => void;
   popupMaxHeight?: number;
 }>;
 
+export type RouteStepsPopupHelpers = Readonly<{
+  formatTime: (iso: string) => string;
+}>;
+
+type RouteStepsPopupProps = Readonly<{
+  state: RouteStepsPopupState;
+  actions: RouteStepsPopupActions;
+  helpers: RouteStepsPopupHelpers;
+  styles: MapScreenStyles;
+  popupMaxHeight?: number;
+}>;
+
 export default function RouteStepsPopup({
+  state,
+  actions,
+  helpers,
   styles,
-  routeSheetPanResponder,
-  formatTime,
-  routeInstructionsDismissedRef,
-  setShowRouteInstructions,
-  routeMode,
-  actualOriginPoint,
-  destinationBuilding,
-  transitItineraries,
-  routeStarted,
-  selectedItineraryIndex,
-  expandedItineraries,
-  setSelectedItineraryIndex,
-  setRouteDurationMinutes,
-  setRouteDistanceMeters,
-  setRouteInstructions,
-  setExpandedItineraries,
-  expandedIntermediateStops,
-  setExpandedIntermediateStops,
-  routeInstructions,
-  selectedShuttleDeparture,
-  setSelectedShuttleDeparture,
-  popupMaxHeight,
+  popupMaxHeight: popupMaxHeightProp,
 }: RouteStepsPopupProps) {
+  const {
+    routeSheetPanResponder,
+    routeMode,
+    actualOriginPoint,
+    destinationBuilding,
+    transitItineraries,
+    routeStarted,
+    selectedItineraryIndex,
+    expandedItineraries,
+    expandedIntermediateStops,
+    routeInstructions,
+    selectedShuttleDeparture,
+  } = state;
+  const {
+    hideInstructions,
+    setSelectedItineraryIndex,
+    setRouteDurationMinutes,
+    setRouteDistanceMeters,
+    setRouteInstructions,
+    setExpandedItineraries,
+    setExpandedIntermediateStops,
+    setSelectedShuttleDeparture,
+    popupMaxHeight: popupMaxHeightFromActions,
+  } = actions;
+  const { formatTime } = helpers;
+  const popupMaxHeight = popupMaxHeightFromActions ?? popupMaxHeightProp;
+
   const hasTransitItineraries =
     routeMode === "transit" && transitItineraries.length > 0;
   const showTransitJourneyDetails = hasTransitItineraries && routeStarted;
@@ -348,27 +363,21 @@ export default function RouteStepsPopup({
     <View
       style={[
         styles.routeStepsPopup,
-        popupMaxHeight === undefined ? null : { maxHeight: popupMaxHeight },
+        ...(popupMaxHeight === undefined ? [] : [{ maxHeight: popupMaxHeight }]),
       ]}
       testID="route-steps-popup"
     >
       <Pressable
         {...routeSheetPanResponder.panHandlers}
         style={styles.routeStepsHandle}
-        onPress={() => {
-          routeInstructionsDismissedRef.current = true;
-          setShowRouteInstructions(false);
-        }}
+        onPress={hideInstructions}
       >
         <ChevronDown size={24} color="#1F1F24" strokeWidth={2.5} />
       </Pressable>
       <Pressable
         testID="route-steps-close-button"
         style={styles.routeStepsCloseButton}
-        onPress={() => {
-          routeInstructionsDismissedRef.current = true;
-          setShowRouteInstructions(false);
-        }}
+        onPress={hideInstructions}
       >
         <X size={26} color="#1F1F24" strokeWidth={2.5} />
       </Pressable>

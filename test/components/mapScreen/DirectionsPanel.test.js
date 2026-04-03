@@ -125,32 +125,77 @@ const destinationBuilding = {
 };
 
 function createProps(overrides = {}) {
-  return {
-    setSearchText: jest.fn(),
-    setEditingField: jest.fn(),
+  const state = {
     searchInputRef: { current: { focus: jest.fn() } },
     editingField: undefined,
     originBuilding,
     destinationBuilding,
-    clearDirections: jest.fn(),
+    destinationPOIName: null,
     isDirectionsMode: false,
     isSameCampus: false,
     routeMode: "walking",
-    setRouteMode: jest.fn(),
     modeDurations: { walking: 12, driving: 7, transit: 18 },
-    setRouteStarted: jest.fn(),
-    routeInstructionsDismissedRef: { current: true },
-    setShowRouteInstructions: jest.fn(),
-    styles: createStyles(),
-    formatDuration: (minutes) => `${minutes} min`,
     originRoom: "801",
-    setOriginRoom: jest.fn(),
     destinationRoom: "102",
+    focusedRoom: null,
+    roomSuggestions: [],
+    hasIndoorRoute: undefined,
+  };
+  const actions = {
+    setSearchText: jest.fn(),
+    setEditingField: jest.fn(),
+    clearDirections: jest.fn(),
+    setRouteMode: jest.fn(),
+    setRouteStarted: jest.fn(),
+    showRouteInstructions: jest.fn(),
+    setOriginRoom: jest.fn(),
     setDestinationRoom: jest.fn(),
+    setActiveFloorPlan: jest.fn(),
+    setFloorPlanModalVisible: jest.fn(),
     openFloorPlanModal: jest.fn(),
+    setFocusedRoom: undefined,
+    onRoomSuggestionPressIn: undefined,
+    onRoomSuggestionSelect: undefined,
+  };
+  const helpers = {
     getRoomDetails: jest.fn(),
     getFloorPlanAsset: jest.fn(),
-    ...overrides,
+    formatDuration: (minutes) => `${minutes} min`,
+  };
+  let styles = createStyles();
+  let onShowIndoorDirections;
+
+  Object.entries(overrides).forEach(([key, value]) => {
+    if (key === "styles") {
+      styles = value;
+      return;
+    }
+    if (key === "onShowIndoorDirections") {
+      onShowIndoorDirections = value;
+      return;
+    }
+    if (key in state) {
+      state[key] = value;
+      return;
+    }
+    if (key in actions) {
+      actions[key] = value;
+      return;
+    }
+    if (key in helpers) {
+      helpers[key] = value;
+    }
+  });
+
+  return {
+    state,
+    actions,
+    helpers,
+    styles,
+    onShowIndoorDirections,
+    ...state,
+    ...actions,
+    ...helpers,
   };
 }
 
@@ -235,7 +280,7 @@ describe("components/mapScreen/DirectionsPanel", () => {
     expect(findByTestID(el, "route-mode-driving")).toBeNull();
   });
 
-  test("renders same-campus transport controls", () => {
+  test("renders same-campus transport controls without a separate exit button", () => {
     const props = createProps({
       isDirectionsMode: true,
       isSameCampus: true,
@@ -244,9 +289,7 @@ describe("components/mapScreen/DirectionsPanel", () => {
 
     expect(findText(el, "Same campus")).toBeTruthy();
     expect(findByTestID(el, "route-mode-driving")).toBeNull();
-
-    findByTestID(el, "direction-exit-button").props.onPress();
-    expect(props.clearDirections).toHaveBeenCalled();
+    expect(findByTestID(el, "direction-exit-button")).toBeNull();
   });
 
   test("renders duration fallbacks and active styles across route modes", () => {
@@ -314,8 +357,7 @@ describe("components/mapScreen/DirectionsPanel", () => {
 
     findByTestID(el, "direction-start-button").props.onPress();
     expect(props.setRouteStarted).toHaveBeenCalledWith(true);
-    expect(props.routeInstructionsDismissedRef.current).toBe(false);
-    expect(props.setShowRouteInstructions).toHaveBeenCalledWith(true);
+    expect(props.showRouteInstructions).toHaveBeenCalled();
   });
 
   test("renders active editing field styles", () => {
@@ -508,5 +550,19 @@ describe("components/mapScreen/DirectionsPanel", () => {
     const toValue = findByTestID(el, "direction-to-value-empty");
     expect(toValue).not.toBeNull();
     expect(toValue.props.children).toBe("Where to?");
+  });
+
+  test("uses default optional state values when POI name and room suggestion state are omitted", () => {
+    const props = createProps();
+    delete props.state.destinationPOIName;
+    delete props.state.focusedRoom;
+    delete props.state.roomSuggestions;
+
+    const el = renderTree(DirectionsPanel(props));
+
+    expect(findByTestID(el, "direction-to-value-EV").props.children).toBe(
+      "EV - Engineering",
+    );
+    expect(findByTestID(el, "room-suggestions-list")).toBeNull();
   });
 });

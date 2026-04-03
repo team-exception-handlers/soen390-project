@@ -11,8 +11,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-export type Campus = "SGW" | "LOY";
+import type { Campus } from "../constants/buildings";
 
 type AppHeaderProps = {
   campus: Campus;
