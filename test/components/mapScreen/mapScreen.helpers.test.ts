@@ -4,6 +4,7 @@ import {
   detectBuildingFromLocation,
   formatDuration,
   getBoundsFromRegion,
+  getDistanceBetweenCoordsMeters,
   getFloorPlanAsset,
   getPinVisibilityMode,
   getTransitColor,
@@ -35,6 +36,21 @@ const { findUserBuilding } = jest.requireMock("../../../utils/locationUtils") as
 describe("components/mapScreen/mapScreen.helpers", () => {
   test("rounds coordinates to four decimal places", () => {
     expect(roundCoord(45.49716)).toBe(45.4972);
+  });
+
+  test("measures distance between coordinates in meters", () => {
+    expect(
+      getDistanceBetweenCoordsMeters(
+        { latitude: 45.497, longitude: -73.579 },
+        { latitude: 45.497, longitude: -73.579 },
+      ),
+    ).toBeCloseTo(0, 5);
+    expect(
+      getDistanceBetweenCoordsMeters(
+        { latitude: 45.497, longitude: -73.579 },
+        { latitude: 45.4972, longitude: -73.579 },
+      ),
+    ).toBeGreaterThan(20);
   });
 
   test("formats durations across hour boundaries", () => {

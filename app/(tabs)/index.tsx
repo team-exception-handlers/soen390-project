@@ -35,6 +35,7 @@ import {
   buildingHasPolygon,
   formatDuration,
   getBoundsFromRegion,
+  getDistanceBetweenCoordsMeters,
   getFloorPlanAsset,
   getPinVisibilityMode,
   resolveBuildingByCode,
@@ -57,37 +58,37 @@ import {
 import { getToken } from "../../utils/googleCalendarAuth";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
-    findIndoorRoute,
-    getFloorBounds,
-    getGraphFloorBounds,
-    getSpecialNodesForFloor,
-    type IndoorRoute,
+  findIndoorRoute,
+  getFloorBounds,
+  getGraphFloorBounds,
+  getSpecialNodesForFloor,
+  type IndoorRoute,
 } from "../../utils/indoorDirections";
 import { getCampusRegion } from "../../utils/mapRegions";
 import { fetchOsrmRoute } from "../../utils/osrmDirections";
 
 import POISearchPanel from "../../components/POISearchPanel";
 import {
-    requestLocationPermission,
+  requestLocationPermission,
 } from "../../utils/locationUtils";
 import type { POIResult } from "../../utils/poiSearch";
 import {
-    getRoomDetails,
-    getRoomsForBuilding,
-    roomLabelMatchesSearchPrefix,
+  getRoomDetails,
+  getRoomsForBuilding,
+  roomLabelMatchesSearchPrefix,
 } from "../../utils/roomUtils";
 import {
-    calculateOsrmRouteHelper,
-    calculateShuttleRouteHelper,
-    calculateTransitRouteHelper,
+  calculateOsrmRouteHelper,
+  calculateShuttleRouteHelper,
+  calculateTransitRouteHelper,
 } from "../../utils/routeCalculators";
 import {
-    fetchTransitItineraries,
-    formatTime,
+  fetchTransitItineraries,
+  formatTime,
 } from "../../utils/transitousDirections";
 import {
-    findNearestWashroomTarget,
-    type WashroomCategory
+  findNearestWashroomTarget,
+  type WashroomCategory
 } from "../../utils/washroomSearch";
 
 const parseFloorPlanKey = (key: string): { building: string; floor: number } | null => {
@@ -107,6 +108,7 @@ const SPECIAL_NODE_COLORS: Record<string, { fill: string; label: string }> = {
 
 const DEFAULT_START_BUILDING_CODE = "H";
 const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
+const ROUTE_RECALC_MIN_DISTANCE_METERS = 25;
 
 export default function MapScreen() {
   const [floorPlanModalOptions, setFloorPlanModalOptions] = useState<
@@ -317,7 +319,6 @@ export default function MapScreen() {
     () => getCampusRegion("SGW", SGW_POLYGONS.features),
     [],
   );
-
   const actualOriginPoint = useMemo(() => {
     if (originBuildingCode) {
       const building = BUILDINGS.find((value) => value.code === originBuildingCode);
@@ -337,6 +338,63 @@ export default function MapScreen() {
 
     return null;
   }, [originBuildingCode, userLocation]);
+  const [routingOriginPoint, setRoutingOriginPoint] = useState(actualOriginPoint);
+  const previousAutoRoutingOriginRef = useRef<{
+    point: { latitude: number; longitude: number } | null;
+    currentBuildingCode: string | null | undefined;
+  }>({
+    point: null,
+    currentBuildingCode: undefined,
+  });
+
+  useEffect(() => {
+    if (!actualOriginPoint) {
+      previousAutoRoutingOriginRef.current = {
+        point: null,
+        currentBuildingCode: currentBuilding,
+      };
+      setRoutingOriginPoint(null);
+      return;
+    }
+
+    if (originBuildingCode) {
+      previousAutoRoutingOriginRef.current = {
+        point: null,
+        currentBuildingCode: currentBuilding,
+      };
+      setRoutingOriginPoint((previous) =>
+        previous?.latitude === actualOriginPoint.latitude &&
+        previous?.longitude === actualOriginPoint.longitude
+          ? previous
+          : actualOriginPoint,
+      );
+      return;
+    }
+
+    const previousAutoOrigin = previousAutoRoutingOriginRef.current;
+    const shouldKeepPreviousOrigin =
+      previousAutoOrigin.point &&
+      previousAutoOrigin.currentBuildingCode === currentBuilding &&
+      getDistanceBetweenCoordsMeters(
+        previousAutoOrigin.point,
+        actualOriginPoint,
+      ) < ROUTE_RECALC_MIN_DISTANCE_METERS;
+
+    if (shouldKeepPreviousOrigin) {
+      return;
+    }
+
+    previousAutoRoutingOriginRef.current = {
+      point: actualOriginPoint,
+      currentBuildingCode: currentBuilding,
+    };
+    setRoutingOriginPoint((previous) =>
+      previous?.latitude === actualOriginPoint.latitude &&
+      previous?.longitude === actualOriginPoint.longitude
+        ? previous
+        : actualOriginPoint,
+    );
+  }, [actualOriginPoint, currentBuilding, originBuildingCode]);
 
   const destinationBuilding = useMemo(
     () => resolveBuildingByCode(destinationBuildingCode, BUILDINGS),
@@ -418,7 +476,7 @@ export default function MapScreen() {
   }, [destinationPOI, destinationBuilding]);
 
   useEffect(() => {
-    if (!resolvedDestination || !actualOriginPoint) {
+    if (!resolvedDestination || !routingOriginPoint) {
       setModeDurations({ walking: null, driving: null, transit: null });
       return;
     }
@@ -428,8 +486,8 @@ export default function MapScreen() {
     const loadDurations = async () => {
       const walkOrBikeProfile = isSameCampus ? "walking" : "cycling";
       const [walkOrBike, drive] = await Promise.allSettled([
-        fetchOsrmRoute(actualOriginPoint, resolvedDestination, walkOrBikeProfile),
-        fetchOsrmRoute(actualOriginPoint, resolvedDestination, "driving"),
+        fetchOsrmRoute(routingOriginPoint, resolvedDestination, walkOrBikeProfile),
+        fetchOsrmRoute(routingOriginPoint, resolvedDestination, "driving"),
       ]);
 
       if (cancelled) return;
@@ -449,7 +507,7 @@ export default function MapScreen() {
       if (!isSameCampus) {
         try {
           const itineraries = await fetchTransitItineraries(
-            actualOriginPoint,
+            routingOriginPoint,
             resolvedDestination,
           );
           if (!cancelled) {
@@ -473,7 +531,7 @@ export default function MapScreen() {
     return () => {
       cancelled = true;
     };
-  }, [actualOriginPoint, resolvedDestination, isSameCampus]);
+  }, [isSameCampus, resolvedDestination, routingOriginPoint]);
 
   const exitDirectionsMode = useCallback(() => {
     setIsDirectionsMode(false);
@@ -660,7 +718,7 @@ export default function MapScreen() {
   }, [campusBuildings]);
 
   useEffect(() => {
-    if (!isDirectionsMode || !resolvedDestination || !actualOriginPoint) {
+    if (!isDirectionsMode || !resolvedDestination || !routingOriginPoint) {
       routeActions.resetAll();
       return;
     }
@@ -670,17 +728,17 @@ export default function MapScreen() {
     const fetchRoute = async () => {
       if (routeMode === "shuttle") {
         return calculateShuttleRouteHelper(
-          actualOriginPoint,
-          destinationBuilding,
+          routingOriginPoint,
+          resolvedDestination,
           routeState.selectedShuttleDeparture,
         );
       }
       if (routeMode === "transit") {
-        return calculateTransitRouteHelper(actualOriginPoint, resolvedDestination);
+        return calculateTransitRouteHelper(routingOriginPoint, resolvedDestination);
       }
       return calculateOsrmRouteHelper(
-        actualOriginPoint,
-        destinationBuilding,
+        routingOriginPoint,
+        resolvedDestination,
         routeMode,
         isSameCampus,
       );
@@ -716,7 +774,7 @@ export default function MapScreen() {
   }, [
     isDirectionsMode,
     resolvedDestination,
-    actualOriginPoint,
+    routingOriginPoint,
     clearRoomInputs,
     destinationBuilding,
     isDirectionsMode,
