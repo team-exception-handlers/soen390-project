@@ -1,19 +1,19 @@
-# appId: com.anonymous.concordiaclassfinder
-# ---
-# - tapOn:
-#     id: "direction-to-button"
-# - tapOn:
-#     id: "search-input"
-# - inputText: "Hall building"
-# - extendedWaitUntil:
-#     visible:
-#       id: "search-result-H"
-#     timeout: 15000
-# - tapOn:
-#     id: "search-result-H"
-# - extendedWaitUntil:
-#     visible:
-#       id: "building-info-directions"
-#     timeout: 10000
-# - tapOn:
-#     id: "building-info-directions"
+appId: com.anonymous.concordiaclassfinder
+---
+- tapOn:
+    id: "direction-to-button"
+- tapOn:
+    id: "search-input"
+- inputText: "Hall building"
+- extendedWaitUntil:
+    visible:
+      id: "search-result-H"
+    timeout: 15000
+- tapOn:
+    id: "search-result-H"
+- extendedWaitUntil:
+    visible:
+      id: "building-info-directions"
+    timeout: 10000
+- tapOn:
+    id: "building-info-directions"
