@@ -7,8 +7,8 @@ appId: host.exp.Exponent
     permissions:
       location: inuse
 - setLocation:
-    latitude: 45.495376
-    longitude: -73.577997
+    latitude: 45.497092
+    longitude: -73.5788
 - runFlow:
     file: _launch-expo-go.yaml
 
@@ -20,11 +20,19 @@ appId: host.exp.Exponent
 - tapOn: Nearby
 - assertVisible: Washroom
 - tapOn: Washroom
+- assertVisible:
+    text: Washroom
+    index: 1
+- tapOn: Close
 
 - setLocation:
     latitude: 45.495376
     longitude: -73.579044
 
+- assertVisible: Nearby
+- tapOn: Nearby
+- assertVisible: Washroom
+- tapOn: Washroom
 - assertVisible:
     text: Washroom
     index: 1
@@ -32,5 +40,5 @@ appId: host.exp.Exponent
     text: Washroom
     index: 1
 
-- tapOn:
-    point: 85%,63%
+- assertVisible: Exit
+- tapOn: Exit
