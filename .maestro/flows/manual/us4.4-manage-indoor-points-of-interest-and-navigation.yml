@@ -18,11 +18,9 @@ appId: host.exp.Exponent
     timeout: 45000
 
 - tapOn: Nearby
-- assertVisible: Washroom
-- tapOn: Washroom
-- assertVisible:
-    text: Washroom
-    index: 1
+- assertVisible: Coffee Shop
+- tapOn: Coffee Shop
+- assertVisible: Hive Café
 - tapOn: Close
 
 - setLocation:
@@ -33,6 +31,7 @@ appId: host.exp.Exponent
 - tapOn: Nearby
 - assertVisible: Washroom
 - tapOn: Washroom
-- assertVisible:
-    text: Washroom
-    index: 1
+- assertVisible: Henry F. Hall Building (Indoor)
+- tapOn: Henry F. Hall Building (Indoor)
+- assertVisible: Male washroom
+- tapOn: Male washroom
