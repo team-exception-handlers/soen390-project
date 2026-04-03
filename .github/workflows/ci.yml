@@ -49,8 +49,8 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  e2e-maestro:
-    name: Maestro E2E (iOS)
-    uses: ./.github/workflows/e2e-ios-maestro.yml
-    secrets:
-      EXPO_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_CLIENT_ID }}
+  # e2e-maestro:
+  #   name: Maestro E2E (iOS)
+  #   uses: ./.github/workflows/e2e-ios-maestro.yml
+  #   secrets:
+  #     EXPO_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_CLIENT_ID }}

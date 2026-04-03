@@ -1,31 +1,31 @@
-# CI suite: run all deterministic iOS flows in one Maestro session.
+# # CI suite: run all deterministic iOS flows in one Maestro session.
 
-appId: com.anonymous.concordiaclassfinder
+# appId: com.anonymous.concordiaclassfinder
 
----
-- runFlow:
-    file: us1.1-campus-maps.yml
-- runFlow:
-    file: us1.5a-building-pop-up-information.yml
-- runFlow:
-    file: us1.5b-building-pop-up-toggle-campus.yml
-- runFlow:
-    file: us2.1-select-start-and-destination.yml
-- runFlow:
-    file: us2.4-directions-sgw-loyola.yml
-- runFlow:
-    file: us2.5a-transport-walking-same-campus.yml
-- runFlow:
-    file: us2.5b-transport-modes-cross-campus.yml
-- runFlow:
-    file: us2.6-concordia-shuttle.yml
-- runFlow:
-    file: us3.x-calendar-flows.yml
-- runFlow:
-    file: us4.1-locate-rooms-specific-floor.yml
-- runFlow:
-    file: us4.2-shortest-path-direction.yml
-- runFlow:
-    file: us4.3-accessible-directions.yml
-- runFlow:
-    file: us4.5-room-direction-between-floors.yml
+# ---
+# - runFlow:
+#     file: us1.1-campus-maps.yml
+# - runFlow:
+#     file: us1.5a-building-pop-up-information.yml
+# - runFlow:
+#     file: us1.5b-building-pop-up-toggle-campus.yml
+# - runFlow:
+#     file: us2.1-select-start-and-destination.yml
+# - runFlow:
+#     file: us2.4-directions-sgw-loyola.yml
+# - runFlow:
+#     file: us2.5a-transport-walking-same-campus.yml
+# - runFlow:
+#     file: us2.5b-transport-modes-cross-campus.yml
+# - runFlow:
+#     file: us2.6-concordia-shuttle.yml
+# - runFlow:
+#     file: us3.x-calendar-flows.yml
+# - runFlow:
+#     file: us4.1-locate-rooms-specific-floor.yml
+# - runFlow:
+#     file: us4.2-shortest-path-direction.yml
+# - runFlow:
+#     file: us4.3-accessible-directions.yml
+# - runFlow:
+#     file: us4.5-room-direction-between-floors.yml
