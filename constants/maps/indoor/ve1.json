@@ -72,6 +72,16 @@
       "y": 366,
       "label": "",
       "accessible": true
+    },
+    {
+      "id": "VE_F1_room_48",
+      "type": "building_entry_exit",
+      "buildingId": "VE",
+      "floor": 1,
+      "x": 74,
+      "y": 367,
+      "label": "",
+      "accessible": true
     }
   ],
   "edges": [
@@ -130,6 +140,13 @@
       "type": "stair",
       "weight": 0,
       "accessible": false
+    },
+    {
+      "source": "VE_F1_hallway_waypoint_56",
+      "target": "VE_F1_room_48",
+      "type": "hallway",
+      "weight": 21,
+      "accessible": true
     }
   ]
 }
