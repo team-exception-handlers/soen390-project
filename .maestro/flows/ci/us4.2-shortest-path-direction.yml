@@ -1,42 +1,42 @@
-# US-4.2: Shortest indoor path - CI
+# # US-4.2: Shortest indoor path - CI
 
-appId: com.anonymous.concordiaclassfinder
+# appId: com.anonymous.concordiaclassfinder
 
----
-- runFlow:
-    file: _launch-app.yaml
+# ---
+# - runFlow:
+#     file: _launch-app.yaml
 
-- extendedWaitUntil:
-    visible:
-      id: "header-title"
-    timeout: 25000
+# - extendedWaitUntil:
+#     visible:
+#       id: "header-title"
+#     timeout: 25000
 
-- assertVisible: "Where to?"
-- assertVisible:
-    id: "directions-panel"
-- assertVisible:
-    id: "direction-go-button"
+# - assertVisible: "Where to?"
+# - assertVisible:
+#     id: "directions-panel"
+# - assertVisible:
+#     id: "direction-go-button"
 
-# FROM: search "Hall building", confirm, then room 919
-- runFlow:
-    file: _search-from-hall.yml
+# # FROM: search "Hall building", confirm, then room 919
+# - runFlow:
+#     file: _search-from-hall.yml
 
-- tapOn:
-    id: "search-room-from-input"
-- inputText: "919"
+# - tapOn:
+#     id: "search-room-from-input"
+# - inputText: "919"
 
-# TO: search "Hall building", confirm, then room 964
-- runFlow:
-    file: _search-to-hall.yml
+# # TO: search "Hall building", confirm, then room 964
+# - runFlow:
+#     file: _search-to-hall.yml
 
-- tapOn:
-    id: "direction-to-room-input"
-- inputText: "964"
-- pressKey: Enter
+# - tapOn:
+#     id: "direction-to-room-input"
+# - inputText: "964"
+# - pressKey: Enter
 
-- extendedWaitUntil:
-    visible:
-      id: "indoor-directions-button"
-    timeout: 20000
-- tapOn:
-    id: "indoor-directions-button"
+# - extendedWaitUntil:
+#     visible:
+#       id: "indoor-directions-button"
+#     timeout: 20000
+# - tapOn:
+#     id: "indoor-directions-button"

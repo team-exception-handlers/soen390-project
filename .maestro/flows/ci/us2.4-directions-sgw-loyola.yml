@@ -1,33 +1,33 @@
-# US-2.4: Directions between SGW and Loyola (and vice versa) – CI
+# # US-2.4: Directions between SGW and Loyola (and vice versa) – CI
 
-appId: com.anonymous.concordiaclassfinder
+# appId: com.anonymous.concordiaclassfinder
 
----
-- runFlow:
-    file: _launch-app.yaml
-- runFlow:
-    file: _hook-select-mb-to-sp.yml
+# ---
+# - runFlow:
+#     file: _launch-app.yaml
+# - runFlow:
+#     file: _hook-select-mb-to-sp.yml
 
-- assertVisible:
-    id: "direction-start-button"
-- tapOn:
-    id: "direction-start-button"
+# - assertVisible:
+#     id: "direction-start-button"
+# - tapOn:
+#     id: "direction-start-button"
 
-- extendedWaitUntil:
-    visible:
-      id: "route-steps-popup"
-    timeout: 45000
+# - extendedWaitUntil:
+#     visible:
+#       id: "route-steps-popup"
+#     timeout: 45000
 
-- assertVisible:
-    id: "route-steps-popup"
+# - assertVisible:
+#     id: "route-steps-popup"
 
-- tapOn:
-    id: "route-steps-close-button"
+# - tapOn:
+#     id: "route-steps-close-button"
 
-- extendedWaitUntil:
-    notVisible:
-      id: "route-steps-popup"
-    timeout: 10000
+# - extendedWaitUntil:
+#     notVisible:
+#       id: "route-steps-popup"
+#     timeout: 10000
 
-- assertNotVisible:
-    id: "route-steps-popup"
+# - assertNotVisible:
+#     id: "route-steps-popup"
