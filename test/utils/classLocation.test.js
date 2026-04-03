@@ -4,7 +4,6 @@ const {
     readBuilding,
     readRoom,
     isValidRoomEnding,
-    tryParseLocationAt
 } = require("../../utils/classLocation");
 
 describe("parseClassLocation", () => {

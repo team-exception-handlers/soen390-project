@@ -17,7 +17,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  useWindowDimensions,
   View,
   type LayoutChangeEvent,
 } from "react-native";
@@ -69,23 +68,8 @@ import { fetchOsrmRoute } from "../../utils/osrmDirections";
 
 import POISearchPanel from "../../components/POISearchPanel";
 import {
-    findUserBuilding,
-    getInitialLocationFix,
-    hasLocationPermission,
     requestLocationPermission,
-    startWatchingLocation,
 } from "../../utils/locationUtils";
-import {
-    NativeMapCallout,
-    NativeMapMarker,
-    NativeMapPolygon,
-    NativeMapPolyline,
-    NativeMapView,
-} from "../../utils/nativeMaps";
-import {
-    type RouteInstruction,
-    type RouteProfile,
-} from "../../utils/osrmDirections";
 import type { POIResult } from "../../utils/poiSearch";
 import {
     getRoomDetails,
@@ -98,10 +82,8 @@ import {
     calculateTransitRouteHelper,
 } from "../../utils/routeCalculators";
 import {
-    decodePolyline,
     fetchTransitItineraries,
     formatTime,
-    type TransitItinerary,
 } from "../../utils/transitousDirections";
 import {
     findNearestWashroomTarget,
@@ -112,7 +94,7 @@ const parseFloorPlanKey = (key: string): { building: string; floor: number } | n
   const match = key.match(/^([A-Z]+)-(-?\d+)$/);
   if (!match) return null;
   const building = match[1];
-  const floor = parseInt(match[2], 10);
+  const floor = Number.parseInt(match[2], 10);
   return { building, floor };
 };
 
@@ -127,7 +109,6 @@ const DEFAULT_START_BUILDING_CODE = "H";
 const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
 
 export default function MapScreen() {
-  const { height: windowHeight } = useWindowDimensions();
   const [floorPlanModalOptions, setFloorPlanModalOptions] = useState<
     { key: string; label: string }[]
   >([]);
@@ -230,14 +211,7 @@ export default function MapScreen() {
     }),
   ).current;
 
-  const webViewRef = useRef<any>(null);
-  const [webMapReady, setWebMapReady] = useState(false);
-  const locationSubscription = useRef<any>(null);
-  const campusRef = useRef<Campus>(campus);
-  const originModeRef = useRef<"auto" | "manual">("auto");
-  const hasInitializedCampusFromLocationRef = useRef(false);
   const [showPOIPanel, setShowPOIPanel] = useState(false);
-  const [poiResults, setPOIResults] = useState<POIResult[]>([]);
   const [destinationPOI, setDestinationPOI] = useState<POIResult | null>(null);
   const [washroomPickerBuilding, setWashroomPickerBuilding] = useState<
     string | null
@@ -249,33 +223,8 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
 
-  const webFrameTargetOrigin =
-    isWebPlatform && typeof globalThis.window !== "undefined"
-      ? globalThis.window.location.origin
-      : null;
-  const serializedWebFrameTargetOrigin = JSON.stringify(
-    webFrameTargetOrigin ?? "*",
-  );
-  const showE2EHooks =
-    Platform.OS !== "web" && process.env.EXPO_PUBLIC_ENABLE_E2E_HOOKS === "1";
-  const userLat = isWebPlatform ? userLocation?.coords.latitude || null : null;
-  const userLng = isWebPlatform ? userLocation?.coords.longitude || null : null;
-  const currentBuildingForHTML = isWebPlatform ? currentBuilding : null;
 
-  const postToWebIframe = useCallback(
-    (message: unknown) => {
-      if (!isWebPlatform || !webFrameTargetOrigin) return;
-      webViewRef.current?.contentWindow?.postMessage(
-        message,
-        webFrameTargetOrigin,
-      );
-    },
-    [isWebPlatform, webFrameTargetOrigin],
-  );
 
-  useEffect(() => {
-    campusRef.current = campus;
-  }, [campus]);
 
   useEffect(() => {
     getToken().then((token) => setHasCalendarToken(token !== null));
@@ -301,20 +250,6 @@ export default function MapScreen() {
       }),
     [insets.bottom, insets.top, isWebPlatform],
   );
-  const routeStepsPopupMaxHeight = useMemo(() => {
-    const preferredMaxHeight = isWebPlatform ? 360 : 300;
-    if (!directionsPanelBottom) return preferredMaxHeight;
-
-    const popupBottomOffset = insets.bottom + TAB_BAR_HEIGHT + 10;
-    const gapBelowDirectionsPanel = 12;
-    const availableHeight =
-      windowHeight -
-      directionsPanelBottom -
-      popupBottomOffset -
-      gapBelowDirectionsPanel;
-
-    return Math.max(140, Math.min(preferredMaxHeight, availableHeight));
-  }, [directionsPanelBottom, insets.bottom, isWebPlatform, windowHeight]);
 
   const handleDirectionsPanelLayout = useCallback(
     (event: LayoutChangeEvent) => {
@@ -609,7 +544,6 @@ export default function MapScreen() {
       });
       setWashroomPickerBuilding(null);
       setShowPOIPanel(false);
-      setPOIResults([]);
       if (target) {
         setDestinationAndEnterDirectionsMode(
           target.building.code,
@@ -627,31 +561,6 @@ export default function MapScreen() {
     ],
   );
 
-  const animateMapToRegion = useCallback(
-    (region: any, targetCampus: Campus) => {
-      setMapViewportRegion(region);
-
-      if (!isWebPlatform) {
-        mapRef.current?.animateToRegion?.(region, 450);
-      }
-
-      if (Platform.OS === "web") {
-        const minLat = region.latitude - region.latitudeDelta / 2;
-        const maxLat = region.latitude + region.latitudeDelta / 2;
-        const minLng = region.longitude - region.longitudeDelta / 2;
-        const maxLng = region.longitude + region.longitudeDelta / 2;
-        postToWebIframe({
-          type: "focusBounds",
-          bounds: [[minLat, minLng], [maxLat, maxLng]],
-          campus: targetCampus,
-          padding: [20, 20],
-        });
-      }
-
-      setCampus(targetCampus);
-    },
-    [isWebPlatform, postToWebIframe],
-  );
 
   const handleNextClassDirections = useCallback(async () => {
     setNextClassLoading(true);
@@ -692,7 +601,7 @@ export default function MapScreen() {
     } finally {
       setNextClassLoading(false);
     }
-  }, [campus, routeActions]);
+  }, [campus, routeActions, setDestinationAndEnterDirectionsMode]);
 
   const clearDirections = useCallback(() => {
     setSearchText("");
@@ -735,62 +644,6 @@ export default function MapScreen() {
     }).slice(0, 8);
   }, [searchText]);
 
-  const washroomSearchResults = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-    const isWashroomQuery =
-      query.includes("washroom") || query.includes("bathroom");
-    if (!isWashroomQuery) return [];
-
-    const washroomParams = {
-      campusBuildings,
-      actualOriginPoint,
-      originBuildingCode: originBuilding?.code ?? null,
-      originRoom,
-      destinationBuildingCode: destinationBuilding?.code ?? null,
-      destinationRoom,
-    };
-
-    const maleWashroomTarget = findNearestWashroomTarget(
-      "male_washroom",
-      washroomParams,
-    );
-    const femaleWashroomTarget = findNearestWashroomTarget(
-      "female_washroom",
-      washroomParams,
-    );
-
-    return [
-      maleWashroomTarget
-        ? {
-          key: "nearest-male-washroom",
-          label: "Nearest male washroom",
-          building: maleWashroomTarget.building,
-          roomLabel: maleWashroomTarget.roomLabel,
-        }
-        : null,
-      femaleWashroomTarget
-        ? {
-          key: "nearest-female-washroom",
-          label: "Nearest female washroom",
-          building: femaleWashroomTarget.building,
-          roomLabel: femaleWashroomTarget.roomLabel,
-        }
-        : null,
-    ].filter((result): result is {
-      key: string;
-      label: string;
-      building: BuildingRecord;
-      roomLabel: string;
-    } => result !== null);
-  }, [
-    actualOriginPoint,
-    campusBuildings,
-    destinationBuilding?.code,
-    destinationRoom,
-    originBuilding?.code,
-    originRoom,
-    searchText,
-  ]);
 
   const handleSearchResultPress = useCallback((building: BuildingRecord) => {
     if (building.campus !== campus) {
@@ -961,6 +814,72 @@ export default function MapScreen() {
     setSelectedFloorPlanKey(null);
   }, []);
 
+  const renderFloorPlanContent = () => {
+    if (activeFloorPlan == null || selectedFloorPlanKey == null) {
+      return null;
+    }
+
+    const parsedKey = parseFloorPlanKey(selectedFloorPlanKey);
+    const bounds = parsedKey ? getFloorBounds(parsedKey.building, parsedKey.floor) : { width: 1024, height: 1024 };
+    const graphBounds = parsedKey ? getGraphFloorBounds(parsedKey.building, parsedKey.floor) : { width: 1024, height: 1024 };
+    const specialNodes = parsedKey ? getSpecialNodesForFloor(parsedKey.building, parsedKey.floor) : [];
+
+    const renderCircles = () =>
+      specialNodes.map((node) => {
+        const x = (node.x * bounds.width) / graphBounds.width;
+        const y = (node.y * bounds.height) / graphBounds.height;
+        const nodeColor = SPECIAL_NODE_COLORS[node.type];
+        if (!nodeColor) return null;
+        return (
+          <Circle
+            key={node.id}
+            cx={x}
+            cy={y}
+            r={12}
+            fill={nodeColor.fill}
+            stroke="white"
+            strokeWidth={2}
+            opacity={0.9}
+          />
+        );
+      });
+
+    // If activeFloorPlan is a number or we are on Web, render as Image
+    // Otherwise, treat as a React component and render inside Svg
+    const isImageSource = isWebPlatform || typeof activeFloorPlan === "number";
+
+    if (isImageSource) {
+      return (
+        <View style={{ position: "relative", width: "100%", height: "100%" }}>
+          <Image
+            source={activeFloorPlan as any}
+            style={styles.floorPlanImage}
+            resizeMode="contain"
+          />
+          {specialNodes.length > 0 && (
+            <View style={isWebPlatform ? { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" } : StyleSheet.absoluteFill}>
+              <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet">
+                {renderCircles()}
+              </Svg>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    const FloorPlanComponent = activeFloorPlan as React.ComponentType<{
+      width?: string | number;
+      height?: string | number;
+    }>;
+
+    return (
+      <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet">
+        <FloorPlanComponent width={bounds.width} height={bounds.height} />
+        {renderCircles()}
+      </Svg>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <AppHeader
@@ -974,11 +893,10 @@ export default function MapScreen() {
       {showPOIPanel && (
         <POISearchPanel
           userLocation={actualOriginPoint}
-          onResultsChange={setPOIResults}
+          onResultsChange={() => {}}
           onSelectPOI={handlePOIPress}
           onClose={() => {
             setShowPOIPanel(false);
-            setPOIResults([]);
           }}
         />
       )}
@@ -1089,8 +1007,6 @@ export default function MapScreen() {
           showRouteInstructions: routeActions.showInstructions,
           setOriginRoom,
           setDestinationRoom,
-          setActiveFloorPlan,
-          setFloorPlanModalVisible,
           openFloorPlanModal,
           setFocusedRoom,
           onRoomSuggestionPressIn: () => {
@@ -1184,7 +1100,6 @@ export default function MapScreen() {
         style={styles.poiButton}
         onPress={() => {
           setShowPOIPanel((prev) => !prev);
-          if (showPOIPanel) setPOIResults([]);
         }}
       >
         <Text style={styles.poiButtonText}>
@@ -1352,105 +1267,7 @@ export default function MapScreen() {
             ) : null}
 
             <View style={styles.floorPlanModalBody}>
-              {(activeFloorPlan != null && selectedFloorPlanKey != null) ? (() => {
-                const parsedKey = parseFloorPlanKey(selectedFloorPlanKey);
-                if (!parsedKey) {
-                  return (Platform.OS === "web" ? (
-                    <Image
-                      source={activeFloorPlan}
-                      style={styles.floorPlanImage}
-                      resizeMode="contain"
-                    />
-                  ) : typeof activeFloorPlan === "number" ? (
-                    <Image
-                      source={activeFloorPlan}
-                      style={styles.floorPlanImage}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    (() => {
-                      const FloorPlanComponent = activeFloorPlan as React.ComponentType<{
-                        width?: string | number;
-                        height?: string | number;
-                      }>;
-                      return (
-                        <Svg width="100%" height="100%" viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid meet">
-                          <FloorPlanComponent width={1024} height={1024} />
-                        </Svg>
-                      );
-                    })()
-                  )) as React.ReactNode;
-                }
-
-                const specialNodes = getSpecialNodesForFloor(parsedKey.building, parsedKey.floor);
-                const bounds = getFloorBounds(parsedKey.building, parsedKey.floor);
-                const graphBounds = getGraphFloorBounds(parsedKey.building, parsedKey.floor);
-
-                const renderSpecialNodeCircles = () =>
-                  specialNodes.map((node) => {
-                    const x = (node.x * bounds.width) / graphBounds.width;
-                    const y = (node.y * bounds.height) / graphBounds.height;
-                    const nodeColor = SPECIAL_NODE_COLORS[node.type];
-                    if (!nodeColor) return null;
-                    return (
-                      <Circle
-                        key={node.id}
-                        cx={x}
-                        cy={y}
-                        r={12}
-                        fill={nodeColor.fill}
-                        stroke="white"
-                        strokeWidth={2}
-                        opacity={0.9}
-                      />
-                    );
-                  });
-
-                if (Platform.OS === "web") {
-                  return (
-                    <View style={{ position: 'relative', width: '100%', height: '100%' }}>
-                      <Image
-                        source={activeFloorPlan}
-                        style={styles.floorPlanImage}
-                        resizeMode="contain"
-                      />
-                      {specialNodes.length > 0 && (
-                        <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
-                          {renderSpecialNodeCircles()}
-                        </Svg>
-                      )}
-                    </View>
-                  );
-                } else if (typeof activeFloorPlan === "number") {
-                  return (
-                    <View style={{ position: 'relative', width: '100%', height: '100%' }}>
-                      <Image
-                        source={activeFloorPlan}
-                        style={styles.floorPlanImage}
-                        resizeMode="contain"
-                      />
-                      {specialNodes.length > 0 && (
-                        <View style={StyleSheet.absoluteFill}>
-                          <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet">
-                            {renderSpecialNodeCircles()}
-                          </Svg>
-                        </View>
-                      )}
-                    </View>
-                  );
-                } else {
-                  const FloorPlanComponent = activeFloorPlan as React.ComponentType<{
-                    width?: string | number;
-                    height?: string | number;
-                  }>;
-                  return (
-                    <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet">
-                      <FloorPlanComponent width={bounds.width} height={bounds.height} />
-                      {renderSpecialNodeCircles()}
-                    </Svg>
-                  );
-                }
-              })() : null}
+              {renderFloorPlanContent()}
             </View>
             <View style={styles.floorPlanLegend}>
               {Object.entries(SPECIAL_NODE_COLORS).map(([type, { fill, label }]) => (

@@ -35,27 +35,49 @@ jest.mock("lucide-react-native", () => {
 jest.mock("react-native", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
 
-  const Image = (props) => React.createElement("Image", props);
-  const Modal = ({ children, ...rest }) =>
-    React.createElement("Modal", rest, children);
-  Modal.propTypes = { children: PropTypes.node };
+  const Image = ({ style, ...props }) => React.createElement("Image", { ...props, style });
+  Image.propTypes = { style: stylePropType };
+  const Modal = ({ children, style, ...rest }) =>
+    React.createElement("Modal", { ...rest, style }, children);
+  Modal.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
-  const Pressable = ({ children, ...rest }) =>
-    React.createElement("Pressable", rest, children);
-  Pressable.propTypes = { children: PropTypes.node };
+  const Pressable = ({ children, style, ...rest }) =>
+    React.createElement("Pressable", { ...rest, style }, children);
+  Pressable.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
-  const ScrollView = ({ children, ...rest }) =>
-    React.createElement("ScrollView", rest, children);
-  ScrollView.propTypes = { children: PropTypes.node };
+  const ScrollView = ({ children, style, ...rest }) =>
+    React.createElement("ScrollView", { ...rest, style }, children);
+  ScrollView.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
-  const Text = ({ children, ...rest }) =>
-    React.createElement("Text", rest, children);
-  Text.propTypes = { children: PropTypes.node };
+  const Text = ({ children, style, ...rest }) =>
+    React.createElement("Text", { ...rest, style }, children);
+  Text.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
-  const View = ({ children, ...rest }) =>
-    React.createElement("View", rest, children);
-  View.propTypes = { children: PropTypes.node };
+  const View = ({ children, style, ...rest }) =>
+    React.createElement("View", { ...rest, style }, children);
+  View.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
   return {
     Image,
@@ -73,11 +95,23 @@ jest.mock("react-native", () => {
 
 jest.mock("react-native-svg", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const SvgMock = ({ children, style, ...props }) => React.createElement("Svg", { ...props, style }, children);
+  SvgMock.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
   return {
     __esModule: true,
-    default: ({ children, ...props }) => React.createElement("Svg", props, children),
-    Circle: (props) => React.createElement("Circle", props),
-    Polyline: (props) => React.createElement("Polyline", props),
+    default: SvgMock,
+    Circle: (props) => React.createElement("Circle", { ...props, style: props.style }),
+    Polyline: (props) => React.createElement("Polyline", { ...props, style: props.style }),
   };
 });
 

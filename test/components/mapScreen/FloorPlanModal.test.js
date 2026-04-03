@@ -43,23 +43,53 @@ function createStyles() {
 const createHostComponent = (type) => {
   const React = require("react");
   const PropTypes = require("prop-types");
-  const HostComponent = ({ children, ...rest }) =>
-    React.createElement(type, rest, children);
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const HostComponent = ({ children, style, ...rest }) =>
+    React.createElement(type, { ...rest, style }, children);
   HostComponent.displayName = `${type}Host`;
-  HostComponent.propTypes = { children: PropTypes.node };
+  HostComponent.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
   return HostComponent;
 };
 
 const lucideMockFactory = () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const XIcon = (props) => React.createElement("XIcon", { ...props, style: props.style });
+  XIcon.propTypes = { style: stylePropType };
   return {
-    X: (props) => React.createElement("XIcon", props),
+    X: XIcon,
   };
 };
 
 const svgMockFactory = () => {
   const React = require("react");
-  return ({ children, ...rest }) => React.createElement("Svg", rest, children);
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const SvgMock = ({ children, style, ...rest }) => React.createElement("Svg", { ...rest, style }, children);
+  SvgMock.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
+  return SvgMock;
 };
 
 const reactNativeMockFactory = (os) => () => ({

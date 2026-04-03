@@ -2,13 +2,26 @@ jest.mock("react-native", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
 
-  const Text = ({ children, ...rest }) =>
-    React.createElement("Text", rest, children);
-  Text.propTypes = { children: PropTypes.node };
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
 
-  const TouchableOpacity = ({ children, ...rest }) =>
-    React.createElement("TouchableOpacity", rest, children);
-  TouchableOpacity.propTypes = { children: PropTypes.node };
+  const Text = ({ children, style, ...rest }) =>
+    React.createElement("Text", { ...rest, style }, children);
+  Text.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
+
+  const TouchableOpacity = ({ children, style, ...rest }) =>
+    React.createElement("TouchableOpacity", { ...rest, style }, children);
+  TouchableOpacity.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
   return {
     Text,

@@ -1,18 +1,36 @@
 jest.mock("expo-linear-gradient", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
-  const LinearGradient = ({ children, ...rest }) =>
-    React.createElement("LinearGradient", rest, children);
-  LinearGradient.propTypes = { children: PropTypes.node };
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const LinearGradient = ({ children, style, ...rest }) =>
+    React.createElement("LinearGradient", { ...rest, style }, children);
+  LinearGradient.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
   return { LinearGradient };
 });
 
 jest.mock("expo-blur", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
-  const BlurView = ({ children, ...rest }) =>
-    React.createElement("BlurView", rest, children);
-  BlurView.propTypes = { children: PropTypes.node };
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const BlurView = ({ children, style, ...rest }) =>
+    React.createElement("BlurView", { ...rest, style }, children);
+  BlurView.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
   return { BlurView };
 });
 
@@ -23,21 +41,36 @@ jest.mock("react-native-safe-area-context", () => ({
 jest.mock("react-native", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
-  const Pressable = ({ children, ...rest }) =>
-    React.createElement("Pressable", rest, children);
-  Pressable.propTypes = { children: PropTypes.node };
-  const Text = ({ children, ...rest }) =>
-    React.createElement("Text", rest, children);
-  Text.propTypes = { children: PropTypes.node };
-  const View = ({ children, ...rest }) =>
-    React.createElement("View", rest, children);
-  View.propTypes = { children: PropTypes.node };
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const Pressable = ({ children, style, ...rest }) =>
+    React.createElement("Pressable", { ...rest, style }, children);
+  Pressable.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
+  const Text = ({ children, style, ...rest }) =>
+    React.createElement("Text", { ...rest, style }, children);
+  Text.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
+  const View = ({ children, style, ...rest }) =>
+    React.createElement("View", { ...rest, style }, children);
+  View.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
   return {
     Platform: { OS: "web" },
     Pressable,
     StyleSheet: { create: (s) => s },
     Text,
-    TextInput: (props) => React.createElement("TextInput", props),
+    TextInput: (props) => React.createElement("TextInput", { ...props, style: props.style }),
     View,
     useWindowDimensions: () => ({ width: 1000, height: 800 }),
   };

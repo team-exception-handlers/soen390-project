@@ -1,32 +1,82 @@
 const React = require("react");
 
 // ── mocks ──────────────────────────────────────────────────────────────
-jest.mock("lucide-react-native", () => ({
-  Coffee: (props) => React.createElement("Coffee", props),
-  Dumbbell: (props) => React.createElement("Dumbbell", props),
-  Landmark: (props) => React.createElement("Landmark", props),
-  Library: (props) => React.createElement("Library", props),
-  Pill: (props) => React.createElement("Pill", props),
-  ShoppingCart: (props) => React.createElement("ShoppingCart", props),
-  Toilet: (props) => React.createElement("Toilet", props),
-  UtensilsCrossed: (props) => React.createElement("UtensilsCrossed", props),
-  X: (props) => React.createElement("X", props),
-}));
+jest.mock("lucide-react-native", () => {
+  const React = require("react");
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const icon = (name) => {
+    const Icon = (props) => React.createElement(name, props);
+    Icon.propTypes = { style: stylePropType };
+    return Icon;
+  };
+  return {
+    Coffee: icon("Coffee"),
+    Dumbbell: icon("Dumbbell"),
+    Landmark: icon("Landmark"),
+    Library: icon("Library"),
+    Pill: icon("Pill"),
+    ShoppingCart: icon("ShoppingCart"),
+    Toilet: icon("Toilet"),
+    UtensilsCrossed: icon("UtensilsCrossed"),
+    X: icon("X"),
+  };
+});
 
-jest.mock("react-native", () => ({
-  ActivityIndicator: "ActivityIndicator",
-  Pressable: ({ children, style, ...rest }) => {
+jest.mock("react-native", () => {
+  const React = require("react");
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+
+  const Pressable = ({ children, style, ...rest }) => {
     const resolvedStyle = typeof style === "function" ? style({ pressed: false }) : style;
     return React.createElement("Pressable", { ...rest, style: resolvedStyle }, children);
-  },
-  ScrollView: ({ children, ...rest }) =>
-    React.createElement("ScrollView", rest, children),
-  StyleSheet: { create: (s) => s },
-  Text: ({ children, ...rest }) =>
-    React.createElement("Text", rest, children),
-  View: ({ children, ...rest }) =>
-    React.createElement("View", rest, children),
-}));
+  };
+  Pressable.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
+
+  const ScrollView = ({ children, style, ...rest }) =>
+    React.createElement("ScrollView", { ...rest, style }, children);
+  ScrollView.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
+
+  const Text = ({ children, style, ...rest }) =>
+    React.createElement("Text", { ...rest, style }, children);
+  Text.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
+
+  const View = ({ children, style, ...rest }) =>
+    React.createElement("View", { ...rest, style }, children);
+  View.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
+
+  return {
+    ActivityIndicator: "ActivityIndicator",
+    Pressable,
+    ScrollView,
+    StyleSheet: { create: (s) => s },
+    Text,
+    View,
+  };
+});
 
 const mockFetchNearbyPOIs = jest.fn();
 const mockGetIndoorWashroomPOIs = jest.fn().mockReturnValue([]);
@@ -110,19 +160,7 @@ function findByTestID(node, id) {
   return null;
 }
 
-function findAllByTestIDPrefix(node, prefix) {
-  const results = [];
-  function walk(n) {
-    if (!n) return;
-    if (Array.isArray(n)) { n.forEach(walk); return; }
-    if (n?.props?.testID?.startsWith(prefix)) results.push(n);
-    if (n?.props?.children) walk(n.props.children);
-  }
-  walk(node);
-  return results;
-}
-
-function render(overrides = {}) {
+ function render(overrides = {}) {
   resetStates(overrides);
   const props = {
     userLocation: "userLocation" in overrides ? overrides.userLocation : { latitude: 45.497, longitude: -73.578 },

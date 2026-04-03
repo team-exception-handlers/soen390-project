@@ -240,21 +240,26 @@ function processEdge(
   const tgtNode = allNodes.get(e.target);
   if (!srcNode || !tgtNode) return;
 
-  const isEscalator = e.type === "escalator" || srcNode.type === "escalator_landing" || tgtNode.type === "escalator_landing";
-  const isElevator = e.type === "elevator" || srcNode.type === "elevator_door" || tgtNode.type === "elevator_door";
-  const isStair = e.type === "stair" || (!isEscalator && !isElevator && srcNode.type === "stair_landing");
+  const { isEscalator, isElevator, isStair } = getEdgeTransitType(e, srcNode, tgtNode);
 
-  if (isElevator && options.noElevators) return;
-  if (isEscalator && options.noEscalators) return;
-  if (isStair && options.noStairs) return;
+  if ((isElevator && options.noElevators) ||
+      (isEscalator && options.noEscalators) ||
+      (isStair && options.noStairs)) {
+    return;
+  }
 
   if ((isEscalator || isStair) && resolveVerticalDirectionalEdge(e, srcNode, tgtNode, adjacency)) {
     return;
   }
 
-  if (!adjacency.has(e.source)) adjacency.set(e.source, []);
-  if (!adjacency.has(e.target)) adjacency.set(e.target, []);
   addBidirectionalEdge(adjacency, e.source, e.target, e.weight);
+}
+
+function getEdgeTransitType(e: IndoorEdge, srcNode: IndoorNode, tgtNode: IndoorNode) {
+  const isEscalator = e.type === "escalator" || srcNode.type === "escalator_landing" || tgtNode.type === "escalator_landing";
+  const isElevator = e.type === "elevator" || srcNode.type === "elevator_door" || tgtNode.type === "elevator_door";
+  const isStair = e.type === "stair" || (!isEscalator && !isElevator && srcNode.type === "stair_landing");
+  return { isEscalator, isElevator, isStair };
 }
 
 function isVerticalTransitTypeDisabled(
@@ -1056,6 +1061,34 @@ function emitTurnWaypoint({
   });
 }
 
+function processHallwayWaypoint(
+  state: BuildStepsState,
+  i: number,
+  node: IndoorNode,
+  prev: IndoorNode,
+  next: IndoorNode,
+  segDist: number,
+  constraints: { minStraight: number; minWalk: number; minContinue: number }
+): void {
+  const turn = getTurnDirection(prev, node, next);
+  if (turn === "straight") {
+    emitStraightWaypoint(state, i, node, segDist, constraints.minStraight);
+    return;
+  }
+
+  emitTurnWaypoint({
+    state,
+    i,
+    node,
+    prev,
+    next,
+    turn,
+    segDist,
+    minWalkEmit: constraints.minWalk,
+    minContinue: constraints.minContinue,
+  });
+}
+
 function emitRouteStepsFromSimplifiedNodes(
   state: BuildStepsState,
 ): void {
@@ -1068,7 +1101,6 @@ function emitRouteStepsFromSimplifiedNodes(
     const node = state.nodes[i];
     const prev = state.nodes[i - 1];
     const next = state.nodes[i + 1];
-    // `lastEmittedDistIdx` is an index into `state.distances`.
     const segDist = state.distances[i] - state.distances[state.lastEmittedDistIdx];
 
     if (emitFloorChangeStep(state, i, node, prev, segDist, MIN_WALK_EMIT))
@@ -1076,43 +1108,14 @@ function emitRouteStepsFromSimplifiedNodes(
 
     if (state.inPassThroughFloor) continue;
 
-    if (
-      foldOrEmitContinueForDestination(
-        state,
-        i,
-        node,
-        prev,
-        segDist,
-        MIN_WALK_EMIT,
-        SHORT_FINAL_APPROACH,
-      )
-    )
+    if (foldOrEmitContinueForDestination(state, i, node, prev, segDist, MIN_WALK_EMIT, SHORT_FINAL_APPROACH))
       continue;
 
-    // Hallway waypoint (turn or straight)
     if (!next || !HALLWAY_NODE_TYPES.has(node.type)) continue;
 
-    const turn = getTurnDirection(prev, node, next);
-    if (turn === "straight") {
-      emitStraightWaypoint(
-        state,
-        i,
-        node,
-        segDist,
-        MIN_STRAIGHT_EMIT,
-      );
-      continue;
-    }
-
-    emitTurnWaypoint({
-      state,
-      i,
-      node,
-      prev,
-      next,
-      turn,
-      segDist,
-      minWalkEmit: MIN_WALK_EMIT,
+    processHallwayWaypoint(state, i, node, prev, next, segDist, {
+      minStraight: MIN_STRAIGHT_EMIT,
+      minWalk: MIN_WALK_EMIT,
       minContinue: MIN_CONTINUE,
     });
   }

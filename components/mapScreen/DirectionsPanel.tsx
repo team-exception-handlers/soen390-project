@@ -264,8 +264,6 @@ export type DirectionsPanelActions = Readonly<{
   showRouteInstructions: () => void;
   setOriginRoom: Dispatch<SetStateAction<string>>;
   setDestinationRoom: Dispatch<SetStateAction<string>>;
-  setActiveFloorPlan: (asset: FloorPlanAsset) => void;
-  setFloorPlanModalVisible: (visible: boolean) => void;
   openFloorPlanModal: (floorKey: string) => void;
   setFocusedRoom?: Dispatch<SetStateAction<"from" | "to" | null>>;
   onRoomSuggestionPressIn?: () => void;
@@ -322,8 +320,6 @@ export default function DirectionsPanel({
     showRouteInstructions,
     setOriginRoom,
     setDestinationRoom,
-    setActiveFloorPlan,
-    setFloorPlanModalVisible,
     openFloorPlanModal,
     setFocusedRoom,
     onRoomSuggestionPressIn,
@@ -338,6 +334,10 @@ export default function DirectionsPanel({
     originBuilding.code === destinationBuilding.code;
   const showIndoorButton =
     isSameBuilding && originRoom.trim() && destinationRoom.trim();
+
+  const destinationLabel = destinationBuilding
+    ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
+    : destinationPOIName || "Where to?";
 
   return (
     <View
@@ -422,11 +422,7 @@ export default function DirectionsPanel({
                   : "direction-to-value-empty"
               }
             >
-              {destinationBuilding
-                ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
-                : destinationPOIName
-                  ? destinationPOIName
-                  : "Where to?"}
+              {destinationLabel}
             </Text>
           </Pressable>
           <RoomInputGroup

@@ -168,10 +168,20 @@ function loadWebCampusMap({
     if (withWebView) {
       jest.doMock("react-native-webview", () => {
         const React = require("react");
-        return {
-          WebView: ({ children, ...rest }) =>
-            React.createElement("WebView", rest, children),
+        const PropTypes = require("prop-types");
+        const stylePropType = PropTypes.oneOfType([
+          PropTypes.object,
+          PropTypes.array,
+          PropTypes.func,
+          PropTypes.number,
+        ]);
+        const WebView = ({ children, style, ...rest }) =>
+          React.createElement("WebView", { ...rest, style }, children);
+        WebView.propTypes = {
+          children: PropTypes.node,
+          style: stylePropType,
         };
+        return { WebView };
       });
     } else {
       jest.doMock("react-native-webview", () => {

@@ -79,27 +79,29 @@ function roomLabelMatchesForSearch(
   return normalizedNodeLabel === `${prefix}-${normalizedUserLabel}`;
 }
 
+function isValidWashroomNode(node: any): node is Required<Pick<WashroomRoom, "label" | "category">> & {
+  type: string;
+  buildingId: string;
+  floor: number;
+  x: number;
+  y: number;
+} {
+  return (
+    node.type === "room" &&
+    (node.category === "male_washroom" || node.category === "female_washroom") &&
+    typeof node.label === "string" &&
+    node.label.trim().length > 0 &&
+    typeof node.buildingId === "string" &&
+    typeof node.floor === "number" &&
+    typeof node.x === "number" &&
+    typeof node.y === "number"
+  );
+}
+
 export const WASHROOM_ROOMS: WashroomRoom[] = INDOOR_WASHROOM_SOURCES.flatMap(
   (floorData) =>
     floorData.nodes
-      .filter(
-        (node): node is Required<Pick<WashroomRoom, "label" | "category">> & {
-          type: string;
-          buildingId: string;
-          floor: number;
-          x: number;
-          y: number;
-        } =>
-          node.type === "room" &&
-          (node.category === "male_washroom" ||
-            node.category === "female_washroom") &&
-          typeof node.label === "string" &&
-          node.label.trim().length > 0 &&
-          typeof node.buildingId === "string" &&
-          typeof node.floor === "number" &&
-          typeof node.x === "number" &&
-          typeof node.y === "number",
-      )
+      .filter(isValidWashroomNode)
       .map((node) => ({
         buildingCode: normalizeIndoorBuildingCode(node.buildingId),
         floor: node.floor,
@@ -110,26 +112,29 @@ export const WASHROOM_ROOMS: WashroomRoom[] = INDOOR_WASHROOM_SOURCES.flatMap(
       })),
 );
 
+function isValidIndoorRoomNode(node: any): node is {
+  type: string;
+  buildingId: string;
+  floor: number;
+  label: string;
+  x: number;
+  y: number;
+} {
+  return (
+    node.type === "room" &&
+    typeof node.label === "string" &&
+    node.label.trim().length > 0 &&
+    typeof node.buildingId === "string" &&
+    typeof node.floor === "number" &&
+    typeof node.x === "number" &&
+    typeof node.y === "number"
+  );
+}
+
 const INDOOR_ROOMS: IndoorRoomNode[] = INDOOR_WASHROOM_SOURCES.flatMap(
   (floorData) =>
     floorData.nodes
-      .filter(
-        (node): node is {
-          type: string;
-          buildingId: string;
-          floor: number;
-          label: string;
-          x: number;
-          y: number;
-        } =>
-          node.type === "room" &&
-          typeof node.label === "string" &&
-          node.label.trim().length > 0 &&
-          typeof node.buildingId === "string" &&
-          typeof node.floor === "number" &&
-          typeof node.x === "number" &&
-          typeof node.y === "number",
-      )
+      .filter(isValidIndoorRoomNode)
       .map((node) => ({
         buildingCode: normalizeIndoorBuildingCode(node.buildingId),
         floor: node.floor,

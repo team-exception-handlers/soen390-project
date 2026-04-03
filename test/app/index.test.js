@@ -17,11 +17,22 @@ jest.mock("react-native", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
 
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+
   const host =
     (type) => {
-      const HostComponent = ({ children, ...rest }) =>
-        React.createElement(type, rest, children);
+      const HostComponent = ({ children, style, ...rest }) =>
+        React.createElement(type, { ...rest, style }, children);
       HostComponent.displayName = `${type}Host`;
+      HostComponent.propTypes = {
+        children: PropTypes.node,
+        style: stylePropType,
+      };
       return HostComponent;
     };
 
@@ -32,11 +43,7 @@ jest.mock("react-native", () => {
   };
   Pressable.propTypes = {
     children: PropTypes.node,
-    style: PropTypes.oneOfType([
-      PropTypes.object,
-      PropTypes.array,
-      PropTypes.func,
-    ]),
+    style: stylePropType,
   };
 
   return {
@@ -73,8 +80,20 @@ jest.mock("expo-location", () => ({
 
 jest.mock("lucide-react-native", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const ChevronUp = (props) => React.createElement("ChevronUp", props);
+  ChevronUp.propTypes = { style: stylePropType };
+  const XIcon = (props) => React.createElement("XIcon", props);
+  XIcon.propTypes = { style: stylePropType };
   return {
-    ChevronUp: (props) => React.createElement("ChevronUp", props),
+    ChevronUp,
+    X: XIcon,
   };
 });
 
@@ -84,9 +103,21 @@ jest.mock("react-native-safe-area-context", () => ({
 
 jest.mock("react-native-svg", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const SvgMock = ({ children, style, ...props }) => React.createElement("Svg", { ...props, style }, children);
+  SvgMock.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
   return {
     __esModule: true,
-    default: ({ children, ...props }) => React.createElement("Svg", props, children),
+    default: SvgMock,
     Circle: (props) => React.createElement("Circle", props),
   };
 });

@@ -54,16 +54,37 @@ function createStyles() {
 const createHostComponent = (type) => {
   const React = require("react");
   const PropTypes = require("prop-types");
-  const HostComponent = ({ children, ...rest }) =>
-    React.createElement(type, rest, children);
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const HostComponent = ({ children, style, ...rest }) =>
+    React.createElement(type, { ...rest, style }, children);
   HostComponent.displayName = `${type}Host`;
-  HostComponent.propTypes = { children: PropTypes.node };
+  HostComponent.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
   return HostComponent;
 };
 
 const createMapComponent = (name) => {
   const React = require("react");
-  return ({ children, ...rest }) => React.createElement(name, rest, children);
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const MapComponent = ({ children, style, ...rest }) => React.createElement(name, { ...rest, style }, children);
+  MapComponent.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
+  return MapComponent;
 };
 
 const reactNativeMockFactory = () => ({
