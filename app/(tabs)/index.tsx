@@ -60,6 +60,8 @@ import { getToken } from "../../utils/googleCalendarAuth";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
     findIndoorRoute,
+    findRouteFromNearestExit,
+    findRouteToNearestExit,
     getFloorBounds,
     getGraphFloorBounds,
     getSpecialNodesForFloor,
@@ -163,6 +165,9 @@ export default function MapScreen() {
   );
   const [indoorDirectionsModalVisible, setIndoorDirectionsModalVisible] =
     useState(false);
+  const [exitIndoorRoute, setExitIndoorRoute] = useState<IndoorRoute | null | undefined>(undefined);
+  const [entryIndoorRoute, setEntryIndoorRoute] = useState<IndoorRoute | null | undefined>(undefined);
+  const [indoorModalPhase, setIndoorModalPhase] = useState<"same" | "exit" | "entry">("same");
   const [routeMode, setRouteMode] = useState<RouteMode>("walking");
   const [modeDurations, setModeDurations] = useState<
     Record<string, number | null>
@@ -505,7 +510,7 @@ export default function MapScreen() {
   }, [destinationBuilding, destinationRoom, focusedRoom, originBuilding, originRoom]);
 
   useEffect(() => {
-    if (isSameCampus) setRouteMode("walking");
+    setRouteMode(isSameCampus ? "walking" : "cycling");
   }, [isSameCampus]);
 
   useEffect(() => {
@@ -529,6 +534,34 @@ export default function MapScreen() {
       findIndoorRoute(originCode, trimmedOriginRoom, trimmedDestinationRoom),
     );
   }, [destinationBuilding, destinationRoom, originBuilding, originRoom]);
+
+  // Compute exit route when navigating between different buildings and origin room is filled
+  useEffect(() => {
+    const originCode = originBuilding?.code;
+    const destinationCode = destinationBuilding?.code;
+    const trimmedOriginRoom = originRoom.trim();
+
+    if (originCode == null || destinationCode == null || originCode === destinationCode || trimmedOriginRoom.length === 0) {
+      setExitIndoorRoute(undefined);
+      return;
+    }
+
+    setExitIndoorRoute(findRouteToNearestExit(originCode, trimmedOriginRoom));
+  }, [originBuilding, destinationBuilding, originRoom]);
+
+  // Compute entry route when navigating between different buildings and destination room is filled
+  useEffect(() => {
+    const originCode = originBuilding?.code;
+    const destinationCode = destinationBuilding?.code;
+    const trimmedDestinationRoom = destinationRoom.trim();
+
+    if (originCode == null || destinationCode == null || originCode === destinationCode || trimmedDestinationRoom.length === 0) {
+      setEntryIndoorRoute(undefined);
+      return;
+    }
+
+    setEntryIndoorRoute(findRouteFromNearestExit(destinationCode, trimmedDestinationRoom));
+  }, [originBuilding, destinationBuilding, destinationRoom]);
 
   const resolvedDestination = useMemo(() => {
     if (destinationPOI) {
@@ -989,6 +1022,12 @@ export default function MapScreen() {
     routeMode === "shuttle";
   const hasIndoorRoute =
     indoorRoute === undefined ? undefined : indoorRoute !== null;
+  const hasExitRoute =
+    exitIndoorRoute === undefined ? undefined : exitIndoorRoute !== null;
+  const hasEntryRoute =
+    entryIndoorRoute === undefined ? undefined : entryIndoorRoute !== null;
+
+
   const selectedBuildingFloorPlans = useMemo(
     () => getFloorPlanOptionsForBuilding(selectedBuilding),
     [selectedBuilding],
@@ -1167,7 +1206,11 @@ export default function MapScreen() {
           formatDuration,
         }}
         styles={styles}
-        onShowIndoorDirections={() => setIndoorDirectionsModalVisible(true)}
+        onShowIndoorDirections={() => { setIndoorModalPhase("same"); setIndoorDirectionsModalVisible(true); }}
+        onShowExitDirections={() => { setIndoorModalPhase("exit"); setIndoorDirectionsModalVisible(true); }}
+        hasExitRoute={hasExitRoute}
+        onShowEntryDirections={() => { setIndoorModalPhase("entry"); setIndoorDirectionsModalVisible(true); }}
+        hasEntryRoute={hasEntryRoute}
       />
 
       <CurrentBuildingBanner
@@ -1525,16 +1568,33 @@ export default function MapScreen() {
       <IndoorDirectionsModal
         visible={indoorDirectionsModalVisible}
         onClose={() => setIndoorDirectionsModalVisible(false)}
-        route={indoorRoute ?? null}
-        buildingCode={originBuilding?.code ?? destinationBuilding?.code ?? ""}
-        originRoom={originRoom}
-        destinationRoom={destinationRoom}
+        route={
+          indoorModalPhase === "exit"
+            ? exitIndoorRoute ?? null
+            : indoorModalPhase === "entry"
+              ? entryIndoorRoute ?? null
+              : indoorRoute ?? null
+        }
+        buildingCode={
+          indoorModalPhase === "exit"
+            ? originBuilding?.code ?? ""
+            : destinationBuilding?.code ?? originBuilding?.code ?? ""
+        }
+        originRoom={indoorModalPhase === "entry" ? "" : originRoom}
+        destinationRoom={indoorModalPhase === "exit" ? "" : destinationRoom}
         floorBounds={(floor) =>
-          getFloorBounds(originBuilding?.code ?? destinationBuilding?.code ?? "", floor)
+          getFloorBounds(
+            indoorModalPhase === "exit"
+              ? originBuilding?.code ?? ""
+              : destinationBuilding?.code ?? originBuilding?.code ?? "",
+            floor,
+          )
         }
         graphFloorBounds={(floor) =>
           getGraphFloorBounds(
-            originBuilding?.code ?? destinationBuilding?.code ?? "",
+            indoorModalPhase === "exit"
+              ? originBuilding?.code ?? ""
+              : destinationBuilding?.code ?? originBuilding?.code ?? "",
             floor,
           )
         }
