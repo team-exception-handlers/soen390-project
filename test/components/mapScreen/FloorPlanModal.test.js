@@ -40,43 +40,43 @@ function createStyles() {
   });
 }
 
+const createHostComponent = (type) => {
+  const React = require("react");
+  const PropTypes = require("prop-types");
+  const HostComponent = ({ children, ...rest }) =>
+    React.createElement(type, rest, children);
+  HostComponent.displayName = `${type}Host`;
+  HostComponent.propTypes = { children: PropTypes.node };
+  return HostComponent;
+};
+
+const lucideMockFactory = () => {
+  const React = require("react");
+  return {
+    X: (props) => React.createElement("XIcon", props),
+  };
+};
+
+const svgMockFactory = () => {
+  const React = require("react");
+  return ({ children, ...rest }) => React.createElement("Svg", rest, children);
+};
+
+const reactNativeMockFactory = (os) => () => ({
+  Image: createHostComponent("Image"),
+  Modal: createHostComponent("Modal"),
+  Platform: { OS: os },
+  Pressable: createHostComponent("Pressable"),
+  View: createHostComponent("View"),
+});
+
 function loadFloorPlanModal(os) {
   let FloorPlanModal;
 
   jest.isolateModules(() => {
-    jest.doMock("lucide-react-native", () => {
-      const React = require("react");
-      return {
-        X: (props) => React.createElement("XIcon", props),
-      };
-    });
-
-    jest.doMock("react-native-svg", () => {
-      const React = require("react");
-      return ({ children, ...rest }) => React.createElement("Svg", rest, children);
-    });
-
-    jest.doMock("react-native", () => {
-      const React = require("react");
-      const PropTypes = require("prop-types");
-
-      const host =
-        (type) => {
-          const HostComponent = ({ children, ...rest }) =>
-            React.createElement(type, rest, children);
-          HostComponent.displayName = `${type}Host`;
-          HostComponent.propTypes = { children: PropTypes.node };
-          return HostComponent;
-        };
-
-      return {
-        Image: host("Image"),
-        Modal: host("Modal"),
-        Platform: { OS: os },
-        Pressable: host("Pressable"),
-        View: host("View"),
-      };
-    });
+    jest.doMock("lucide-react-native", lucideMockFactory);
+    jest.doMock("react-native-svg", svgMockFactory);
+    jest.doMock("react-native", reactNativeMockFactory(os));
 
     FloorPlanModal = require("../../../components/mapScreen/FloorPlanModal").default;
   });

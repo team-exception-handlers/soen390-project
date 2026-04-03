@@ -181,120 +181,103 @@ export type FindNearestWashroomParams = {
  * Resolves nearest male/female washroom for map search: prefers same-building
  * path from origin/destination room context, else nearest campus building with data.
  */
-export function findNearestWashroomTarget(
-  category: WashroomCategory,
-  {
-    campusBuildings,
-    actualOriginPoint,
-    originBuildingCode,
-    originRoom,
-    destinationBuildingCode,
-    destinationRoom,
-  }: FindNearestWashroomParams,
-): NearestWashroomTarget | null {
-  const washroomsForCategory = WASHROOM_ROOMS.filter(
-    (room) => room.category === category,
-  );
-  if (washroomsForCategory.length === 0) return null;
-
-  const roomContextCandidates = [
-    { buildingCode: originBuildingCode, roomLabel: originRoom.trim() },
-    {
-      buildingCode: destinationBuildingCode,
-      roomLabel: destinationRoom.trim(),
-    },
+function getRoomContext(
+  params: FindNearestWashroomParams
+): { buildingCode: string | null; roomLabel: string } | null {
+  const candidates = [
+    { buildingCode: params.originBuildingCode, roomLabel: params.originRoom.trim() },
+    { buildingCode: params.destinationBuildingCode, roomLabel: params.destinationRoom.trim() },
   ];
 
-  const roomContext =
-    roomContextCandidates.find(
-      (candidate) =>
-        candidate.buildingCode != null && candidate.roomLabel.length > 0,
-    ) ??
-    roomContextCandidates.find((candidate) => candidate.buildingCode != null);
+  return (
+    candidates.find((c) => c.buildingCode != null && c.roomLabel.length > 0) ??
+    candidates.find((c) => c.buildingCode != null) ??
+    null
+  );
+}
 
-  if (roomContext?.buildingCode) {
-    const buildingWashrooms = washroomsForCategory
-      .filter((room) => room.buildingCode === roomContext.buildingCode)
-      .sort((a, b) => compareWashroomLabels(a.label, b.label));
+function calculateIndoorProximity(
+  washroom: WashroomRoom,
+  roomNode: IndoorRoomNode
+): number {
+  return (
+    Math.abs(washroom.floor - roomNode.floor) * 10000 +
+    (washroom.x - roomNode.x) ** 2 +
+    (washroom.y - roomNode.y) ** 2
+  );
+}
 
-    if (buildingWashrooms.length > 0) {
-      const buildingRecord =
-        BUILDINGS.find((building) => building.code === roomContext.buildingCode) ??
-        null;
-      if (!buildingRecord) return null;
+function findNearestWashroomInBuilding(
+  washrooms: WashroomRoom[],
+  buildingCode: string,
+  roomLabel: string
+): string | null {
+  if (roomLabel.length > 0) {
+    const startNode = INDOOR_ROOMS.find(
+      (room) =>
+        room.buildingCode === buildingCode &&
+        roomLabelMatchesForSearch(buildingCode, room.label, roomLabel)
+    );
 
-      const roomLabel = roomContext.roomLabel;
-      if (roomLabel.length > 0) {
-        const startRoomNode = INDOOR_ROOMS.find(
-          (room) =>
-            room.buildingCode === roomContext.buildingCode &&
-            roomLabelMatchesForSearch(
-              roomContext.buildingCode,
-              room.label,
-              roomLabel,
-            ),
-        );
-
-        if (startRoomNode) {
-          const [firstWashroom, ...otherWashrooms] = buildingWashrooms;
-          const nearestByRoomDistance = otherWashrooms.reduce(
-            (nearest, current) => {
-              const nearestDistance =
-                Math.abs(nearest.floor - startRoomNode.floor) * 10000 +
-                (nearest.x - startRoomNode.x) ** 2 +
-                (nearest.y - startRoomNode.y) ** 2;
-              const currentDistance =
-                Math.abs(current.floor - startRoomNode.floor) * 10000 +
-                (current.x - startRoomNode.x) ** 2 +
-                (current.y - startRoomNode.y) ** 2;
-              return currentDistance < nearestDistance ? current : nearest;
-            },
-            firstWashroom,
-          );
-
-          return {
-            building: buildingRecord,
-            roomLabel: nearestByRoomDistance.label,
-          };
-        }
-      }
-
-      const nearestFromFirstFloor = [...buildingWashrooms].sort((a, b) => {
-        const floorDelta = Math.abs(a.floor - 1) - Math.abs(b.floor - 1);
-        if (floorDelta !== 0) return floorDelta;
-        return compareWashroomLabels(a.label, b.label);
-      })[0];
-
-      return {
-        building: buildingRecord,
-        roomLabel: nearestFromFirstFloor.label,
-      };
+    if (startNode) {
+      const nearest = washrooms.reduce((best, current) => {
+        const bestDist = calculateIndoorProximity(best, startNode);
+        const currentDist = calculateIndoorProximity(current, startNode);
+        return currentDist < bestDist ? current : best;
+      });
+      return nearest.label;
     }
   }
 
-  const buildingsWithWashroomCategory = new Set(
-    washroomsForCategory.map((room) => room.buildingCode),
-  );
+  const sorted = [...washrooms].sort((a, b) => {
+    const floorDelta = Math.abs(a.floor - 1) - Math.abs(b.floor - 1);
+    if (floorDelta !== 0) return floorDelta;
+    return compareWashroomLabels(a.label, b.label);
+  });
+  return sorted[0]?.label ?? null;
+}
+
+function findNearestWashroomByCampus(
+  washrooms: WashroomRoom[],
+  campusBuildings: BuildingRecord[],
+  originPoint: { latitude: number; longitude: number } | null
+): NearestWashroomTarget | null {
+  const buildingCodes = new Set(washrooms.map((w) => w.buildingCode));
   const nearestBuilding = findNearestBuildingFromSet(
-    buildingsWithWashroomCategory,
+    buildingCodes,
     campusBuildings,
-    actualOriginPoint,
+    originPoint
   );
+
   if (!nearestBuilding) return null;
 
-  const roomsInNearestBuilding = washroomsForCategory
-    .filter((room) => room.buildingCode === nearestBuilding.code)
-    .sort((a, b) => {
-      const floorDelta = Math.abs(a.floor - 1) - Math.abs(b.floor - 1);
-      if (floorDelta !== 0) return floorDelta;
-      return compareWashroomLabels(a.label, b.label);
-    });
+  const buildingWashrooms = washrooms.filter((w) => w.buildingCode === nearestBuilding.code);
+  const roomLabel = findNearestWashroomInBuilding(buildingWashrooms, nearestBuilding.code, "");
 
-  const nearestRoom = roomsInNearestBuilding[0];
-  if (!nearestRoom) return null;
+  return roomLabel ? { building: nearestBuilding, roomLabel } : null;
+}
 
-  return {
-    building: nearestBuilding,
-    roomLabel: nearestRoom.label,
-  };
+export function findNearestWashroomTarget(
+  category: WashroomCategory,
+  params: FindNearestWashroomParams
+): NearestWashroomTarget | null {
+  const washrooms = WASHROOM_ROOMS.filter((room) => room.category === category);
+  if (washrooms.length === 0) return null;
+
+  const context = getRoomContext(params);
+  if (context?.buildingCode) {
+    const buildingWashrooms = washrooms.filter((r) => r.buildingCode === context.buildingCode);
+    const buildingRecord = BUILDINGS.find((b) => b.code === context.buildingCode);
+
+    if (buildingWashrooms.length > 0 && buildingRecord) {
+      const roomLabel = findNearestWashroomInBuilding(
+        buildingWashrooms,
+        context.buildingCode,
+        context.roomLabel
+      );
+      if (roomLabel) return { building: buildingRecord, roomLabel };
+    }
+  }
+
+  return findNearestWashroomByCampus(washrooms, params.campusBuildings, params.actualOriginPoint);
 }

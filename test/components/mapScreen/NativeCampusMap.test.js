@@ -51,64 +51,68 @@ function createStyles() {
   });
 }
 
+const createHostComponent = (type) => {
+  const React = require("react");
+  const PropTypes = require("prop-types");
+  const HostComponent = ({ children, ...rest }) =>
+    React.createElement(type, rest, children);
+  HostComponent.displayName = `${type}Host`;
+  HostComponent.propTypes = { children: PropTypes.node };
+  return HostComponent;
+};
+
+const createMapComponent = (name) => {
+  const React = require("react");
+  return ({ children, ...rest }) => React.createElement(name, rest, children);
+};
+
+const reactNativeMockFactory = () => ({
+  Text: createHostComponent("Text"),
+  View: createHostComponent("View"),
+});
+
+const transitousMockFactory = () => ({
+  decodePolyline: jest.fn(() => [
+    { latitude: 45.497, longitude: -73.579 },
+    { latitude: 45.498, longitude: -73.578 },
+  ]),
+});
+
+const locationMockFactory = () => ({
+  findUserBuilding: jest.fn(() => null),
+});
+
+const nativeMapsMockFactory = (fallback) => () => {
+  if (fallback) {
+    return {
+      NativeMapMarker: null,
+      NativeMapPolygon: null,
+      NativeMapPolyline: null,
+      NativeMapView: null,
+    };
+  }
+  return {
+    NativeMapMarker: createMapComponent("NativeMapMarker"),
+    NativeMapPolygon: createMapComponent("NativeMapPolygon"),
+    NativeMapPolyline: createMapComponent("NativeMapPolyline"),
+    NativeMapView: createMapComponent("NativeMapView"),
+  };
+};
+
 function loadNativeCampusMap({ fallback = false } = {}) {
   let NativeCampusMap;
 
   jest.isolateModules(() => {
-    jest.doMock("react-native", () => {
-      const React = require("react");
-      const PropTypes = require("prop-types");
+    jest.doMock("react-native", reactNativeMockFactory);
+    jest.doMock(
+      "../../../utils/transitousDirections",
+      transitousMockFactory,
+    );
+    jest.doMock("../../../utils/locationUtils", locationMockFactory);
+    jest.doMock("../../../utils/nativeMaps", nativeMapsMockFactory(fallback));
 
-      const host =
-        (type) => {
-          const HostComponent = ({ children, ...rest }) =>
-            React.createElement(type, rest, children);
-          HostComponent.displayName = `${type}Host`;
-          HostComponent.propTypes = { children: PropTypes.node };
-          return HostComponent;
-        };
-
-      return {
-        Text: host("Text"),
-        View: host("View"),
-      };
-    });
-
-    jest.doMock("../../../utils/transitousDirections", () => ({
-      decodePolyline: jest.fn(() => [
-        { latitude: 45.497, longitude: -73.579 },
-        { latitude: 45.498, longitude: -73.578 },
-      ]),
-    }));
-
-    jest.doMock("../../../utils/locationUtils", () => ({
-      findUserBuilding: jest.fn(() => null),
-    }));
-
-    if (fallback) {
-      jest.doMock("../../../utils/nativeMaps", () => ({
-        NativeMapMarker: null,
-        NativeMapPolygon: null,
-        NativeMapPolyline: null,
-        NativeMapView: null,
-      }));
-    } else {
-      jest.doMock("../../../utils/nativeMaps", () => {
-        const React = require("react");
-        return {
-          NativeMapMarker: ({ children, ...rest }) =>
-            React.createElement("NativeMapMarker", rest, children),
-          NativeMapPolygon: ({ children, ...rest }) =>
-            React.createElement("NativeMapPolygon", rest, children),
-          NativeMapPolyline: ({ children, ...rest }) =>
-            React.createElement("NativeMapPolyline", rest, children),
-          NativeMapView: ({ children, ...rest }) =>
-            React.createElement("NativeMapView", rest, children),
-        };
-      });
-    }
-
-    NativeCampusMap = require("../../../components/mapScreen/NativeCampusMap").default;
+    NativeCampusMap = require("../../../components/mapScreen/NativeCampusMap")
+      .default;
   });
 
   return NativeCampusMap;
