@@ -859,7 +859,7 @@ export default function MapScreen() {
       if (routeMode === "shuttle") {
         return calculateShuttleRouteHelper(
           routingOriginPoint,
-          destinationBuilding,
+          resolvedDestination,
           routeState.selectedShuttleDeparture,
         );
       }
@@ -868,7 +868,7 @@ export default function MapScreen() {
       }
       return calculateOsrmRouteHelper(
         routingOriginPoint,
-        destinationBuilding,
+        resolvedDestination,
         routeMode,
         isSameCampus,
       );
