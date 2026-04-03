@@ -7,8 +7,8 @@ appId: host.exp.Exponent
     permissions:
       location: inuse
 - setLocation:
-    latitude: 45.497092
-    longitude: -73.5788
+    latitude: 45.494381
+    longitude: -73.578425
 - runFlow:
     file: _launch-expo-go.yaml
 
@@ -18,8 +18,15 @@ appId: host.exp.Exponent
     timeout: 45000
 
 - tapOn: Nearby
-- assertVisible: Coffee Shop
-- tapOn: Coffee Shop
-- assertVisible: Hive Café
-- tapOn: Washroom
-- assertVisible: Henry F. Hall Building (Indoor)
+- assertVisible: Washroom
+- swipe:
+    from:
+      text: Washroom
+    direction: LEFT
+- tapOn: Library
+- tapOn: 5 km
+- assertVisible: Redpath Library Building, 1.0 km
+- tapOn: 500 m
+- assertNotVisible: Redpath Library Building
+
+
