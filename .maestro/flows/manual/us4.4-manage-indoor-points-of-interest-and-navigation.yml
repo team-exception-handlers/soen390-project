@@ -1,1 +1,36 @@
 # US-4.4: Manage Indoor Points of Interest and Navigation
+
+appId: host.exp.Exponent
+
+---
+- setPermissions:
+    permissions:
+      location: inuse
+- setLocation:
+    latitude: 45.495376
+    longitude: -73.577997
+- runFlow:
+    file: _launch-expo-go.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+
+- tapOn: Nearby
+- assertVisible: Washroom
+- tapOn: Washroom
+
+- setLocation:
+    latitude: 45.495376
+    longitude: -73.579044
+
+- assertVisible:
+    text: Washroom
+    index: 1
+- tapOn:
+    text: Washroom
+    index: 1
+
+- tapOn:
+    point: 85%,63%
