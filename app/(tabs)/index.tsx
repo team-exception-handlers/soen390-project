@@ -59,54 +59,37 @@ import {
 import { getToken } from "../../utils/googleCalendarAuth";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
-    findIndoorRoute,
-    getFloorBounds,
-    getGraphFloorBounds,
-    getSpecialNodesForFloor,
-    type IndoorRoute,
+  findIndoorRoute,
+  getFloorBounds,
+  getGraphFloorBounds,
+  getSpecialNodesForFloor,
+  type IndoorRoute,
 } from "../../utils/indoorDirections";
 import { getCampusRegion } from "../../utils/mapRegions";
 import { fetchOsrmRoute } from "../../utils/osrmDirections";
 
 import POISearchPanel from "../../components/POISearchPanel";
 import {
-    findUserBuilding,
-    getInitialLocationFix,
-    hasLocationPermission,
-    requestLocationPermission,
-    startWatchingLocation,
+  requestLocationPermission
 } from "../../utils/locationUtils";
-import {
-    NativeMapCallout,
-    NativeMapMarker,
-    NativeMapPolygon,
-    NativeMapPolyline,
-    NativeMapView,
-} from "../../utils/nativeMaps";
-import {
-    type RouteInstruction,
-    type RouteProfile,
-} from "../../utils/osrmDirections";
 import type { POIResult } from "../../utils/poiSearch";
 import {
-    getRoomDetails,
-    getRoomsForBuilding,
-    roomLabelMatchesSearchPrefix,
+  getRoomDetails,
+  getRoomsForBuilding,
+  roomLabelMatchesSearchPrefix,
 } from "../../utils/roomUtils";
 import {
-    calculateOsrmRouteHelper,
-    calculateShuttleRouteHelper,
-    calculateTransitRouteHelper,
+  calculateOsrmRouteHelper,
+  calculateShuttleRouteHelper,
+  calculateTransitRouteHelper,
 } from "../../utils/routeCalculators";
 import {
-    decodePolyline,
-    fetchTransitItineraries,
-    formatTime,
-    type TransitItinerary,
+  fetchTransitItineraries,
+  formatTime
 } from "../../utils/transitousDirections";
 import {
-    findNearestWashroomTarget,
-    type WashroomCategory
+  findNearestWashroomTarget,
+  type WashroomCategory
 } from "../../utils/washroomSearch";
 
 const parseFloorPlanKey = (key: string): { building: string; floor: number } | null => {
@@ -876,7 +859,7 @@ export default function MapScreen() {
       if (routeMode === "shuttle") {
         return calculateShuttleRouteHelper(
           routingOriginPoint,
-          destinationBuilding,
+          resolvedDestination,
           routeState.selectedShuttleDeparture,
         );
       }
@@ -885,7 +868,7 @@ export default function MapScreen() {
       }
       return calculateOsrmRouteHelper(
         routingOriginPoint,
-        destinationBuilding,
+        resolvedDestination,
         routeMode,
         isSameCampus,
       );
