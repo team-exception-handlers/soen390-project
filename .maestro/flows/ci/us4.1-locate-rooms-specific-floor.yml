@@ -1,51 +1,51 @@
-# # US-4.1: Locate rooms on a specific floor - CI
+# US-4.1: Locate rooms on a specific floor - CI
 
-# appId: com.anonymous.concordiaclassfinder
+appId: com.anonymous.concordiaclassfinder
 
-# ---
-# - runFlow:
-#     file: _launch-app.yaml
+---
+- runFlow:
+    file: _launch-app.yaml
 
-# - extendedWaitUntil:
-#     visible:
-#       id: "header-title"
-#     timeout: 25000
-# - assertVisible: "Where to?"
-# - assertVisible:
-#     id: "directions-panel"
-# - assertVisible:
-#     id: "direction-go-button"
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 25000
+- assertVisible: "Where to?"
+- assertVisible:
+    id: "directions-panel"
+- assertVisible:
+    id: "direction-go-button"
 
-# # FROM: Hall building, then room suggestions for "86" (H-86xx)
-# - runFlow:
-#     file: _search-from-hall.yml
+# FROM: Hall building, then room suggestions for "86" (H-86xx)
+- runFlow:
+    file: _search-from-hall.yml
 
-# - tapOn:
-#     id: "search-room-from-input"
-# - inputText: "86"
-# - extendedWaitUntil:
-#     visible:
-#       id: "room-suggestions-list"
-#     timeout: 5000
-# - tapOn:
-#     id: "room-suggestion-index-1"
+- tapOn:
+    id: "search-room-from-input"
+- inputText: "86"
+- extendedWaitUntil:
+    visible:
+      id: "room-suggestions-list"
+    timeout: 5000
+- tapOn:
+    id: "room-suggestion-index-1"
 
-# - runFlow:
-#     file: _search-to-hall.yml
-# - tapOn:
-#     id: "route-steps-close-button"
-# - tapOn:
-#     id: "direction-to-room-input"
-# - extendedWaitUntil:
-#     visible:
-#       id: "room-suggestions-list"
-#     timeout: 5000
-# - tapOn:
-#     id: "room-suggestion-index-2"
-# - extendedWaitUntil:
-#     visible:
-#       id: "indoor-directions-button"
-#     timeout: 20000
+- runFlow:
+    file: _search-to-hall.yml
+- tapOn:
+    id: "route-steps-close-button"
+- tapOn:
+    id: "direction-to-room-input"
+- extendedWaitUntil:
+    visible:
+      id: "room-suggestions-list"
+    timeout: 5000
+- tapOn:
+    id: "room-suggestion-index-2"
+- extendedWaitUntil:
+    visible:
+      id: "indoor-directions-button"
+    timeout: 20000
 
-# - tapOn:
-#     id: "indoor-directions-button"
+- tapOn:
+    id: "indoor-directions-button"
