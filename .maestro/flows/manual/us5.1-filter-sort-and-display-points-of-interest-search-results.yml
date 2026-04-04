@@ -1,0 +1,37 @@
+# US-5.1: Filter, Sort, and Display Points of Interest Search Results
+
+appId: host.exp.Exponent
+
+---
+- setPermissions:
+    permissions:
+      location: inuse
+- setLocation:
+    latitude: 45.494381
+    longitude: -73.578425
+- runFlow:
+    file: _launch-expo-go.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+
+- tapOn: Nearby
+- assertVisible: Washroom
+- swipe:
+    from:
+      text: Washroom
+    direction: LEFT
+- tapOn: Library
+- tapOn: 2 km
+- swipe:
+    from:
+      text: Redpath Library Building, 1.0 km
+    direction: UP
+- assertVisible: Bibliothèque Réjean-Ducharme
+- tapOn: 5 km
+- swipe:
+    from:
+      text: Redpath Library Building, 1.0 km
+    direction: UP

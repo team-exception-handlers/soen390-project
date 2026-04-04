@@ -1,0 +1,45 @@
+# US-5.2: Generate Outdoor Routes to Points of Interest
+appId: host.exp.Exponent
+
+---
+- setPermissions:
+    permissions:
+      location: inuse
+- setLocation:
+    latitude: 45.497092
+    longitude: -73.5788
+- runFlow:
+    file: _launch-expo-go.yaml
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+- runFlow:
+    file: _reset-map-state.yaml
+
+# AC1: POI becomes the destination of the route
+- tapOn: Nearby
+- assertVisible: Restaurant
+- tapOn: Restaurant
+- extendedWaitUntil:
+    visible:
+      text: "Baquette Brochette, 74 m, 2019 Rue Bishop"
+    timeout: 10000
+- tapOn: Baquette Brochette, 74 m, 2019 Rue Bishop
+- assertVisible:
+    id: "direction-to-value-empty"
+    text: "Baquette Brochette"
+
+# AC2: Route is displayed on the map
+- assertVisible:
+    id: route-steps-popup
+- assertNotVisible:
+    id: poi-results-list
+
+# AC3: Route starts from the user's current location
+- tapOn:
+    point: 47%,58%
+- assertVisible:
+    id: route-steps-popup
+- assertNotVisible:
+    text: "Enter start location"
