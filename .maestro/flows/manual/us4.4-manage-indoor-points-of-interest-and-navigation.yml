@@ -11,27 +11,54 @@ appId: host.exp.Exponent
     longitude: -73.5788
 - runFlow:
     file: _launch-expo-go.yaml
-
 - extendedWaitUntil:
     visible:
       id: "header-title"
     timeout: 45000
-
-- tapOn: Nearby
-- assertVisible: Coffee Shop
-- tapOn: Coffee Shop
-- assertVisible: Hive Café
-- tapOn: Close
-
-- setLocation:
-    latitude: 45.495376
-    longitude: -73.579044
-
-- assertVisible: Nearby
-- tapOn: Nearby
-- assertVisible: Washroom
-- tapOn: Washroom
-- assertVisible: Henry F. Hall Building (Indoor)
-- tapOn: Henry F. Hall Building (Indoor)
-- assertVisible: Male washroom
-- tapOn: Male washroom
+- tapOn: TO
+- tapOn: H
+- assertVisible: Go There
+- tapOn: Go There
+- assertVisible: "Room #"
+- tapOn: "Room #"
+- assertVisible: "0023"
+- tapOn: "0023"
+- tapOn: View Floor Plan
+- tapOn:
+    point: 42%,48%
+- tapOn: Get Directions
+- tapOn: Go
+- assertVisible:
+    id: indoor-directions-close
+- tapOn:
+    id: indoor-directions-close
+- tapOn: "Room #"
+- tapOn:
+    point: 86%,75%
+- tapOn:
+    point: 86%,75%
+- tapOn:
+    point: 86%,75%
+- tapOn:
+    point: 86%,75%
+- tapOn:
+    point: 86%,92%
+- tapOn: Show on-screen keyboard
+- tapOn:
+    text: H
+    index: 1
+- tapOn: ?123
+- tapOn: "-"
+- tapOn: "8"
+- tapOn: "0"
+- tapOn: "1"
+- tapOn:
+    point: 36%,32%
+- tapOn:
+    point: 32%,39%
+- tapOn: Get Directions
+- tapOn: Go
+- assertVisible:
+    id: indoor-directions-close
+- tapOn:
+    id: indoor-directions-close
