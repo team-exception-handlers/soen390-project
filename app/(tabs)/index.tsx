@@ -5,21 +5,21 @@ import { useLocalSearchParams } from "expo-router";
 import { ChevronUp, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Image,
-  Keyboard,
-  Linking,
-  Modal,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
-  type LayoutChangeEvent,
+    Image,
+    Keyboard,
+    Linking,
+    Modal,
+    PanResponder,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
+    type LayoutChangeEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -33,16 +33,16 @@ import NativeCampusMap from "../../components/mapScreen/NativeCampusMap";
 import RouteStepsPopup from "../../components/mapScreen/RouteStepsPopup";
 import WebCampusMap from "../../components/mapScreen/WebCampusMap";
 import {
-  buildingHasPolygon,
-  formatDuration,
-  getBoundsFromRegion,
-  getDistanceBetweenCoordsMeters,
-  getFloorPlanAsset,
-  getPinVisibilityMode,
-  resolveBuildingByCode,
-  roundCoord,
-  shouldShowBuildingPin,
-  type FloorPlanAsset,
+    buildingHasPolygon,
+    formatDuration,
+    getBoundsFromRegion,
+    getDistanceBetweenCoordsMeters,
+    getFloorPlanAsset,
+    getPinVisibilityMode,
+    resolveBuildingByCode,
+    roundCoord,
+    shouldShowBuildingPin,
+    type FloorPlanAsset,
 } from "../../components/mapScreen/mapScreen.helpers";
 import { BUILDINGS, type BuildingRecord, type Campus } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
@@ -53,43 +53,45 @@ import { createMapScreenStyles } from "../../styles/mapScreen.styles";
 import type { MapBounds, RouteMode } from "../../types/map";
 import { parseLocationParts } from "../../utils/classLocation";
 import {
-  getFloorPlanLabelForKey,
-  getFloorPlanOptionsForBuilding,
+    getFloorPlanLabelForKey,
+    getFloorPlanOptionsForBuilding,
 } from "../../utils/floorPlanCatalog";
 import { getToken } from "../../utils/googleCalendarAuth";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
-  findIndoorRoute,
-  getFloorBounds,
-  getGraphFloorBounds,
-  getSpecialNodesForFloor,
-  type IndoorRoute,
+    findIndoorRoute,
+    findIndoorRouteToNodeId,
+    getFloorBounds,
+    getGraphFloorBounds,
+    getSpecialNodesForFloor,
+    type IndoorRoute,
+    type SpecialFloorNode,
 } from "../../utils/indoorDirections";
 import { getCampusRegion } from "../../utils/mapRegions";
 import { fetchOsrmRoute } from "../../utils/osrmDirections";
 
 import POISearchPanel from "../../components/POISearchPanel";
 import {
-  requestLocationPermission
+    requestLocationPermission
 } from "../../utils/locationUtils";
 import type { POIResult } from "../../utils/poiSearch";
 import {
-  getRoomDetails,
-  getRoomsForBuilding,
-  roomLabelMatchesSearchPrefix,
+    getRoomDetails,
+    getRoomsForBuilding,
+    roomLabelMatchesSearchPrefix,
 } from "../../utils/roomUtils";
 import {
-  calculateOsrmRouteHelper,
-  calculateShuttleRouteHelper,
-  calculateTransitRouteHelper,
+    calculateOsrmRouteHelper,
+    calculateShuttleRouteHelper,
+    calculateTransitRouteHelper,
 } from "../../utils/routeCalculators";
 import {
-  fetchTransitItineraries,
-  formatTime
+    fetchTransitItineraries,
+    formatTime
 } from "../../utils/transitousDirections";
 import {
-  findNearestWashroomTarget,
-  type WashroomCategory
+    findNearestWashroomTarget,
+    type WashroomCategory
 } from "../../utils/washroomSearch";
 
 const parseFloorPlanKey = (key: string): { building: string; floor: number } | null => {
@@ -129,6 +131,12 @@ export default function MapScreen() {
   );
   const [floorPlanModalVisible, setFloorPlanModalVisible] = useState(false);
   const [activeFloorPlan, setActiveFloorPlan] = useState<FloorPlanAsset>(null);
+  const [selectedFloorPlanNode, setSelectedFloorPlanNode] = useState<SpecialFloorNode | null>(null);
+  const [floorPlanDirectionsFromRoom, setFloorPlanDirectionsFromRoom] = useState("");
+  const [floorPlanDirectionsPromptVisible, setFloorPlanDirectionsPromptVisible] = useState(false);
+  const [indoorDirectionsTargetNodeId, setIndoorDirectionsTargetNodeId] = useState<string | undefined>(undefined);
+  const [pendingIndoorNode, setPendingIndoorNode] = useState<SpecialFloorNode | null>(null);
+  const [pendingIndoorFloorKey, setPendingIndoorFloorKey] = useState<string | null>(null);
   const [campus, setCampus] = useState<Campus>("SGW");
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
@@ -492,6 +500,9 @@ export default function MapScreen() {
   }, [isSameCampus]);
 
   useEffect(() => {
+    // Skip room-to-room recalculation when routing to a specific node (e.g. washroom, stairs)
+    if (indoorDirectionsTargetNodeId) return;
+
     const originCode = originBuilding?.code;
     const destinationCode = destinationBuilding?.code;
     const trimmedOriginRoom = originRoom.trim();
@@ -511,7 +522,7 @@ export default function MapScreen() {
     setIndoorRoute(
       findIndoorRoute(originCode, trimmedOriginRoom, trimmedDestinationRoom),
     );
-  }, [destinationBuilding, destinationRoom, originBuilding, originRoom]);
+  }, [destinationBuilding, destinationRoom, originBuilding, originRoom, indoorDirectionsTargetNodeId]);
 
   const resolvedDestination = useMemo(() => {
     if (destinationPOI) {
@@ -584,6 +595,8 @@ export default function MapScreen() {
   const exitDirectionsMode = useCallback(() => {
     setIsDirectionsMode(false);
     setDestinationPOI(null);
+    setPendingIndoorNode(null);
+    setPendingIndoorFloorKey(null);
     routeActions.resetAll();
   }, [routeActions]);
 
@@ -1000,7 +1013,155 @@ export default function MapScreen() {
     setFloorPlanModalVisible(false);
     setFloorPlanModalOptions([]);
     setSelectedFloorPlanKey(null);
+    setSelectedFloorPlanNode(null);
+    setFloorPlanDirectionsPromptVisible(false);
+    setFloorPlanDirectionsFromRoom("");
   }, []);
+
+  const handleFloorPlanNodePress = useCallback((node: SpecialFloorNode) => {
+    setSelectedFloorPlanNode((prev) => (prev?.id === node.id ? null : node));
+    setFloorPlanDirectionsPromptVisible(false);
+    setFloorPlanDirectionsFromRoom("");
+  }, []);
+
+  const launchIndoorDirectionsFromFloorPlan = useCallback(
+    (fromRoom: string, node: SpecialFloorNode, floorKey: string) => {
+      const parsedKey = parseFloorPlanKey(floorKey);
+      if (!parsedKey) return;
+
+      const route = findIndoorRouteToNodeId(
+        parsedKey.building,
+        fromRoom,
+        node.id,
+      );
+
+      setIndoorRoute(route);
+      setOriginRoom(fromRoom);
+      const destLabel = node.category === "male_washroom"
+        ? "Men's Washroom"
+        : node.category === "female_washroom"
+          ? "Women's Washroom"
+          : SPECIAL_NODE_COLORS[node.type]?.label ?? node.type;
+      setDestinationRoom(destLabel);
+      setIndoorDirectionsTargetNodeId(node.id);
+
+      // Close floor plan modal and open indoor directions modal
+      setFloorPlanModalVisible(false);
+      setFloorPlanModalOptions([]);
+      setSelectedFloorPlanKey(null);
+      setSelectedFloorPlanNode(null);
+      setFloorPlanDirectionsPromptVisible(false);
+      setFloorPlanDirectionsFromRoom("");
+
+      const buildingCode = parsedKey.building;
+      const buildingRecord = BUILDINGS.find((b) => b.code === buildingCode);
+      if (buildingRecord) {
+        setOriginBuildingCode(buildingCode);
+      }
+
+      setIndoorDirectionsModalVisible(true);
+    },
+    [],
+  );
+
+  const handleFloorPlanGetDirections = useCallback(() => {
+    if (!selectedFloorPlanNode || !selectedFloorPlanKey) return;
+    const parsedKey = parseFloorPlanKey(selectedFloorPlanKey);
+    if (!parsedKey) return;
+
+    // If user is NOT in the same building
+    if (originBuildingCode !== parsedKey.building) {
+      // If origin building has room data, let user pick a starting room first
+      if (originBuildingCode && getRoomsForBuilding(originBuildingCode).length > 0) {
+        if (originRoom.trim()) {
+          setFloorPlanDirectionsFromRoom(originRoom.trim());
+        }
+        setFloorPlanDirectionsPromptVisible(true);
+        return;
+      }
+      // No room data — save pending indoor destination and navigate outdoors
+      setPendingIndoorNode(selectedFloorPlanNode);
+      setPendingIndoorFloorKey(selectedFloorPlanKey);
+      setFloorPlanModalVisible(false);
+      setFloorPlanModalOptions([]);
+      setSelectedFloorPlanKey(null);
+      setSelectedFloorPlanNode(null);
+      setFloorPlanDirectionsPromptVisible(false);
+      setFloorPlanDirectionsFromRoom("");
+      setDestinationAndEnterDirectionsMode(parsedKey.building);
+      return;
+    }
+
+    // User is in the same building — show the room prompt (pre-fill if origin room is set)
+    if (originRoom.trim()) {
+      setFloorPlanDirectionsFromRoom(originRoom.trim());
+    }
+    setFloorPlanDirectionsPromptVisible(true);
+  }, [selectedFloorPlanNode, selectedFloorPlanKey, originRoom, originBuildingCode, launchIndoorDirectionsFromFloorPlan, setDestinationAndEnterDirectionsMode]);
+
+  // Determine which building the room prompt targets (origin building when cross-building, otherwise floor plan building)
+  const floorPlanPromptBuilding = useMemo(() => {
+    if (!selectedFloorPlanKey) return null;
+    const parsedKey = parseFloorPlanKey(selectedFloorPlanKey);
+    if (!parsedKey) return null;
+    if (originBuildingCode && originBuildingCode !== parsedKey.building && getRoomsForBuilding(originBuildingCode).length > 0) {
+      return originBuildingCode;
+    }
+    return parsedKey.building;
+  }, [selectedFloorPlanKey, originBuildingCode]);
+
+  const floorPlanRoomSuggestions = useMemo(() => {
+    if (!floorPlanDirectionsPromptVisible || !floorPlanPromptBuilding) return [];
+    const allRooms = getRoomsForBuilding(floorPlanPromptBuilding);
+    const query = floorPlanDirectionsFromRoom.trim().toLowerCase();
+    if (!query) return allRooms.slice(0, 10);
+    return allRooms
+      .filter((room) => roomLabelMatchesSearchPrefix(floorPlanPromptBuilding, room, query))
+      .slice(0, 10);
+  }, [floorPlanDirectionsPromptVisible, floorPlanPromptBuilding, floorPlanDirectionsFromRoom]);
+
+  const handleFloorPlanDirectionsGo = useCallback(() => {
+    if (!selectedFloorPlanNode || !selectedFloorPlanKey || !floorPlanDirectionsFromRoom.trim()) return;
+    const parsedKey = parseFloorPlanKey(selectedFloorPlanKey);
+    if (!parsedKey) return;
+
+    // Cross-building: save pending indoor destination, set origin room, and redirect to outdoor directions
+    if (originBuildingCode !== parsedKey.building) {
+      setPendingIndoorNode(selectedFloorPlanNode);
+      setPendingIndoorFloorKey(selectedFloorPlanKey);
+      setOriginRoom(floorPlanDirectionsFromRoom.trim());
+      setFloorPlanModalVisible(false);
+      setFloorPlanModalOptions([]);
+      setSelectedFloorPlanKey(null);
+      setSelectedFloorPlanNode(null);
+      setFloorPlanDirectionsPromptVisible(false);
+      setFloorPlanDirectionsFromRoom("");
+      setDestinationAndEnterDirectionsMode(parsedKey.building);
+      return;
+    }
+
+    launchIndoorDirectionsFromFloorPlan(
+      floorPlanDirectionsFromRoom.trim(),
+      selectedFloorPlanNode,
+      selectedFloorPlanKey,
+    );
+  }, [selectedFloorPlanNode, selectedFloorPlanKey, floorPlanDirectionsFromRoom, originBuildingCode, launchIndoorDirectionsFromFloorPlan, setDestinationAndEnterDirectionsMode]);
+
+  // When user physically arrives at the building with a pending indoor destination, launch indoor directions
+  useEffect(() => {
+    if (!pendingIndoorNode || !pendingIndoorFloorKey || !currentBuilding) return;
+    const parsedKey = parseFloorPlanKey(pendingIndoorFloorKey);
+    if (!parsedKey || currentBuilding !== parsedKey.building) return;
+
+    const node = pendingIndoorNode;
+    const floorKey = pendingIndoorFloorKey;
+    setPendingIndoorNode(null);
+    setPendingIndoorFloorKey(null);
+
+    // Find the nearest entrance/lobby as starting point
+    const defaultRoom = originRoom.trim() || "entrance";
+    launchIndoorDirectionsFromFloorPlan(defaultRoom, node, floorKey);
+  }, [currentBuilding, pendingIndoorNode, pendingIndoorFloorKey, originRoom, launchIndoorDirectionsFromFloorPlan]);
 
   return (
     <View style={styles.container}>
@@ -1372,6 +1533,9 @@ export default function MapScreen() {
                       onPress={() => {
                         setSelectedFloorPlanKey(opt.key);
                         setActiveFloorPlan(getFloorPlanAsset(opt.key));
+                        setSelectedFloorPlanNode(null);
+                        setFloorPlanDirectionsPromptVisible(false);
+                        setFloorPlanDirectionsFromRoom("");
                       }}
                       style={[
                         styles.floorPlanModalChip,
@@ -1433,17 +1597,31 @@ export default function MapScreen() {
                     const y = (node.y * bounds.height) / graphBounds.height;
                     const nodeColor = SPECIAL_NODE_COLORS[node.type];
                     if (!nodeColor) return null;
+                    const isSelected = selectedFloorPlanNode?.id === node.id;
                     return (
-                      <Circle
-                        key={node.id}
-                        cx={x}
-                        cy={y}
-                        r={12}
-                        fill={nodeColor.fill}
-                        stroke="white"
-                        strokeWidth={2}
-                        opacity={0.9}
-                      />
+                      <React.Fragment key={node.id}>
+                        {isSelected && (
+                          <Circle
+                            cx={x}
+                            cy={y}
+                            r={18}
+                            fill="none"
+                            stroke={nodeColor.fill}
+                            strokeWidth={3}
+                            opacity={0.6}
+                          />
+                        )}
+                        <Circle
+                          cx={x}
+                          cy={y}
+                          r={12}
+                          fill={nodeColor.fill}
+                          stroke={isSelected ? "#1F1F24" : "white"}
+                          strokeWidth={isSelected ? 3 : 2}
+                          opacity={0.9}
+                          onPress={() => handleFloorPlanNodePress(node)}
+                        />
+                      </React.Fragment>
                     );
                   });
 
@@ -1456,7 +1634,7 @@ export default function MapScreen() {
                         resizeMode="contain"
                       />
                       {specialNodes.length > 0 && (
-                        <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+                        <Svg width="100%" height="100%" viewBox={`0 0 ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet" style={{ position: 'absolute', top: 0, left: 0 }}>
                           {renderSpecialNodeCircles()}
                         </Svg>
                       )}
@@ -1501,17 +1679,118 @@ export default function MapScreen() {
                 </View>
               ))}
             </View>
+
+            {/* Selected node info & get directions */}
+            {selectedFloorPlanNode && !floorPlanDirectionsPromptVisible && (
+              <View style={floorPlanNodeStyles.selectedNodeBar}>
+                <View style={[floorPlanNodeStyles.selectedNodeSwatch, { backgroundColor: SPECIAL_NODE_COLORS[selectedFloorPlanNode.type]?.fill ?? "#888" }]} />
+                <Text style={floorPlanNodeStyles.selectedNodeText} numberOfLines={1}>
+                  {selectedFloorPlanNode.category === "male_washroom"
+                    ? "Men's Washroom"
+                    : selectedFloorPlanNode.category === "female_washroom"
+                      ? "Women's Washroom"
+                      : SPECIAL_NODE_COLORS[selectedFloorPlanNode.type]?.label ?? selectedFloorPlanNode.type}
+                </Text>
+                <Pressable
+                  testID="floor-plan-get-directions"
+                  style={({ pressed }) => [
+                    floorPlanNodeStyles.directionsButton,
+                    pressed && floorPlanNodeStyles.directionsButtonPressed,
+                  ]}
+                  onPress={handleFloorPlanGetDirections}
+                >
+                  <Text style={floorPlanNodeStyles.directionsButtonText}>Get Directions</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* Directions prompt: enter starting room */}
+            {floorPlanDirectionsPromptVisible && selectedFloorPlanNode && (
+              <View style={floorPlanNodeStyles.directionsPrompt}>
+                <Text style={floorPlanNodeStyles.directionsPromptTitle}>
+                  Directions to{" "}
+                  {selectedFloorPlanNode.category === "male_washroom"
+                    ? "Men's Washroom"
+                    : selectedFloorPlanNode.category === "female_washroom"
+                      ? "Women's Washroom"
+                      : SPECIAL_NODE_COLORS[selectedFloorPlanNode.type]?.label ?? selectedFloorPlanNode.type}
+                </Text>
+                <View style={floorPlanNodeStyles.directionsPromptRow}>
+                  <TextInput
+                    testID="floor-plan-from-room-input"
+                    style={floorPlanNodeStyles.directionsInput}
+                    placeholder={`Enter starting room in ${floorPlanPromptBuilding ?? "building"} (e.g. 820)`}
+                    placeholderTextColor="#999"
+                    value={floorPlanDirectionsFromRoom}
+                    onChangeText={setFloorPlanDirectionsFromRoom}
+                    autoFocus
+                    returnKeyType="go"
+                    onSubmitEditing={handleFloorPlanDirectionsGo}
+                  />
+                  <Pressable
+                    testID="floor-plan-directions-go"
+                    style={({ pressed }) => [
+                      floorPlanNodeStyles.goButton,
+                      pressed && floorPlanNodeStyles.goButtonPressed,
+                      !floorPlanDirectionsFromRoom.trim() && floorPlanNodeStyles.goButtonDisabled,
+                    ]}
+                    onPress={handleFloorPlanDirectionsGo}
+                    disabled={!floorPlanDirectionsFromRoom.trim()}
+                  >
+                    <Text style={floorPlanNodeStyles.goButtonText}>Go</Text>
+                  </Pressable>
+                </View>
+                {floorPlanRoomSuggestions.length > 0 && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    style={floorPlanNodeStyles.suggestionsScroll}
+                    contentContainerStyle={floorPlanNodeStyles.suggestionsContent}
+                  >
+                    {floorPlanRoomSuggestions.map((room) => (
+                      <Pressable
+                        key={room}
+                        testID={`floor-plan-room-suggestion-${room}`}
+                        style={({ pressed }) => [
+                          floorPlanNodeStyles.suggestionChip,
+                          pressed && floorPlanNodeStyles.suggestionChipPressed,
+                        ]}
+                        onPress={() => {
+                          setFloorPlanDirectionsFromRoom(room);
+                        }}
+                      >
+                        <Text style={floorPlanNodeStyles.suggestionChipText}>{room}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                )}
+                <Pressable
+                  testID="floor-plan-directions-cancel"
+                  onPress={() => {
+                    setFloorPlanDirectionsPromptVisible(false);
+                    setFloorPlanDirectionsFromRoom("");
+                  }}
+                >
+                  <Text style={floorPlanNodeStyles.cancelText}>Cancel</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
 
       <IndoorDirectionsModal
         visible={indoorDirectionsModalVisible}
-        onClose={() => setIndoorDirectionsModalVisible(false)}
+        onClose={() => {
+          setIndoorDirectionsModalVisible(false);
+          setIndoorDirectionsTargetNodeId(undefined);
+        }}
         route={indoorRoute ?? null}
         buildingCode={originBuilding?.code ?? destinationBuilding?.code ?? ""}
         originRoom={originRoom}
         destinationRoom={destinationRoom}
+        targetNodeId={indoorDirectionsTargetNodeId}
         floorBounds={(floor) =>
           getFloorBounds(originBuilding?.code ?? destinationBuilding?.code ?? "", floor)
         }
@@ -1525,3 +1804,116 @@ export default function MapScreen() {
     </View>
   );
 }
+
+const floorPlanNodeStyles = StyleSheet.create({
+  selectedNodeBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#F8F9FA",
+    borderTopWidth: 1,
+    borderTopColor: "#E0E0E0",
+    gap: 10,
+  },
+  selectedNodeSwatch: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  selectedNodeText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1F1F24",
+  },
+  directionsButton: {
+    backgroundColor: "#2e7d32",
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  directionsButtonPressed: {
+    opacity: 0.85,
+  },
+  directionsButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  directionsPrompt: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#F8F9FA",
+    borderTopWidth: 1,
+    borderTopColor: "#E0E0E0",
+    gap: 8,
+  },
+  directionsPromptTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1F1F24",
+  },
+  directionsPromptRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  directionsInput: {
+    flex: 1,
+    height: 40,
+    borderWidth: 1,
+    borderColor: "#CCC",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    backgroundColor: "#FFFFFF",
+    color: "#1F1F24",
+  },
+  goButton: {
+    backgroundColor: "#2e7d32",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  goButtonPressed: {
+    opacity: 0.85,
+  },
+  goButtonDisabled: {
+    opacity: 0.4,
+  },
+  goButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  cancelText: {
+    fontSize: 13,
+    color: "#888",
+    textAlign: "center",
+    paddingVertical: 4,
+  },
+  suggestionsScroll: {
+    maxHeight: 36,
+  },
+  suggestionsContent: {
+    gap: 6,
+    paddingVertical: 2,
+  },
+  suggestionChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: "#E8F5E9",
+    borderWidth: 1,
+    borderColor: "#C8E6C9",
+  },
+  suggestionChipPressed: {
+    backgroundColor: "#C8E6C9",
+  },
+  suggestionChipText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#2e7d32",
+  },
+});

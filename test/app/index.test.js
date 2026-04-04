@@ -263,6 +263,12 @@ describe("app/(tabs)/index", () => {
       undefined,
       undefined,
       undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
       "SGW",
       "hall",
       undefined,
@@ -290,12 +296,12 @@ describe("app/(tabs)/index", () => {
 
     const header = findByType(tree, "AppHeader");
     header.props.onCampusChange("LOY");
-    expect(setters[5]).toHaveBeenCalledWith("LOY");
+    expect(setters[11]).toHaveBeenCalledWith("LOY");
 
     const hallResult = findByTestID(tree, "search-result-H");
     hallResult.props.onPress();
-    expect(setters[7]).toHaveBeenCalledWith("H");
-    expect(setters[6]).toHaveBeenCalledWith("");
+    expect(setters[13]).toHaveBeenCalledWith("H");
+    expect(setters[12]).toHaveBeenCalledWith("");
     expect(keyboardDismiss).toHaveBeenCalled();
   });
 });

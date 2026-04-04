@@ -1,19 +1,19 @@
 import { ChevronDown, ChevronUp, Navigation, Settings, X } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import {
-  Image,
-  LayoutChangeEvent,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
+    Image,
+    LayoutChangeEvent,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    View,
 } from "react-native";
 import Svg, { Circle, Polyline, type SvgProps } from "react-native-svg";
 import type { IndoorRoute } from "../utils/indoorDirections";
-import { findIndoorRoute, getSpecialNodesForFloor } from "../utils/indoorDirections";
+import { findIndoorRoute, findIndoorRouteToNodeId, getSpecialNodesForFloor } from "../utils/indoorDirections";
 
 import CC1Plan from "../assets/floor_plans/svg/CC1.svg";
 import H1Plan from "../assets/floor_plans/svg/H1.svg";
@@ -133,6 +133,7 @@ type Props = Readonly<{
   buildingCode: string;
   originRoom: string;
   destinationRoom: string;
+  targetNodeId?: string;
   floorBounds: (floor: number) => { width: number; height: number };
   graphFloorBounds?: (floor: number) => { width: number; height: number };
 }>;
@@ -144,6 +145,7 @@ export default function IndoorDirectionsModal({
   buildingCode,
   originRoom,
   destinationRoom,
+  targetNodeId,
   floorBounds,
   graphFloorBounds,
 }: Props) {
@@ -160,14 +162,23 @@ export default function IndoorDirectionsModal({
   const noElevators = !elevatorsEnabled;
 
   const effectiveRoute = (noStairs || noEscalators || noElevators)
-    ? findIndoorRoute(
-      buildingCode,
-      originRoom,
-      destinationRoom,
-      noStairs,
-      noEscalators,
-      noElevators,
-    )
+    ? (targetNodeId
+        ? findIndoorRouteToNodeId(
+            buildingCode,
+            originRoom,
+            targetNodeId,
+            noStairs,
+            noEscalators,
+            noElevators,
+          )
+        : findIndoorRoute(
+            buildingCode,
+            originRoom,
+            destinationRoom,
+            noStairs,
+            noEscalators,
+            noElevators,
+          ))
     : route;
   const isS2Route = computeIsS2Route(
     buildingCode,
@@ -345,7 +356,9 @@ export default function IndoorDirectionsModal({
             </Text>
             <Text style={styles.routeArrow}>→</Text>
             <Text style={styles.routeTo} numberOfLines={1}>
-              {destinationRoom ? `Room ${destinationRoom}` : "Destination"}
+              {destinationRoom
+                ? (targetNodeId ? destinationRoom : `Room ${destinationRoom}`)
+                : "Destination"}
             </Text>
           </View>
 
@@ -356,7 +369,7 @@ export default function IndoorDirectionsModal({
                 There is no navigable indoor route between{" "}
                 <Text style={{ fontWeight: "700" }}>room {originRoom}</Text> and{" "}
                 <Text style={{ fontWeight: "700" }}>
-                  room {destinationRoom}
+                  {targetNodeId ? destinationRoom : `room ${destinationRoom}`}
                 </Text>{" "}
                 in this building. Please verify the room numbers or use an
                 alternate route.

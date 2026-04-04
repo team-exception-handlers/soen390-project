@@ -1383,6 +1383,47 @@ export function findIndoorRoute(
   );
 }
 
+export function findIndoorRouteToNodeId(
+  buildingCode: string,
+  startRoomLabel: string,
+  targetNodeId: string,
+  noStairs = false,
+  noEscalators = false,
+  noElevators = false,
+): IndoorRoute | null {
+  const floors = getBuildingFloors(buildingCode);
+  if (floors.length === 0) return null;
+
+  const { nodes, adjacency } = buildGraph(floors, noStairs, noEscalators, noElevators);
+
+  let startNode: IndoorNode | undefined;
+  for (const node of nodes.values()) {
+    if (node.type !== "room") continue;
+    if (!buildingIdMatches(buildingCode, node.buildingId)) continue;
+    if (roomLabelMatches(buildingCode, node.label, startRoomLabel)) {
+      startNode = node;
+      break;
+    }
+  }
+
+  const endNode = nodes.get(targetNodeId);
+  if (!startNode || !endNode) return null;
+  if (startNode.id === endNode.id) {
+    return buildSameRoomIndoorRoute(startNode, startRoomLabel);
+  }
+
+  const result = findBestIndoorPath(nodes, adjacency, startNode, endNode);
+  if (!result) return null;
+
+  return buildIndoorRouteFromDijkstraResult(
+    result,
+    nodes,
+    adjacency,
+    startNode,
+    endNode,
+  );
+}
+
 /**
  * Bounds (width, height) of floor plan images. When you map JSON coordinates to a PNG,
  * use that PNG's pixel dimensions here so the overlay aligns with the image.
