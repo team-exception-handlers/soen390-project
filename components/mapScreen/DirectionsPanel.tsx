@@ -183,14 +183,14 @@ function TransportModeSelector({
         </View>
         <Pressable
           testID="direction-start-button"
-        style={styles.modeActionButton}
-        onPress={() => {
-          setRouteStarted(true);
-          showRouteInstructions();
-        }}
-      >
-        <Text style={styles.modeActionButtonText}>Start</Text>
-      </Pressable>
+          style={styles.modeActionButton}
+          onPress={() => {
+            setRouteStarted(true);
+            showRouteInstructions();
+          }}
+        >
+          <Text style={styles.modeActionButtonText}>Start</Text>
+        </Pressable>
       </View>
 
       <View style={styles.modeSelectorRow}>
@@ -286,6 +286,10 @@ type DirectionsPanelProps = Readonly<{
   helpers: DirectionsPanelHelpers;
   styles: MapScreenStyles;
   onShowIndoorDirections?: () => void;
+  onShowExitDirections?: () => void;
+  hasExitRoute?: boolean;
+  onShowEntryDirections?: () => void;
+  hasEntryRoute?: boolean;
 }>;
 
 export default function DirectionsPanel({
@@ -294,6 +298,10 @@ export default function DirectionsPanel({
   helpers,
   styles,
   onShowIndoorDirections,
+  onShowExitDirections,
+  hasExitRoute,
+  onShowEntryDirections,
+  hasEntryRoute,
 }: DirectionsPanelProps) {
   const {
     searchInputRef,
@@ -332,8 +340,16 @@ export default function DirectionsPanel({
     originBuilding?.code != null &&
     destinationBuilding?.code != null &&
     originBuilding.code === destinationBuilding.code;
-  const showIndoorButton =
-    isSameBuilding && originRoom.trim() && destinationRoom.trim();
+  // Same-building: show room-to-room indoor directions button
+  const showIndoorButton = isSameBuilding && originRoom.trim() && destinationRoom.trim();
+  // Different buildings: show labeled exit button above transport selector
+  const showExitButton = !isSameBuilding && originBuilding != null && originRoom.trim().length > 0;
+  // Different buildings: show labeled entry button below transport selector (only when route exists)
+  const showEntryButton =
+    !isSameBuilding &&
+    destinationBuilding != null &&
+    destinationRoom.trim().length > 0 &&
+    hasEntryRoute !== false;
 
   const destinationLabel = destinationBuilding
     ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
@@ -480,7 +496,7 @@ export default function DirectionsPanel({
                 style={({ pressed }) => [
                   styles.roomSuggestionItem,
                   index === roomSuggestions.length - 1 &&
-                    styles.roomSuggestionItemLast,
+                  styles.roomSuggestionItemLast,
                   pressed && styles.roomSuggestionItemPressed,
                 ]}
                 onPressIn={onRoomSuggestionPressIn}
@@ -505,9 +521,22 @@ export default function DirectionsPanel({
         >
           <Navigation size={14} color="#FFFFFF" strokeWidth={2.5} />
           <Text style={styles.indoorRouteButtonText}>
-            {hasIndoorRoute === false
+            {hasIndoorRoute === false ? "No Indoor Path Available" : "Indoor Directions"}
+          </Text>
+        </Pressable>
+      )}
+
+      {showExitButton && (
+        <Pressable
+          testID="exit-directions-button"
+          style={styles.indoorRouteButton}
+          onPress={onShowExitDirections}
+        >
+          <Navigation size={14} color="#FFFFFF" strokeWidth={2.5} />
+          <Text style={styles.indoorRouteButtonText}>
+            {hasExitRoute === false
               ? "No Indoor Path Available"
-              : "Indoor Directions"}
+              : `Exit ${originBuilding!.shortName}`}
           </Text>
         </Pressable>
       )}
@@ -524,6 +553,19 @@ export default function DirectionsPanel({
         styles={styles}
         formatDuration={formatDuration}
       />
+
+      {showEntryButton && (
+        <Pressable
+          testID="entry-directions-button"
+          style={styles.indoorRouteButton}
+          onPress={onShowEntryDirections}
+        >
+          <Navigation size={14} color="#FFFFFF" strokeWidth={2.5} />
+          <Text style={styles.indoorRouteButtonText}>
+            {`Enter ${destinationBuilding!.shortName}`}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }

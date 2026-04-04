@@ -1,0 +1,53 @@
+# US-4.6: Support Cross-Campus and Cross-Building Navigation
+
+appId: host.exp.Exponent
+
+---
+- setPermissions:
+    permissions:
+      location: inuse
+- setLocation:
+    latitude: 45.497092
+    longitude: -73.5788
+- runFlow:
+    file: _launch-expo-go.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+- tapOn: FROM
+- assertVisible:
+    id: icon
+    index: 10
+- tapOn:
+    id: icon
+    index: 10
+- tapOn: H
+- assertVisible: Start Here
+- tapOn: Start Here
+- tapOn: Loyola
+- assertVisible: CC
+- tapOn: CC
+- assertVisible: Go There
+- tapOn: Go There
+- tapOn: "Room #"
+- assertVisible: "0023"
+- tapOn: "0023"
+- tapOn:
+    text: "Room #"
+    index: 1
+- assertVisible: CC-101
+- tapOn: CC-101
+- tapOn:
+    id: icon
+    index: 10
+- tapOn:
+    id: route-steps-close-button
+- tapOn: Exit H Building
+- tapOn:
+    id: indoor-directions-close
+- assertVisible: Enter CC Building
+- tapOn: Enter CC Building
+- tapOn:
+    id: indoor-directions-close

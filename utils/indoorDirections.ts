@@ -112,6 +112,7 @@ function roomLabelMatches(
 }
 
 const VERTICAL_NODE_TYPES = new Set(["stair_landing", "escalator_landing", "elevator_door"]);
+const ENTRY_EXIT_NODE_TYPES = new Set(["building_entry_exit", "entry", "exit"]);
 const INTER_FLOOR_WEIGHT = 500;
 
 /** Graph edge weights are in same scale as floor plan units; convert to meters for display. */
@@ -1454,6 +1455,116 @@ export function findIndoorRoute(
     startNode,
     endNode,
   );
+}
+
+/** Route from a room to the nearest building exit. Returns null if no exit nodes exist or no path found. */
+export function findRouteToNearestExit(
+  buildingCode: string,
+  startRoomLabel: string,
+  noStairs = false,
+  noEscalators = false,
+  noElevators = false,
+): IndoorRoute | null {
+  const floors = getBuildingFloors(buildingCode);
+  if (floors.length === 0) return null;
+
+  const { nodes, adjacency } = buildGraph(floors, noStairs, noEscalators, noElevators);
+
+  let startNode: IndoorNode | undefined;
+  for (const node of nodes.values()) {
+    if (node.type !== "room") continue;
+    if (!buildingIdMatches(buildingCode, node.buildingId)) continue;
+    if (roomLabelMatches(buildingCode, node.label, startRoomLabel)) {
+      startNode = node;
+      break;
+    }
+  }
+  if (!startNode) return null;
+
+  const exitNodes: IndoorNode[] = [];
+  for (const node of nodes.values()) {
+    if (ENTRY_EXIT_NODE_TYPES.has(node.type) && buildingIdMatches(buildingCode, node.buildingId)) {
+      exitNodes.push(node);
+    }
+  }
+  if (exitNodes.length === 0) return null;
+
+  let bestResult: { path: string[]; distance: number } | null = null;
+  let bestExitNode: IndoorNode | null = null;
+
+  for (const exitNode of exitNodes) {
+    const result = findBestIndoorPath(nodes, adjacency, startNode, exitNode);
+    if (result && (!bestResult || result.distance < bestResult.distance)) {
+      bestResult = result;
+      bestExitNode = exitNode;
+    }
+  }
+
+  if (!bestResult || !bestExitNode) return null;
+
+  const route = buildIndoorRouteFromDijkstraResult(bestResult, nodes, adjacency, startNode, bestExitNode);
+  route.steps.push({ instruction: "Exit the building.", floor: bestExitNode.floor });
+  return route;
+}
+
+/** Route from the nearest building entrance to a destination room. Returns null if no entry nodes exist or no path found. */
+export function findRouteFromNearestExit(
+  buildingCode: string,
+  endRoomLabel: string,
+  noStairs = false,
+  noEscalators = false,
+  noElevators = false,
+): IndoorRoute | null {
+  const floors = getBuildingFloors(buildingCode);
+  if (floors.length === 0) return null;
+
+  const { nodes, adjacency } = buildGraph(floors, noStairs, noEscalators, noElevators);
+
+  let endNode: IndoorNode | undefined;
+  for (const node of nodes.values()) {
+    if (node.type !== "room") continue;
+    if (!buildingIdMatches(buildingCode, node.buildingId)) continue;
+    if (roomLabelMatches(buildingCode, node.label, endRoomLabel)) {
+      endNode = node;
+      break;
+    }
+  }
+  if (!endNode) return null;
+
+  const entryNodes: IndoorNode[] = [];
+  for (const node of nodes.values()) {
+    if (ENTRY_EXIT_NODE_TYPES.has(node.type) && buildingIdMatches(buildingCode, node.buildingId)) {
+      entryNodes.push(node);
+    }
+  }
+  // Fall back to floor-1 hallway nodes when building has no explicit entry/exit markers
+  if (entryNodes.length === 0) {
+    for (const node of nodes.values()) {
+      if (node.floor === 1 && HALLWAY_NODE_TYPES.has(node.type) && buildingIdMatches(buildingCode, node.buildingId)) {
+        entryNodes.push(node);
+      }
+    }
+  }
+  if (entryNodes.length === 0) return null;
+
+  let bestResult: { path: string[]; distance: number } | null = null;
+  let bestEntryNode: IndoorNode | null = null;
+
+  for (const entryNode of entryNodes) {
+    const result = findBestIndoorPath(nodes, adjacency, entryNode, endNode);
+    if (result && (!bestResult || result.distance < bestResult.distance)) {
+      bestResult = result;
+      bestEntryNode = entryNode;
+    }
+  }
+
+  if (!bestResult || !bestEntryNode) return null;
+
+  const route = buildIndoorRouteFromDijkstraResult(bestResult, nodes, adjacency, bestEntryNode, endNode);
+  if (route.steps.length > 0) {
+    route.steps[0] = { instruction: "Enter the building.", floor: bestEntryNode.floor };
+  }
+  return route;
 }
 
 /**

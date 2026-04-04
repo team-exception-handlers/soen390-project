@@ -187,6 +187,88 @@ describe("utils/osrmDirections", () => {
     ).rejects.toThrow("No route available for the selected buildings.");
   });
 
+  test("buildStepInstruction: turn with no modifier", async () => {
+    globalThis.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        code: "Ok",
+        routes: [{
+          distance: 100, duration: 60,
+          geometry: { coordinates: [[-73.579, 45.497], [-73.578, 45.498]] },
+          legs: [{ steps: [
+            { distance: 50, name: "Main St", maneuver: { type: "turn" } },
+          ]}],
+        }],
+      }),
+    });
+    const route = await fetchOsrmRoute(
+      { latitude: 45.497, longitude: -73.579 },
+      { latitude: 45.498, longitude: -73.578 },
+    );
+    expect(route.instructions[0].text).toBe("Turn onto Main St, for 50 m.");
+  });
+
+  test("buildStepInstruction: fork with no modifier", async () => {
+    globalThis.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        code: "Ok",
+        routes: [{
+          distance: 100, duration: 60,
+          geometry: { coordinates: [[-73.579, 45.497], [-73.578, 45.498]] },
+          legs: [{ steps: [
+            { distance: 200, name: "Ramp", maneuver: { type: "fork" } },
+          ]}],
+        }],
+      }),
+    });
+    const route = await fetchOsrmRoute(
+      { latitude: 45.497, longitude: -73.579 },
+      { latitude: 45.498, longitude: -73.578 },
+    );
+    expect(route.instructions[0].text).toBe("Keep going onto Ramp, for 200 m.");
+  });
+
+  test("buildStepInstruction: unknown maneuver type falls through to continue", async () => {
+    globalThis.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        code: "Ok",
+        routes: [{
+          distance: 100, duration: 60,
+          geometry: { coordinates: [[-73.579, 45.497], [-73.578, 45.498]] },
+          legs: [{ steps: [
+            { distance: 300, name: "Side St", maneuver: { type: "roundabout", modifier: "straight" } },
+          ]}],
+        }],
+      }),
+    });
+    const route = await fetchOsrmRoute(
+      { latitude: 45.497, longitude: -73.579 },
+      { latitude: 45.498, longitude: -73.578 },
+    );
+    expect(route.instructions[0].text).toContain("Continue on");
+  });
+
+  test("fetchOsrmRoute handles leg with null steps", async () => {
+    globalThis.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        code: "Ok",
+        routes: [{
+          distance: 500, duration: 60,
+          geometry: { coordinates: [[-73.579, 45.497], [-73.578, 45.498]] },
+          legs: [{ steps: null }],
+        }],
+      }),
+    });
+    const route = await fetchOsrmRoute(
+      { latitude: 45.497, longitude: -73.579 },
+      { latitude: 45.498, longitude: -73.578 },
+    );
+    expect(route.instructions).toEqual([]);
+  });
+
   test("fetchOsrmRoute throws when code is Ok but geometry is empty", async () => {
     globalThis.fetch = jest.fn().mockResolvedValue({
       ok: true,

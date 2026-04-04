@@ -1,5 +1,5 @@
 import type { Campus } from "../../constants/buildings";
-import type { RouteMode, LatLng, MapBounds } from "../../types/map";
+import type { LatLng, MapBounds, RouteMode } from "../../types/map";
 import type { MapRegion } from "../../utils/mapRegions";
 
 type MarkerBuilding = {
@@ -163,7 +163,7 @@ export function buildWebMapHtml({
             window.selectedCampus = "SGW";
             window.defaultCampusZoom = null;
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors',
                 maxZoom: 22,
                 maxNativeZoom: 19

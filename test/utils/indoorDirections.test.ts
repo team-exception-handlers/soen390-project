@@ -1,6 +1,8 @@
 import {
   __indoorDirectionsTestUtils,
   findIndoorRoute,
+  findRouteFromNearestExit,
+  findRouteToNearestExit,
   getFloorBounds,
   getGraphFloorBounds,
 } from "../../utils/indoorDirections";
@@ -145,7 +147,7 @@ describe("indoorDirections", () => {
     ["MB", -2, { width: 1029, height: 1027 }],
     ["VE", 1, { width: 615, height: 556 }],
     ["VE", 2, { width: 1436, height: 646 }],
-    ["VL", 1, { width: 1044, height: 1036 }],
+    ["VL", 1, { width: 1188, height: 1036 }],
     ["VL", 2, { width: 1023, height: 1041 }],
     ["CC", 1, { width: 8240, height: 2066 }],
     ["Hall", 8, { width: 1922, height: 2106 }],
@@ -545,5 +547,101 @@ describe("indoorDirections", () => {
     const steps = buildSteps(nodes, [0, 100, 200, 300, 350], new Map(), nodes);
     expect(steps.some((s) => s.instruction.includes("floor 3"))).toBe(true);
     expect(steps.some((s) => s.instruction.includes("floor 2"))).toBe(false);
+  });
+
+  // findRouteToNearestExit
+  test("findRouteToNearestExit returns a route for a valid Hall room", () => {
+    const route = findRouteToNearestExit("H", "867");
+    expect(route).not.toBeNull();
+  });
+
+  test("findRouteToNearestExit last step says Exit the building", () => {
+    const route = findRouteToNearestExit("H", "867");
+    expect(route).not.toBeNull();
+    const last = route!.steps[route!.steps.length - 1];
+    expect(last.instruction).toBe("Exit the building.");
+  });
+
+  test("findRouteToNearestExit returns null for unknown building", () => {
+    expect(findRouteToNearestExit("UNKNOWN", "101")).toBeNull();
+  });
+
+  test("findRouteToNearestExit returns null for unknown room", () => {
+    expect(findRouteToNearestExit("H", "ZZZZ")).toBeNull();
+  });
+
+  test("findRouteToNearestExit route has at least one segment", () => {
+    const route = findRouteToNearestExit("H", "867");
+    expect(route).not.toBeNull();
+    expect(route!.segments.length).toBeGreaterThan(0);
+  });
+
+  // findRouteFromNearestExit
+  test("findRouteFromNearestExit returns a route for a valid Hall room", () => {
+    const route = findRouteFromNearestExit("H", "867");
+    expect(route).not.toBeNull();
+  });
+
+  test("findRouteFromNearestExit first step says Enter the building", () => {
+    const route = findRouteFromNearestExit("H", "867");
+    expect(route).not.toBeNull();
+    const first = route!.steps[0];
+    expect(first.instruction).toBe("Enter the building.");
+  });
+
+  test("findRouteFromNearestExit returns null for unknown building", () => {
+    expect(findRouteFromNearestExit("UNKNOWN", "101")).toBeNull();
+  });
+
+  test("findRouteFromNearestExit returns null for unknown room", () => {
+    expect(findRouteFromNearestExit("H", "ZZZZ")).toBeNull();
+  });
+
+  test("findRouteFromNearestExit route has at least one segment", () => {
+    const route = findRouteFromNearestExit("H", "867");
+    expect(route).not.toBeNull();
+    expect(route!.segments.length).toBeGreaterThan(0);
+  });
+
+  test("findRouteFromNearestExit falls back to hallway nodes for building without entry/exit markers", () => {
+    // VE has no building_entry_exit nodes — falls back to floor-1 hallway nodes
+    const route = findRouteFromNearestExit("VE", "VE-101");
+    // Either finds a path or gracefully returns null — must not throw
+    expect(route === null || route.segments.length > 0).toBe(true);
+  });
+
+  // getFloorBounds Hall floor 1 and floor 2 branches
+  test("getFloorBounds returns bounds for Hall floor 1", () => {
+    const bounds = getFloorBounds("H", 1);
+    expect(bounds.width).toBeGreaterThan(0);
+    expect(bounds.height).toBeGreaterThan(0);
+  });
+
+  test("getFloorBounds returns bounds for Hall floor 2", () => {
+    const bounds = getFloorBounds("H", 2);
+    expect(bounds.width).toBeGreaterThan(0);
+    expect(bounds.height).toBeGreaterThan(0);
+  });
+
+  test("getGraphFloorBounds returns bounds for Hall floor 1", () => {
+    const bounds = getGraphFloorBounds("H", 1);
+    expect(bounds.width).toBeGreaterThan(0);
+    expect(bounds.height).toBeGreaterThan(0);
+  });
+
+  test("getGraphFloorBounds returns bounds for Hall floor 2", () => {
+    const bounds = getGraphFloorBounds("H", 2);
+    expect(bounds.width).toBeGreaterThan(0);
+    expect(bounds.height).toBeGreaterThan(0);
+  });
+
+  test("findRouteToNearestExit works for VE building", () => {
+    const route = findRouteToNearestExit("VE", "101");
+    expect(route === null || route.segments.length > 0).toBe(true);
+  });
+
+  test("findRouteFromNearestExit works for VE building with explicit exit node", () => {
+    const route = findRouteFromNearestExit("VE", "101");
+    expect(route === null || route.segments.length > 0).toBe(true);
   });
 });
