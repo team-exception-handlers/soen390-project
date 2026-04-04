@@ -16,12 +16,21 @@ jest.mock("react", () => {
 jest.mock("react-native", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+  ]);
 
   const host =
     (type) => {
       const HostComponent = ({ children, ...rest }) =>
         React.createElement(type, rest, children);
       HostComponent.displayName = `${type}Host`;
+      HostComponent.propTypes = {
+        children: PropTypes.node,
+        style: stylePropType,
+      };
       return HostComponent;
     };
 
@@ -32,11 +41,7 @@ jest.mock("react-native", () => {
   };
   Pressable.propTypes = {
     children: PropTypes.node,
-    style: PropTypes.oneOfType([
-      PropTypes.object,
-      PropTypes.array,
-      PropTypes.func,
-    ]),
+    style: stylePropType,
   };
 
   return {
@@ -287,16 +292,14 @@ describe("app/(tabs)/index", () => {
       undefined, // 26: nextClassLoading
       undefined, // 27: nextClassMessage
       undefined, // 28: hasCalendarToken
-      undefined, // 29: directionsPanelBottom
-      undefined, // 30: mapViewportRegion
-      undefined, // 31: focusedBounds
-      undefined, // 32: mapFocusRequestKey
-      undefined, // 33: webMapReady
-      undefined, // 34: showPOIPanel
-      undefined, // 35: poiResults
-      undefined, // 36: destinationPOI
-      undefined, // 37: washroomPickerBuilding
-      undefined, // 38: routingOriginPoint
+      undefined, // 29: mapViewportRegion
+      undefined, // 30: focusedBounds
+      undefined, // 31: mapFocusRequestKey
+      undefined, // 32: showPOIPanel
+      undefined, // 33: poiResults
+      undefined, // 34: destinationPOI
+      undefined, // 35: washroomPickerBuilding
+      undefined, // 36: routingOriginPoint
     ]);
 
     const MapScreen = require("../../app/(tabs)/index").default;

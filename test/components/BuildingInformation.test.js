@@ -62,7 +62,15 @@ jest.mock("react-native", () => {
   return {
     Animated,
     Dimensions: { get: () => ({ height: 800 }) },
-    Image: ({ style, ...props }) => React.createElement("Image", { ...props, style }, null),
+    Image: Object.assign(
+      ({ style, ...props }) =>
+        React.createElement("Image", { ...props, style }, null),
+      {
+        propTypes: {
+          style: stylePropType,
+        },
+      },
+    ),
     Pressable,
     ScrollView,
     StyleSheet: { create: (s) => s },

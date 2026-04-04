@@ -17,9 +17,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  useWindowDimensions,
   View,
-  type LayoutChangeEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -96,11 +94,17 @@ import {
   type WashroomCategory
 } from "../../utils/washroomSearch";
 
+type IndoorModalPhase = "same" | "exit" | "entry";
+type FloorPlanSvgComponent = React.ComponentType<{
+  width?: string | number;
+  height?: string | number;
+}>;
+
 const parseFloorPlanKey = (key: string): { building: string; floor: number } | null => {
   const match = key.match(/^([A-Z]+)-(-?\d+)$/);
   if (!match) return null;
   const building = match[1];
-  const floor = parseInt(match[2], 10);
+  const floor = Number.parseInt(match[2], 10);
   return { building, floor };
 };
 
@@ -115,8 +119,59 @@ const DEFAULT_START_BUILDING_CODE = "H";
 const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
 const ROUTE_RECALC_MIN_DISTANCE_METERS = 25;
 
+const getSpecialFloorNodeLabel = (
+  node: Pick<SpecialFloorNode, "category" | "type">,
+) => {
+  if (node.category === "male_washroom") return "Men's Washroom";
+  if (node.category === "female_washroom") return "Women's Washroom";
+  return SPECIAL_NODE_COLORS[node.type]?.label ?? node.type;
+};
+
+const renderFloorPlanAssetPreview = (
+  activeFloorPlan: Exclude<FloorPlanAsset, null>,
+  imageStyle: unknown,
+): React.ReactNode => {
+  if (Platform.OS === "web" || typeof activeFloorPlan === "number") {
+    return (
+      <Image
+        source={activeFloorPlan}
+        style={imageStyle}
+        resizeMode="contain"
+      />
+    );
+  }
+
+  const FloorPlanComponent = activeFloorPlan as FloorPlanSvgComponent;
+  return (
+    <Svg width="100%" height="100%" viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid meet">
+      <FloorPlanComponent width={1024} height={1024} />
+    </Svg>
+  );
+};
+
+const getIndoorModalRoute = (
+  phase: IndoorModalPhase,
+  routes: {
+    same: IndoorRoute | null | undefined;
+    exit: IndoorRoute | null | undefined;
+    entry: IndoorRoute | null | undefined;
+  },
+) => {
+  if (phase === "exit") return routes.exit ?? null;
+  if (phase === "entry") return routes.entry ?? null;
+  return routes.same ?? null;
+};
+
+const getIndoorModalBuildingCode = (
+  phase: IndoorModalPhase,
+  originBuildingCode: string | null | undefined,
+  destinationBuildingCode: string | null | undefined,
+) => {
+  if (phase === "exit") return originBuildingCode ?? "";
+  return destinationBuildingCode ?? originBuildingCode ?? "";
+};
+
 export default function MapScreen() {
-  const { height: windowHeight } = useWindowDimensions();
   const [floorPlanModalOptions, setFloorPlanModalOptions] = useState<
     { key: string; label: string }[]
   >([]);
@@ -173,7 +228,6 @@ export default function MapScreen() {
   const [nextClassLoading, setNextClassLoading] = useState(false);
   const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
   const [hasCalendarToken, setHasCalendarToken] = useState(false);
-  const [directionsPanelBottom, setDirectionsPanelBottom] = useState(0);
   const [mapViewportRegion, setMapViewportRegion] = useState(() =>
     getCampusRegion("SGW", SGW_POLYGONS.features),
   );
@@ -232,14 +286,8 @@ export default function MapScreen() {
     }),
   ).current;
 
-  const webViewRef = useRef<any>(null);
-  const [webMapReady, setWebMapReady] = useState(false);
-  const locationSubscription = useRef<any>(null);
-  const campusRef = useRef<Campus>(campus);
-  const originModeRef = useRef<"auto" | "manual">("auto");
-  const hasInitializedCampusFromLocationRef = useRef(false);
   const [showPOIPanel, setShowPOIPanel] = useState(false);
-  const [poiResults, setPOIResults] = useState<POIResult[]>([]);
+  const [, setPOIResults] = useState<POIResult[]>([]);
   const [destinationPOI, setDestinationPOI] = useState<POIResult | null>(null);
   const [washroomPickerBuilding, setWashroomPickerBuilding] = useState<
     string | null
@@ -250,34 +298,6 @@ export default function MapScreen() {
   const isWebPlatform = Platform.OS === "web";
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
-
-  const webFrameTargetOrigin =
-    isWebPlatform && typeof globalThis.window !== "undefined"
-      ? globalThis.window.location.origin
-      : null;
-  const serializedWebFrameTargetOrigin = JSON.stringify(
-    webFrameTargetOrigin ?? "*",
-  );
-  const showE2EHooks =
-    Platform.OS !== "web" && process.env.EXPO_PUBLIC_ENABLE_E2E_HOOKS === "1";
-  const userLat = isWebPlatform ? userLocation?.coords.latitude || null : null;
-  const userLng = isWebPlatform ? userLocation?.coords.longitude || null : null;
-  const currentBuildingForHTML = isWebPlatform ? currentBuilding : null;
-
-  const postToWebIframe = useCallback(
-    (message: unknown) => {
-      if (!isWebPlatform || !webFrameTargetOrigin) return;
-      webViewRef.current?.contentWindow?.postMessage(
-        message,
-        webFrameTargetOrigin,
-      );
-    },
-    [isWebPlatform, webFrameTargetOrigin],
-  );
-
-  useEffect(() => {
-    campusRef.current = campus;
-  }, [campus]);
 
   useEffect(() => {
     getToken().then((token) => setHasCalendarToken(token !== null));
@@ -302,28 +322,6 @@ export default function MapScreen() {
         tabBarHeight: TAB_BAR_HEIGHT,
       }),
     [insets.bottom, insets.top, isWebPlatform],
-  );
-  const routeStepsPopupMaxHeight = useMemo(() => {
-    const preferredMaxHeight = isWebPlatform ? 360 : 300;
-    if (!directionsPanelBottom) return preferredMaxHeight;
-
-    const popupBottomOffset = insets.bottom + TAB_BAR_HEIGHT + 10;
-    const gapBelowDirectionsPanel = 12;
-    const availableHeight =
-      windowHeight -
-      directionsPanelBottom -
-      popupBottomOffset -
-      gapBelowDirectionsPanel;
-
-    return Math.max(140, Math.min(preferredMaxHeight, availableHeight));
-  }, [directionsPanelBottom, insets.bottom, isWebPlatform, windowHeight]);
-
-  const handleDirectionsPanelLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      const { y, height } = event.nativeEvent.layout;
-      setDirectionsPanelBottom(y + height);
-    },
-    [],
   );
 
   const focusMapRegion = useCallback(
@@ -667,8 +665,9 @@ export default function MapScreen() {
       setDestinationPOI(null);
 
       const destinationRecord = resolveBuildingByCode(building, BUILDINGS);
-      if (destinationRecord && destinationRecord.campus !== campus) {
-        setCampus(destinationRecord.campus);
+      const destinationCampus = destinationRecord?.campus;
+      if (destinationCampus && destinationCampus !== campus) {
+        setCampus(destinationCampus);
       }
     },
     [campus, originBuildingCode, routeActions, routeInstructionsDismissedRef],
@@ -730,32 +729,6 @@ export default function MapScreen() {
       originBuildingCode,
       originRoom,
     ],
-  );
-
-  const animateMapToRegion = useCallback(
-    (region: any, targetCampus: Campus) => {
-      setMapViewportRegion(region);
-
-      if (!isWebPlatform) {
-        mapRef.current?.animateToRegion?.(region, 450);
-      }
-
-      if (Platform.OS === "web") {
-        const minLat = region.latitude - region.latitudeDelta / 2;
-        const maxLat = region.latitude + region.latitudeDelta / 2;
-        const minLng = region.longitude - region.longitudeDelta / 2;
-        const maxLng = region.longitude + region.longitudeDelta / 2;
-        postToWebIframe({
-          type: "focusBounds",
-          bounds: [[minLat, minLng], [maxLat, maxLng]],
-          campus: targetCampus,
-          padding: [20, 20],
-        });
-      }
-
-      setCampus(targetCampus);
-    },
-    [isWebPlatform, postToWebIframe],
   );
 
   const handleNextClassDirections = useCallback(async () => {
@@ -839,63 +812,6 @@ export default function MapScreen() {
       return haystack.includes(query);
     }).slice(0, 8);
   }, [searchText]);
-
-  const washroomSearchResults = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-    const isWashroomQuery =
-      query.includes("washroom") || query.includes("bathroom");
-    if (!isWashroomQuery) return [];
-
-    const washroomParams = {
-      campusBuildings,
-      actualOriginPoint,
-      originBuildingCode: originBuilding?.code ?? null,
-      originRoom,
-      destinationBuildingCode: destinationBuilding?.code ?? null,
-      destinationRoom,
-    };
-
-    const maleWashroomTarget = findNearestWashroomTarget(
-      "male_washroom",
-      washroomParams,
-    );
-    const femaleWashroomTarget = findNearestWashroomTarget(
-      "female_washroom",
-      washroomParams,
-    );
-
-    return [
-      maleWashroomTarget
-        ? {
-          key: "nearest-male-washroom",
-          label: "Nearest male washroom",
-          building: maleWashroomTarget.building,
-          roomLabel: maleWashroomTarget.roomLabel,
-        }
-        : null,
-      femaleWashroomTarget
-        ? {
-          key: "nearest-female-washroom",
-          label: "Nearest female washroom",
-          building: femaleWashroomTarget.building,
-          roomLabel: femaleWashroomTarget.roomLabel,
-        }
-        : null,
-    ].filter((result): result is {
-      key: string;
-      label: string;
-      building: BuildingRecord;
-      roomLabel: string;
-    } => result !== null);
-  }, [
-    actualOriginPoint,
-    campusBuildings,
-    destinationBuilding?.code,
-    destinationRoom,
-    originBuilding?.code,
-    originRoom,
-    searchText,
-  ]);
 
   const handleSearchResultPress = useCallback((building: BuildingRecord) => {
     if (building.campus !== campus) {
@@ -1094,12 +1010,7 @@ export default function MapScreen() {
 
       setIndoorRoute(route);
       setOriginRoom(fromRoom);
-      const destLabel = node.category === "male_washroom"
-        ? "Men's Washroom"
-        : node.category === "female_washroom"
-          ? "Women's Washroom"
-          : SPECIAL_NODE_COLORS[node.type]?.label ?? node.type;
-      setDestinationRoom(destLabel);
+      setDestinationRoom(getSpecialFloorNodeLabel(node));
       setIndoorDirectionsTargetNodeId(node.id);
 
       // Close floor plan modal and open indoor directions modal
@@ -1208,7 +1119,7 @@ export default function MapScreen() {
   useEffect(() => {
     if (!pendingIndoorNode || !pendingIndoorFloorKey || !currentBuilding) return;
     const parsedKey = parseFloorPlanKey(pendingIndoorFloorKey);
-    if (!parsedKey || currentBuilding !== parsedKey.building) return;
+    if (parsedKey?.building !== currentBuilding) return;
 
     const node = pendingIndoorNode;
     const floorKey = pendingIndoorFloorKey;
@@ -1238,6 +1149,22 @@ export default function MapScreen() {
     destinationRoom,
     pendingIndoorRoomPopup,
   ]);
+
+  const selectedFloorPlanNodeLabel = selectedFloorPlanNode
+    ? getSpecialFloorNodeLabel(selectedFloorPlanNode)
+    : null;
+  const indoorModalBuildingCode = getIndoorModalBuildingCode(
+    indoorModalPhase,
+    originBuilding?.code,
+    destinationBuilding?.code,
+  );
+  const indoorModalRoute = getIndoorModalRoute(indoorModalPhase, {
+    same: indoorRoute,
+    exit: exitIndoorRoute,
+    entry: entryIndoorRoute,
+  });
+  const hasNextClassMessage =
+    nextClassMessage != null && nextClassMessage !== "";
 
   return (
     <View style={styles.container}>
@@ -1382,7 +1309,6 @@ export default function MapScreen() {
             else setDestinationRoom(room);
             setFocusedRoom(null);
           },
-          onLayout: handleDirectionsPanelLayout,
         }}
         helpers={{
           getRoomDetails,
@@ -1490,7 +1416,7 @@ export default function MapScreen() {
         </Pressable>
       )}
 
-      {nextClassMessage && (
+      {hasNextClassMessage && (
         <View style={styles.nextClassAlert}>
           <Text style={styles.nextClassAlertText}>{nextClassMessage}</Text>
         </View>
@@ -1643,31 +1569,10 @@ export default function MapScreen() {
               {(activeFloorPlan != null && selectedFloorPlanKey != null) ? (() => {
                 const parsedKey = parseFloorPlanKey(selectedFloorPlanKey);
                 if (!parsedKey) {
-                  return (Platform.OS === "web" ? (
-                    <Image
-                      source={activeFloorPlan}
-                      style={styles.floorPlanImage}
-                      resizeMode="contain"
-                    />
-                  ) : typeof activeFloorPlan === "number" ? (
-                    <Image
-                      source={activeFloorPlan}
-                      style={styles.floorPlanImage}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    (() => {
-                      const FloorPlanComponent = activeFloorPlan as React.ComponentType<{
-                        width?: string | number;
-                        height?: string | number;
-                      }>;
-                      return (
-                        <Svg width="100%" height="100%" viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid meet">
-                          <FloorPlanComponent width={1024} height={1024} />
-                        </Svg>
-                      );
-                    })()
-                  )) as React.ReactNode;
+                  return renderFloorPlanAssetPreview(
+                    activeFloorPlan,
+                    styles.floorPlanImage,
+                  );
                 }
 
                 const specialNodes = getSpecialNodesForFloor(parsedKey.building, parsedKey.floor);
@@ -1768,11 +1673,7 @@ export default function MapScreen() {
               <View style={floorPlanNodeStyles.selectedNodeBar}>
                 <View style={[floorPlanNodeStyles.selectedNodeSwatch, { backgroundColor: SPECIAL_NODE_COLORS[selectedFloorPlanNode.type]?.fill ?? "#888" }]} />
                 <Text style={floorPlanNodeStyles.selectedNodeText} numberOfLines={1}>
-                  {selectedFloorPlanNode.category === "male_washroom"
-                    ? "Men's Washroom"
-                    : selectedFloorPlanNode.category === "female_washroom"
-                      ? "Women's Washroom"
-                      : SPECIAL_NODE_COLORS[selectedFloorPlanNode.type]?.label ?? selectedFloorPlanNode.type}
+                  {selectedFloorPlanNodeLabel}
                 </Text>
                 <Pressable
                   testID="floor-plan-get-directions"
@@ -1791,12 +1692,7 @@ export default function MapScreen() {
             {floorPlanDirectionsPromptVisible && selectedFloorPlanNode && (
               <View style={floorPlanNodeStyles.directionsPrompt}>
                 <Text style={floorPlanNodeStyles.directionsPromptTitle}>
-                  Directions to{" "}
-                  {selectedFloorPlanNode.category === "male_washroom"
-                    ? "Men's Washroom"
-                    : selectedFloorPlanNode.category === "female_washroom"
-                      ? "Women's Washroom"
-                      : SPECIAL_NODE_COLORS[selectedFloorPlanNode.type]?.label ?? selectedFloorPlanNode.type}
+                  Directions to {selectedFloorPlanNodeLabel}
                 </Text>
                 <View style={floorPlanNodeStyles.directionsPromptRow}>
                   <TextInput
@@ -1873,34 +1769,20 @@ export default function MapScreen() {
           }
           setIndoorDirectionsTargetNodeId(undefined);
         }}
-        route={
-          indoorModalPhase === "exit"
-            ? exitIndoorRoute ?? null
-            : indoorModalPhase === "entry"
-              ? entryIndoorRoute ?? null
-              : indoorRoute ?? null
-        }
-        buildingCode={
-          indoorModalPhase === "exit"
-            ? originBuilding?.code ?? ""
-            : destinationBuilding?.code ?? originBuilding?.code ?? ""
-        }
+        route={indoorModalRoute}
+        buildingCode={indoorModalBuildingCode}
         originRoom={indoorModalPhase === "entry" ? "" : originRoom}
         destinationRoom={indoorModalPhase === "exit" ? "" : destinationRoom}
         targetNodeId={indoorDirectionsTargetNodeId}
         floorBounds={(floor) =>
           getFloorBounds(
-            indoorModalPhase === "exit"
-              ? originBuilding?.code ?? ""
-              : destinationBuilding?.code ?? originBuilding?.code ?? "",
+            indoorModalBuildingCode,
             floor,
           )
         }
         graphFloorBounds={(floor) =>
           getGraphFloorBounds(
-            indoorModalPhase === "exit"
-              ? originBuilding?.code ?? ""
-              : destinationBuilding?.code ?? originBuilding?.code ?? "",
+            indoorModalBuildingCode,
             floor,
           )
         }
