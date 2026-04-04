@@ -5,21 +5,21 @@ import { useLocalSearchParams } from "expo-router";
 import { ChevronUp, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    Image,
-    Keyboard,
-    Linking,
-    Modal,
-    PanResponder,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
-    type LayoutChangeEvent,
+  Image,
+  Keyboard,
+  Linking,
+  Modal,
+  PanResponder,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+  type LayoutChangeEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -33,16 +33,16 @@ import NativeCampusMap from "../../components/mapScreen/NativeCampusMap";
 import RouteStepsPopup from "../../components/mapScreen/RouteStepsPopup";
 import WebCampusMap from "../../components/mapScreen/WebCampusMap";
 import {
-    buildingHasPolygon,
-    formatDuration,
-    getBoundsFromRegion,
-    getDistanceBetweenCoordsMeters,
-    getFloorPlanAsset,
-    getPinVisibilityMode,
-    resolveBuildingByCode,
-    roundCoord,
-    shouldShowBuildingPin,
-    type FloorPlanAsset,
+  buildingHasPolygon,
+  formatDuration,
+  getBoundsFromRegion,
+  getDistanceBetweenCoordsMeters,
+  getFloorPlanAsset,
+  getPinVisibilityMode,
+  resolveBuildingByCode,
+  roundCoord,
+  shouldShowBuildingPin,
+  type FloorPlanAsset,
 } from "../../components/mapScreen/mapScreen.helpers";
 import { BUILDINGS, type BuildingRecord, type Campus } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
@@ -53,47 +53,47 @@ import { createMapScreenStyles } from "../../styles/mapScreen.styles";
 import type { MapBounds, RouteMode } from "../../types/map";
 import { parseLocationParts } from "../../utils/classLocation";
 import {
-    getFloorPlanLabelForKey,
-    getFloorPlanOptionsForBuilding,
+  getFloorPlanLabelForKey,
+  getFloorPlanOptionsForBuilding,
 } from "../../utils/floorPlanCatalog";
 import { getToken } from "../../utils/googleCalendarAuth";
 import { fetchNextConcordiaClassToday } from "../../utils/googleCalendarNextClass";
 import {
-    findIndoorRoute,
-    findIndoorRouteToNodeId,
-    findRouteFromNearestExit,
-    findRouteToNearestExit,
-    getFloorBounds,
-    getGraphFloorBounds,
-    getSpecialNodesForFloor,
-    type IndoorRoute,
-    type SpecialFloorNode,
+  findIndoorRoute,
+  findIndoorRouteToNodeId,
+  findRouteFromNearestExit,
+  findRouteToNearestExit,
+  getFloorBounds,
+  getGraphFloorBounds,
+  getSpecialNodesForFloor,
+  type IndoorRoute,
+  type SpecialFloorNode,
 } from "../../utils/indoorDirections";
 import { getCampusRegion } from "../../utils/mapRegions";
 import { fetchOsrmRoute } from "../../utils/osrmDirections";
 
 import POISearchPanel from "../../components/POISearchPanel";
 import {
-    requestLocationPermission
+  requestLocationPermission
 } from "../../utils/locationUtils";
 import type { POIResult } from "../../utils/poiSearch";
 import {
-    getRoomDetails,
-    getRoomsForBuilding,
-    roomLabelMatchesSearchPrefix,
+  getRoomDetails,
+  getRoomsForBuilding,
+  roomLabelMatchesSearchPrefix,
 } from "../../utils/roomUtils";
 import {
-    calculateOsrmRouteHelper,
-    calculateShuttleRouteHelper,
-    calculateTransitRouteHelper,
+  calculateOsrmRouteHelper,
+  calculateShuttleRouteHelper,
+  calculateTransitRouteHelper,
 } from "../../utils/routeCalculators";
 import {
-    fetchTransitItineraries,
-    formatTime
+  fetchTransitItineraries,
+  formatTime
 } from "../../utils/transitousDirections";
 import {
-    findNearestWashroomTarget,
-    type WashroomCategory
+  findNearestWashroomTarget,
+  type WashroomCategory
 } from "../../utils/washroomSearch";
 
 const parseFloorPlanKey = (key: string): { building: string; floor: number } | null => {
@@ -553,7 +553,7 @@ export default function MapScreen() {
     const destinationCode = destinationBuilding?.code;
     const trimmedDestinationRoom = destinationRoom.trim();
 
-    if (originCode == null || destinationCode == null || originCode === destinationCode || trimmedDestinationRoom.length === 0) {
+    if (destinationCode == null || originCode === destinationCode || trimmedDestinationRoom.length === 0) {
       setEntryIndoorRoute(undefined);
       return;
     }

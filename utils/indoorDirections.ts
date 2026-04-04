@@ -1209,13 +1209,13 @@ function findBestIndoorPath(
     true, // prefer route that avoids elevator/stairs
   );
 
-  if (sameFloor && !result) {
+  if (!result) {
     result = dijkstra(
       nodes,
       adjacency,
       startNode.id,
       endNode.id,
-      startNode.floor,
+      sameFloor ? startNode.floor : null,
       null,
       false,
     );
