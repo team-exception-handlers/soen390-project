@@ -24,9 +24,14 @@ appId: host.exp.Exponent
       text: Washroom
     direction: LEFT
 - tapOn: Library
+- tapOn: 2 km
+- swipe:
+    from:
+      text: Redpath Library Building, 1.0 km
+    direction: UP
+- assertVisible: Bibliothèque Réjean-Ducharme
 - tapOn: 5 km
-- assertVisible: Redpath Library Building, 1.0 km
-- tapOn: 500 m
-- assertNotVisible: Redpath Library Building
-
-
+- swipe:
+    from:
+      text: Redpath Library Building, 1.0 km
+    direction: UP
