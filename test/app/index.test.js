@@ -87,9 +87,9 @@ jest.mock("lucide-react-native", () => {
     PropTypes.func,
     PropTypes.number,
   ]);
-  const ChevronUp = (props) => React.createElement("ChevronUp", props);
+  const ChevronUp = (props) => React.createElement("ChevronUp", { ...props, style: props.style });
   ChevronUp.propTypes = { style: stylePropType };
-  const XIcon = (props) => React.createElement("XIcon", props);
+  const XIcon = (props) => React.createElement("XIcon", { ...props, style: props.style });
   XIcon.propTypes = { style: stylePropType };
   return {
     ChevronUp,
@@ -118,14 +118,31 @@ jest.mock("react-native-svg", () => {
   return {
     __esModule: true,
     default: SvgMock,
-    Circle: (props) => React.createElement("Circle", props),
+    Circle: (() => {
+      const Circle = (props) => React.createElement("Circle", { ...props, style: props.style });
+      Circle.propTypes = { style: stylePropType };
+      return Circle;
+    })(),
   };
 });
 
+// Add propTypes after the mock is returned if needed, but Circle is inside the object.
+// Better to define it inside or just modify the returned object.
+// Since it's a jest.mock return, I'll modify the mock implementation.
+
+
 jest.mock("../../components/AppHeader", () => {
   const React = require("react");
-  const AppHeaderMock = (props) => React.createElement("AppHeader", props);
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const AppHeaderMock = (props) => React.createElement("AppHeader", { ...props, style: props.style });
   AppHeaderMock.displayName = "AppHeaderMock";
+  AppHeaderMock.propTypes = { style: stylePropType };
   return AppHeaderMock;
 });
 
@@ -143,9 +160,17 @@ jest.mock("../../components/AppHeader", () => {
 ].forEach((path) => {
   jest.mock(path, () => {
     const React = require("react");
+    const PropTypes = require("prop-types");
+    const stylePropType = PropTypes.oneOfType([
+      PropTypes.object,
+      PropTypes.array,
+      PropTypes.func,
+      PropTypes.number,
+    ]);
     const MockComponent = (props) =>
-      React.createElement(path.split("/").pop(), props);
+      React.createElement(path.split("/").pop(), { ...props, style: props.style });
     MockComponent.displayName = `${path.split("/").pop()}Mock`;
+    MockComponent.propTypes = { style: stylePropType };
     return MockComponent;
   });
 });

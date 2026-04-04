@@ -11,7 +11,7 @@ jest.mock("lucide-react-native", () => {
     PropTypes.number,
   ]);
   const icon = (name) => {
-    const Icon = (props) => React.createElement(name, props);
+    const Icon = (props) => React.createElement(name, { ...props, style: props.style });
     Icon.propTypes = { style: stylePropType };
     return Icon;
   };

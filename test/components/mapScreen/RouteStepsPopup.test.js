@@ -21,17 +21,33 @@ jest.mock("lucide-react-native", () => {
 
 jest.mock("../../../components/ShuttleDirections", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
   const ShuttleDirectionsMock = (props) =>
-    React.createElement("ShuttleDirections", props);
+    React.createElement("ShuttleDirections", { ...props, style: props.style });
   ShuttleDirectionsMock.displayName = "ShuttleDirectionsMock";
+  ShuttleDirectionsMock.propTypes = { style: stylePropType };
   return ShuttleDirectionsMock;
 });
 
 jest.mock("../../../components/TransitLegTimeline", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
   const TransitLegTimelineMock = (props) =>
-    React.createElement("TransitLegTimeline", props);
+    React.createElement("TransitLegTimeline", { ...props, style: props.style });
   TransitLegTimelineMock.displayName = "TransitLegTimelineMock";
+  TransitLegTimelineMock.propTypes = { style: stylePropType };
   return TransitLegTimelineMock;
 });
 

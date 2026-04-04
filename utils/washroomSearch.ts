@@ -225,11 +225,12 @@ function findNearestWashroomInBuilding(
     );
 
     if (startNode) {
-      const nearest = washrooms.reduce((best, current) => {
+      const [first, ...rest] = washrooms;
+      const nearest = rest.reduce((best, current) => {
         const bestDist = calculateIndoorProximity(best, startNode);
         const currentDist = calculateIndoorProximity(current, startNode);
         return currentDist < bestDist ? current : best;
-      });
+      }, first);
       return nearest.label;
     }
   }

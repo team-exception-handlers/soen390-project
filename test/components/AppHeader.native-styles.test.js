@@ -28,21 +28,31 @@ jest.mock("react-native-safe-area-context", () => ({
 jest.mock("react-native", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
-  const Pressable = ({ children, ...rest }) =>
-    React.createElement("Pressable", rest, children);
-  const Text = ({ children, ...rest }) =>
-    React.createElement("Text", rest, children);
-  const View = ({ children, ...rest }) =>
-    React.createElement("View", rest, children);
-  Pressable.propTypes = { children: PropTypes.node };
-  Text.propTypes = { children: PropTypes.node };
-  View.propTypes = { children: PropTypes.node };
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const Pressable = ({ children, style, ...rest }) =>
+    React.createElement("Pressable", { ...rest, style }, children);
+  const Text = ({ children, style, ...rest }) =>
+    React.createElement("Text", { ...rest, style }, children);
+  const View = ({ children, style, ...rest }) =>
+    React.createElement("View", { ...rest, style }, children);
+  const TextInput = (props) => React.createElement("TextInput", { ...props, style: props.style });
+
+  Pressable.propTypes = { children: PropTypes.node, style: stylePropType };
+  Text.propTypes = { children: PropTypes.node, style: stylePropType };
+  View.propTypes = { children: PropTypes.node, style: stylePropType };
+  TextInput.propTypes = { style: stylePropType };
+
   return {
     Platform: { OS: "ios" },
     Pressable,
     StyleSheet: { create: (s) => s },
     Text,
-    TextInput: (props) => React.createElement("TextInput", props),
+    TextInput,
     View,
     useWindowDimensions: () => ({ width: 400, height: 800 }),
   };

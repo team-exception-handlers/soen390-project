@@ -1,14 +1,32 @@
 jest.mock("lucide-react-native", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const MapIcon = (props) => React.createElement("MapIcon", { ...props, style: props.style });
+  MapIcon.propTypes = { style: stylePropType };
+  const NavigationIcon = (props) => React.createElement("NavigationIcon", { ...props, style: props.style });
+  NavigationIcon.propTypes = { style: stylePropType };
   return {
-    Map: (props) => React.createElement("MapIcon", props),
-    Navigation: (props) => React.createElement("NavigationIcon", props),
+    Map: MapIcon,
+    Navigation: NavigationIcon,
   };
 });
 
 jest.mock("react-native", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
+
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
 
   const Pressable = ({ children, style, ...rest }) => {
     const resolvedStyle =
@@ -21,26 +39,32 @@ jest.mock("react-native", () => {
   };
   Pressable.propTypes = {
     children: PropTypes.node,
-    style: PropTypes.oneOfType([
-      PropTypes.object,
-      PropTypes.array,
-      PropTypes.func,
-    ]),
+    style: stylePropType,
   };
 
-  const Text = ({ children, ...rest }) =>
-    React.createElement("Text", rest, children);
-  Text.propTypes = { children: PropTypes.node };
+  const Text = ({ children, style, ...rest }) =>
+    React.createElement("Text", { ...rest, style }, children);
+  Text.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
-  const TextInput = (props) => React.createElement("TextInput", props);
+  const TextInput = (props) => React.createElement("TextInput", { ...props, style: props.style });
+  TextInput.propTypes = { style: stylePropType };
 
-  const View = ({ children, ...rest }) =>
-    React.createElement("View", rest, children);
-  View.propTypes = { children: PropTypes.node };
+  const View = ({ children, style, ...rest }) =>
+    React.createElement("View", { ...rest, style }, children);
+  View.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
-  const ScrollView = ({ children, ...rest }) =>
-    React.createElement("ScrollView", rest, children);
-  ScrollView.propTypes = { children: PropTypes.node };
+  const ScrollView = ({ children, style, ...rest }) =>
+    React.createElement("ScrollView", { ...rest, style }, children);
+  ScrollView.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
   return {
     Pressable,

@@ -230,6 +230,27 @@ export interface VerticalTransitOptions {
   noElevators: boolean;
 }
 
+export interface DijkstraState {
+  dist: Map<string, number>;
+  prev: Map<string, string | null>;
+  visited: Set<string>;
+  heap: MinHeap;
+}
+
+
+function isTransitDisabled(
+  isElevator: boolean,
+  isEscalator: boolean,
+  isStair: boolean,
+  options: VerticalTransitOptions
+): boolean {
+  return (
+    (isElevator && options.noElevators) ||
+    (isEscalator && options.noEscalators) ||
+    (isStair && options.noStairs)
+  );
+}
+
 function processEdge(
   e: IndoorEdge,
   allNodes: Map<string, IndoorNode>,
@@ -239,32 +260,30 @@ function processEdge(
   const srcNode = allNodes.get(e.source);
   const tgtNode = allNodes.get(e.target);
 
-  if (srcNode && tgtNode) {
-    const { isEscalator, isElevator, isStair } = getEdgeTransitType(e, srcNode, tgtNode);
+  // Determine transit type with fallback for missing nodes (e.g. in tests)
+  const isWithNodes = !!(srcNode && tgtNode);
+  const { isEscalator, isElevator, isStair } = isWithNodes
+    ? getEdgeTransitType(e, srcNode!, tgtNode!)
+    : {
+        isEscalator: e.type === "escalator",
+        isElevator: e.type === "elevator",
+        isStair: e.type === "stair",
+      };
 
-    if ((isElevator && options.noElevators) ||
-        (isEscalator && options.noEscalators) ||
-        (isStair && options.noStairs)) {
-      return;
-    }
+  if (isTransitDisabled(isElevator, isEscalator, isStair, options)) {
+    return;
+  }
 
-    if ((isEscalator || isStair) && resolveVerticalDirectionalEdge(e, srcNode, tgtNode, adjacency)) {
-      return;
-    }
-  } else {
-    // Fallback for tests where nodes may not be in allNodes Map
-    const isElevator = e.type === "elevator";
-    const isEscalator = e.type === "escalator";
-    const isStair = e.type === "stair";
-    if ((isElevator && options.noElevators) ||
-        (isEscalator && options.noEscalators) ||
-        (isStair && options.noStairs)) {
+  // Handle directional restrictions for escalators and stairs
+  if (isWithNodes && (isEscalator || isStair)) {
+    if (resolveVerticalDirectionalEdge(e, srcNode!, tgtNode!, adjacency)) {
       return;
     }
   }
 
   addBidirectionalEdge(adjacency, e.source, e.target, e.weight);
 }
+
 
 function getEdgeTransitType(e: IndoorEdge, srcNode: IndoorNode, tgtNode: IndoorNode) {
   const isEscalator = isEscalatorEdge(e, new Map([[srcNode.id, srcNode], [tgtNode.id, tgtNode]]));
@@ -468,10 +487,7 @@ function processDijkstraNeighbors(
   current: string,
   nodes: Map<string, IndoorNode>,
   adjacency: Map<string, { neighbor: string; weight: number }[]>,
-  dist: Map<string, number>,
-  prev: Map<string, string | null>,
-  heap: MinHeap,
-  visited: Set<string>,
+  state: DijkstraState,
   options: {
     restrictToFloor: number | null;
     restrictToBuildingId: string | null;
@@ -483,7 +499,7 @@ function processDijkstraNeighbors(
     options.restrictToFloor != null || options.restrictToBuildingId != null;
 
   for (const { neighbor, weight } of neighbors) {
-    if (visited.has(neighbor)) continue;
+    if (state.visited.has(neighbor)) continue;
 
     if (
       hasRestrictions &&
@@ -498,9 +514,10 @@ function processDijkstraNeighbors(
       continue;
     }
 
-    updateNeighbor(neighbor, current, weight, dist, prev, heap);
+    updateNeighbor(neighbor, current, weight, state.dist, state.prev, state.heap);
   }
 }
+
 
 function dijkstra(
   nodes: Map<string, IndoorNode>,
@@ -529,13 +546,11 @@ function dijkstra(
       current,
       nodes,
       adjacency,
-      dist,
-      prev,
-      heap,
-      visited,
+      { dist, prev, visited, heap },
       options
     );
   }
+
 
   const finalDist = dist.get(endId) ?? Infinity;
   if (finalDist === Infinity) return null;
@@ -1565,7 +1580,21 @@ export const __indoorDirectionsTestUtils = {
   buildGraph,
   initializeDijkstra,
   updateNeighbor,
-  processDijkstraNeighbors,
+  processDijkstraNeighbors: (
+    current: string,
+    nodes: Map<string, IndoorNode>,
+    adjacency: Map<string, { neighbor: string; weight: number }[]>,
+    dist: Map<string, number>,
+    prev: Map<string, string | null>,
+    heap: MinHeap,
+    visited: Set<string>,
+    options: {
+      restrictToFloor: number | null;
+      restrictToBuildingId: string | null;
+      excludeVerticalTransit: boolean;
+    }
+  ) =>
+    processDijkstraNeighbors(current, nodes, adjacency, { dist, prev, visited, heap }, options),
   dijkstra,
   formatFloorLabel,
   getNearestRoomLabel,

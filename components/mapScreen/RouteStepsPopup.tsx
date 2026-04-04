@@ -336,10 +336,10 @@ function TransitSection({ state, actions, helpers, styles }: RouteSectionProps) 
 function DefaultInstructionsSection({
   state,
   styles,
-}: {
+}: Readonly<{
   state: RouteStepsPopupState;
   styles: MapScreenStyles;
-}) {
+}>) {
   const { routeInstructions } = state;
 
   if (routeInstructions.length === 0) {

@@ -155,7 +155,7 @@ export default function MapScreen() {
   const [nextClassLoading, setNextClassLoading] = useState(false);
   const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
   const [hasCalendarToken, setHasCalendarToken] = useState(false);
-  const [directionsPanelBottom, setDirectionsPanelBottom] = useState(0);
+
   const [mapViewportRegion, setMapViewportRegion] = useState(() =>
     getCampusRegion("SGW", SGW_POLYGONS.features),
   );
@@ -253,13 +253,7 @@ export default function MapScreen() {
     [insets.bottom, insets.top, isWebPlatform],
   );
 
-  const handleDirectionsPanelLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      const { y, height } = event.nativeEvent.layout;
-      setDirectionsPanelBottom(y + height);
-    },
-    [],
-  );
+
 
   const focusMapRegion = useCallback(
     (nextRegion: typeof mapViewportRegion) => {
@@ -1075,7 +1069,7 @@ export default function MapScreen() {
             else setDestinationRoom(room);
             setFocusedRoom(null);
           },
-          onLayout: handleDirectionsPanelLayout,
+
         }}
         helpers={{
           getRoomDetails,

@@ -24,11 +24,28 @@ jest.mock("react", () => {
 
 jest.mock("lucide-react-native", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const ChevronDown = (props) => React.createElement("ChevronDown", { ...props, style: props.style });
+  const ChevronUp = (props) => React.createElement("ChevronUp", { ...props, style: props.style });
+  const NavigationIcon = (props) => React.createElement("NavigationIcon", { ...props, style: props.style });
+  const XIcon = (props) => React.createElement("XIcon", { ...props, style: props.style });
+
+  ChevronDown.propTypes = { style: stylePropType };
+  ChevronUp.propTypes = { style: stylePropType };
+  NavigationIcon.propTypes = { style: stylePropType };
+  XIcon.propTypes = { style: stylePropType };
+
   return {
-    ChevronDown: (props) => React.createElement("ChevronDown", props),
-    ChevronUp: (props) => React.createElement("ChevronUp", props),
-    Navigation: (props) => React.createElement("NavigationIcon", props),
-    X: (props) => React.createElement("XIcon", props),
+    ChevronDown,
+    ChevronUp,
+    Navigation: NavigationIcon,
+    X: XIcon,
   };
 });
 
@@ -110,48 +127,71 @@ jest.mock("react-native-svg", () => {
   return {
     __esModule: true,
     default: SvgMock,
-    Circle: (props) => React.createElement("Circle", { ...props, style: props.style }),
-    Polyline: (props) => React.createElement("Polyline", { ...props, style: props.style }),
+    Circle: (() => {
+      const Circle = (props) => React.createElement("Circle", { ...props, style: props.style });
+      Circle.propTypes = { style: stylePropType };
+      return Circle;
+    })(),
+    Polyline: (() => {
+      const Polyline = (props) => React.createElement("Polyline", { ...props, style: props.style });
+      Polyline.propTypes = { style: stylePropType };
+      return Polyline;
+    })(),
   };
 });
 
 jest.mock("../../assets/floor_plans/svg/CC1.svg", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const CC1Plan = (props) => React.createElement("CC1Plan", { ...props, style: props.style });
+  CC1Plan.propTypes = { style: PropTypes.any };
   return {
     __esModule: true,
-    default: (props) => React.createElement("CC1Plan", props),
+    default: CC1Plan,
   };
 });
 
 jest.mock("../../assets/floor_plans/svg/H1.svg", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const H1Plan = (props) => React.createElement("H1Plan", { ...props, style: props.style });
+  H1Plan.propTypes = { style: PropTypes.any };
   return {
     __esModule: true,
-    default: (props) => React.createElement("H1Plan", props),
+    default: H1Plan,
   };
 });
 
 jest.mock("../../assets/floor_plans/svg/H2.svg", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const H2Plan = (props) => React.createElement("H2Plan", { ...props, style: props.style });
+  H2Plan.propTypes = { style: PropTypes.any };
   return {
     __esModule: true,
-    default: (props) => React.createElement("H2Plan", props),
+    default: H2Plan,
   };
 });
 
 jest.mock("../../assets/floor_plans/svg/hall8.svg", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const Hall8Plan = (props) => React.createElement("Hall8Plan", { ...props, style: props.style });
+  Hall8Plan.propTypes = { style: PropTypes.any };
   return {
     __esModule: true,
-    default: (props) => React.createElement("Hall8Plan", props),
+    default: Hall8Plan,
   };
 });
 
 jest.mock("../../assets/floor_plans/svg/hall9.svg", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const Hall9Plan = (props) => React.createElement("Hall9Plan", { ...props, style: props.style });
+  Hall9Plan.propTypes = { style: PropTypes.any };
   return {
     __esModule: true,
-    default: (props) => React.createElement("Hall9Plan", props),
+    default: Hall9Plan,
   };
 });
 

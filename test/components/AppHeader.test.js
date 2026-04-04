@@ -65,12 +65,15 @@ jest.mock("react-native", () => {
     children: PropTypes.node,
     style: stylePropType,
   };
+  const TextInput = (props) => React.createElement("TextInput", { ...props, style: props.style });
+  TextInput.propTypes = { style: stylePropType };
+
   return {
     Platform: { OS: "web" },
     Pressable,
     StyleSheet: { create: (s) => s },
     Text,
-    TextInput: (props) => React.createElement("TextInput", { ...props, style: props.style }),
+    TextInput,
     View,
     useWindowDimensions: () => ({ width: 1000, height: 800 }),
   };
