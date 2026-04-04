@@ -5,50 +5,21 @@ appId: host.exp.Exponent
 ---
 - runFlow:
     file: _launch-expo-go.yaml
-
-- extendedWaitUntil:
-    visible:
-      id: "header-title"
-    timeout: 45000
-
-- extendedWaitUntil:
-    visible:
-      id: "directions-panel"
-    timeout: 20000
-
-- extendedWaitUntil:
-    visible:
-      id: "direction-from-room-input"
-    timeout: 20000
-- tapOn:
-    id: "direction-from-room-input"
-- inputText: "919"
-- tapOn:
-    point: "50%, 50%"
-
-- extendedWaitUntil:
-    visible:
-      id: "tab-calendar"
-    timeout: 40000
-- tapOn:
-    id: "tab-calendar"
-
-- extendedWaitUntil:
-    visible:
-      text: "Next Class"
-    timeout: 30000
-
-- extendedWaitUntil:
-    visible:
-      text: "Directions"
-    timeout: 40000
-- tapOn:
-    text: "Directions"
-
-- extendedWaitUntil:
-    visible:
-      id: "indoor-directions-button"
-    timeout: 20000
-
-- tapOn:
-    id: "indoor-directions-button"
+- tapOn: 
+- tapOn: School
+- tapOn: Directions
+- tapOn: FROM, Current location
+- tapOn: "Room #"
+- tapOn: MB-1.115
+- tapOn: "Room #"
+- tapOn: FROM
+- tapOn: "Room #"
+- tapOn: "0023"
+- tapOn: Exit H Building
+- doubleTapOn:
+    point: 88%,17%
+- doubleTapOn:
+    point: 87%,61%
+- tapOn: Enter MB Building
+- doubleTapOn:
+    point: 90%,26%
