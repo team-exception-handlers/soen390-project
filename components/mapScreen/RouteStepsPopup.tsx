@@ -92,9 +92,9 @@ function TransitItineraryCard({
               {transfersText}
             </Text>
             <View style={styles.itineraryLegsRow}>
-              {itinerary.legs.map((leg) => (
+            {itinerary.legs.map((leg) => (
                 <Text
-                  key={`${leg.mode}-${leg.startTime}-${leg.endTime}`}
+                key={`${leg.mode}-${leg.startTime}-${leg.endTime}`}
                   style={[styles.legPill, getLegColor(leg.mode, styles)]}
                 >
                   {leg.mode === "WALK" ? "Walk" : leg.route || leg.mode}
@@ -287,7 +287,7 @@ export default function RouteStepsPopup({
           }}
         />
       );
-    }
+    } 
   } else if (hasTransitItineraries) {
     if (showTransitJourneyDetails) {
       content = (
@@ -345,18 +345,18 @@ export default function RouteStepsPopup({
     }
   } else {
     content = routeInstructions.length > 0
-      ? routeInstructions.map((instruction, index) => (
-        <Text
-          key={`${instruction.text}-${instruction.distanceMeters}`}
-          style={styles.routeStepText}
-        >
-          {`${index + 1}. ${instruction.text}`}
-        </Text>
-      )) : (
-        <Text style={styles.routeStepText}>
-          Route loaded. No step-by-step directions available.
-        </Text>
-      );
+    ? routeInstructions.map((instruction, index) => (
+      <Text
+        key={`${instruction.text}-${instruction.distanceMeters}`}
+        style={styles.routeStepText}
+      >
+        {`${index + 1}. ${instruction.text}`}
+      </Text>
+    )) : (
+      <Text style={styles.routeStepText}>
+        Route loaded. No step-by-step directions available.
+      </Text>
+    );
   }
 
   return (

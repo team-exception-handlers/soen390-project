@@ -1,0 +1,37 @@
+# US-4.4: Manage Indoor Points of Interest and Navigation
+
+appId: host.exp.Exponent
+
+---
+- setPermissions:
+    permissions:
+      location: inuse
+- setLocation:
+    latitude: 45.497092
+    longitude: -73.5788
+- runFlow:
+    file: _launch-expo-go.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "header-title"
+    timeout: 45000
+
+- tapOn: Nearby
+- assertVisible: Coffee Shop
+- tapOn: Coffee Shop
+- assertVisible: Hive Café
+- tapOn: Close
+
+- setLocation:
+    latitude: 45.495376
+    longitude: -73.579044
+
+- assertVisible: Nearby
+- tapOn: Nearby
+- assertVisible: Washroom
+- tapOn: Washroom
+- assertVisible: Henry F. Hall Building (Indoor)
+- tapOn: Henry F. Hall Building (Indoor)
+- assertVisible: Male washroom
+- tapOn: Male washroom

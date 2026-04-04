@@ -1,0 +1,22 @@
+appId: host.exp.Exponent
+---
+# Close building info if open
+- tapOn:
+    id: "building-info-close-button"
+    optional: true
+
+# Cancel directions if active
+- tapOn:
+    id: "direction-go-button"
+    optional: true
+    label: "Cancel"
+
+# Close POI panel if open
+- tapOn:
+    id: "poi-close-button"
+    optional: true
+
+- assertVisible:
+    id: "header-title"
+- assertNotVisible:
+    id: "poi-results-list"
