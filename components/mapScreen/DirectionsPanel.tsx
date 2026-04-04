@@ -65,6 +65,7 @@ function RoomInputGroup({
         value={room}
         onChangeText={setRoom}
         keyboardType="default"
+        underlineColorAndroid="transparent"
         onFocus={onFocus}
         onBlur={onBlur}
       />
