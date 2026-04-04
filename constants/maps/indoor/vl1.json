@@ -1121,7 +1121,8 @@
       "x": 676,
       "y": 227,
       "label": "112",
-      "accessible": true
+      "accessible": true,
+      "category": "male_washroom"
     },
     {
       "id": "VL_F1_room_118",
@@ -1131,7 +1132,8 @@
       "x": 750,
       "y": 232,
       "label": "118",
-      "accessible": true
+      "accessible": true,
+      "category":"female_washroom"
     },
     {
       "id": "VL_F1_room_110",
@@ -1141,7 +1143,8 @@
       "x": 685,
       "y": 306,
       "label": "110",
-      "accessible": true
+      "accessible": true,
+      "category":"female_washroom"
     },
     {
       "id": "VL_F1_room_116",
@@ -1151,7 +1154,8 @@
       "x": 748,
       "y": 305,
       "label": "116",
-      "accessible": true
+      "accessible": true,
+      "category": "male_washroom"
     },
     {
       "id": "VL_F1_room_120",
@@ -1282,26 +1286,6 @@
       "y": 239,
       "label": "",
       "accessible": false
-    },
-    {
-      "id": "VL_F1_doorway_47",
-      "type": "building_entry_exit",
-      "buildingId": "VL",
-      "floor": 1,
-      "x": 968,
-      "y": 547,
-      "label": "",
-      "accessible": true
-    },
-    {
-      "id": "VL_F1_doorway_50",
-      "type": "hallway_waypoint",
-      "buildingId": "VL",
-      "floor": 1,
-      "x": 714,
-      "y": 513,
-      "label": "",
-      "accessible": true
     }
   ],
   "edges": [
@@ -2550,27 +2534,6 @@
       "type": "stair",
       "weight": 0,
       "accessible": false
-    },
-    {
-      "source": "bldg-1_F1_room_130",
-      "target": "VL_F1_doorway_50",
-      "type": "hallway",
-      "weight": 76,
-      "accessible": true
-    },
-    {
-      "source": "bldg-1_F1_room_144",
-      "target": "VL_F1_doorway_50",
-      "type": "hallway",
-      "weight": 77,
-      "accessible": true
-    },
-    {
-      "source": "VL_F1_doorway_50",
-      "target": "VL_F1_doorway_47",
-      "type": "hallway",
-      "weight": 256,
-      "accessible": true
     }
   ]
 }
