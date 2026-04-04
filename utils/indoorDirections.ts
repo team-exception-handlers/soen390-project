@@ -1282,13 +1282,13 @@ function findBestIndoorPath(
     true, // prefer route that avoids elevator/stairs
   );
 
-  if (sameFloor && !result) {
+  if (!result) {
     result = dijkstra(
       nodes,
       adjacency,
       startNode.id,
       endNode.id,
-      startNode.floor,
+      sameFloor ? startNode.floor : null,
       null,
       false,
     );
@@ -1440,6 +1440,47 @@ export function findIndoorRoute(
     endRoomLabel,
   );
 
+  if (!startNode || !endNode) return null;
+  if (startNode.id === endNode.id) {
+    return buildSameRoomIndoorRoute(startNode, startRoomLabel);
+  }
+
+  const result = findBestIndoorPath(nodes, adjacency, startNode, endNode);
+  if (!result) return null;
+
+  return buildIndoorRouteFromDijkstraResult(
+    result,
+    nodes,
+    adjacency,
+    startNode,
+    endNode,
+  );
+}
+
+export function findIndoorRouteToNodeId(
+  buildingCode: string,
+  startRoomLabel: string,
+  targetNodeId: string,
+  noStairs = false,
+  noEscalators = false,
+  noElevators = false,
+): IndoorRoute | null {
+  const floors = getBuildingFloors(buildingCode);
+  if (floors.length === 0) return null;
+
+  const { nodes, adjacency } = buildGraph(floors, noStairs, noEscalators, noElevators);
+
+  let startNode: IndoorNode | undefined;
+  for (const node of nodes.values()) {
+    if (node.type !== "room") continue;
+    if (!buildingIdMatches(buildingCode, node.buildingId)) continue;
+    if (roomLabelMatches(buildingCode, node.label, startRoomLabel)) {
+      startNode = node;
+      break;
+    }
+  }
+
+  const endNode = nodes.get(targetNodeId);
   if (!startNode || !endNode) return null;
   if (startNode.id === endNode.id) {
     return buildSameRoomIndoorRoute(startNode, startRoomLabel);
@@ -1688,6 +1729,7 @@ export function getGraphFloorBounds(
 
 export const __indoorDirectionsTestUtils = {
   getFloorQuery,
+  orthogonalizeSegmentPoints,
   buildGraph,
   initializeDijkstra,
   updateNeighbor,

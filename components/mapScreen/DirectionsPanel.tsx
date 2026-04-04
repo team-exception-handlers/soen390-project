@@ -24,7 +24,7 @@ type GetFloorPlanAsset = (key: string) => FloorPlanAsset;
 type RoomInputGroupProps = Readonly<{
   building: BuildingRecord | null;
   room: string;
-  setRoom: Dispatch<SetStateAction<string>>;
+  setRoom: (room: string) => void;
   styles: MapScreenStyles;
   roomInputTestID?: string;
   getRoomDetails: (
@@ -65,6 +65,7 @@ function RoomInputGroup({
         value={room}
         onChangeText={setRoom}
         keyboardType="default"
+        underlineColorAndroid="transparent"
         onFocus={onFocus}
         onBlur={onBlur}
       />
@@ -263,8 +264,10 @@ export type DirectionsPanelActions = Readonly<{
   setRouteStarted: (started: boolean) => void;
   showRouteInstructions: () => void;
   setOriginRoom: Dispatch<SetStateAction<string>>;
-  setDestinationRoom: Dispatch<SetStateAction<string>>;
+  setDestinationRoom: (room: string) => void;
   openFloorPlanModal: (floorKey: string) => void;
+  setActiveFloorPlan: (asset: FloorPlanAsset) => void;
+  setFloorPlanModalVisible: (visible: boolean) => void;
   setFocusedRoom?: Dispatch<SetStateAction<"from" | "to" | null>>;
   onRoomSuggestionPressIn?: () => void;
   onRoomSuggestionSelect?: (room: string, field: "from" | "to") => void;

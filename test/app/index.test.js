@@ -314,31 +314,45 @@ describe("app/(tabs)/index", () => {
 
   test("wires campus change and search result selection", () => {
     const setters = mockUseStateSequence([
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      "SGW",
-      "hall",
-      undefined,
-      undefined,
-      "H",
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
+      undefined, // 0: floorPlanModalOptions
+      undefined, // 1: selectedFloorPlanKey
+      undefined, // 2: editingField
+      undefined, // 3: floorPlanModalVisible
+      undefined, // 4: activeFloorPlan
+      undefined, // 5: selectedFloorPlanNode
+      undefined, // 6: floorPlanDirectionsFromRoom
+      undefined, // 7: floorPlanDirectionsPromptVisible
+      undefined, // 8: indoorDirectionsTargetNodeId
+      undefined, // 9: pendingIndoorNode
+      undefined, // 10: pendingIndoorFloorKey
+      undefined, // 11: pendingIndoorRoomPopup
+      "SGW",     // 12: campus
+      "hall",    // 13: searchText
+      undefined, // 14: selectedBuilding
+      undefined, // 15: destinationBuildingCode
+      undefined, // 16: originBuildingCode
+      undefined, // 17: originRoom
+      undefined, // 18: destinationRoom
+      undefined, // 19: destinationRoomDisplayLabel
+      undefined, // 20: focusedRoom
+      undefined, // 21: isDirectionsMode
+      undefined, // 22: indoorRoute
+      undefined, // 23: indoorDirectionsModalVisible
+      undefined, // 24: routeMode
+      undefined, // 25: modeDurations
+      undefined, // 26: nextClassLoading
+      undefined, // 27: nextClassMessage
+      undefined, // 28: hasCalendarToken
+      undefined, // 29: directionsPanelBottom
+      undefined, // 30: mapViewportRegion
+      undefined, // 31: focusedBounds
+      undefined, // 32: mapFocusRequestKey
+      undefined, // 33: webMapReady
+      undefined, // 34: showPOIPanel
+      undefined, // 35: poiResults
+      undefined, // 36: destinationPOI
+      undefined, // 37: washroomPickerBuilding
+      undefined, // 38: routingOriginPoint
     ]);
 
     const MapScreen = require("../../app/(tabs)/index").default;
@@ -346,12 +360,12 @@ describe("app/(tabs)/index", () => {
 
     const header = findByType(tree, "AppHeader");
     header.props.onCampusChange("LOY");
-    expect(setters[5]).toHaveBeenCalledWith("LOY");
+    expect(setters[12]).toHaveBeenCalledWith("LOY");
 
     const hallResult = findByTestID(tree, "search-result-H");
     hallResult.props.onPress();
-    expect(setters[7]).toHaveBeenCalledWith("H");
-    expect(setters[6]).toHaveBeenCalledWith("");
+    expect(setters[14]).toHaveBeenCalledWith("H");
+    expect(setters[13]).toHaveBeenCalledWith("");
     expect(keyboardDismiss).toHaveBeenCalled();
   });
 });
