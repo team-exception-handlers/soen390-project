@@ -137,6 +137,7 @@ export default function MapScreen() {
   const [indoorDirectionsTargetNodeId, setIndoorDirectionsTargetNodeId] = useState<string | undefined>(undefined);
   const [pendingIndoorNode, setPendingIndoorNode] = useState<SpecialFloorNode | null>(null);
   const [pendingIndoorFloorKey, setPendingIndoorFloorKey] = useState<string | null>(null);
+  const [pendingIndoorRoomPopup, setPendingIndoorRoomPopup] = useState(false);
   const [campus, setCampus] = useState<Campus>("SGW");
   const [searchText, setSearchText] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
@@ -147,6 +148,8 @@ export default function MapScreen() {
   );
   const [originRoom, setOriginRoom] = useState("");
   const [destinationRoom, setDestinationRoom] = useState("");
+  const [destinationRoomDisplayLabel, setDestinationRoomDisplayLabel] =
+    useState<string | null>(null);
   const [focusedRoom, setFocusedRoom] = useState<"from" | "to" | null>(null);
   const [isDirectionsMode, setIsDirectionsMode] = useState(false);
   const [indoorRoute, setIndoorRoute] = useState<IndoorRoute | null | undefined>(
@@ -203,6 +206,7 @@ export default function MapScreen() {
     }
 
     if (typeof toRoom === "string") {
+      setDestinationRoomDisplayLabel(null);
       setDestinationRoom(toRoom.trim());
     }
   }, [toBuilding, toRoom]);
@@ -597,6 +601,7 @@ export default function MapScreen() {
     setDestinationPOI(null);
     setPendingIndoorNode(null);
     setPendingIndoorFloorKey(null);
+    setPendingIndoorRoomPopup(false);
     routeActions.resetAll();
   }, [routeActions]);
 
@@ -605,10 +610,19 @@ export default function MapScreen() {
       building: string | null,
       room?: string | null,
       clearInputs = true,
+      roomDisplayLabel?: string | null,
     ) => {
       if (!building) return;
+      const trimmedRoom = (room ?? "").trim();
+      const shouldAutoOpenIndoorOnArrival =
+        trimmedRoom.length > 0 &&
+        originBuildingCode != null &&
+        originBuildingCode !== building;
+
+      setPendingIndoorRoomPopup(shouldAutoOpenIndoorOnArrival);
       setDestinationBuildingCode(building);
-      setDestinationRoom(room ?? "");
+      setDestinationRoomDisplayLabel(roomDisplayLabel ?? null);
+      setDestinationRoom(trimmedRoom);
       setIsDirectionsMode(true);
       setEditingField(undefined);
       if (clearInputs) {
@@ -624,7 +638,7 @@ export default function MapScreen() {
         setCampus(destinationRecord.campus);
       }
     },
-    [campus, routeActions, routeInstructionsDismissedRef],
+    [campus, originBuildingCode, routeActions, routeInstructionsDismissedRef],
   );
 
   const handlePOIPress = useCallback(
@@ -637,6 +651,7 @@ export default function MapScreen() {
       }
 
       setDestinationPOI(poi);
+      setDestinationRoomDisplayLabel(null);
       setDestinationBuildingCode("");
       setDestinationRoom("");
       setIsDirectionsMode(true);
@@ -665,10 +680,13 @@ export default function MapScreen() {
       setShowPOIPanel(false);
       setPOIResults([]);
       if (target) {
+        const washroomDisplayLabel =
+          category === "male_washroom" ? "Men's Washroom" : "Women's Washroom";
         setDestinationAndEnterDirectionsMode(
           target.building.code,
           target.roomLabel,
           true,
+          washroomDisplayLabel,
         );
       }
     },
@@ -1163,6 +1181,25 @@ export default function MapScreen() {
     launchIndoorDirectionsFromFloorPlan(defaultRoom, node, floorKey);
   }, [currentBuilding, pendingIndoorNode, pendingIndoorFloorKey, originRoom, launchIndoorDirectionsFromFloorPlan]);
 
+  // For room-based indoor destinations, auto-open the indoor modal after arriving at the destination building.
+  useEffect(() => {
+    if (!pendingIndoorRoomPopup || !currentBuilding || !destinationBuilding) return;
+    if (currentBuilding !== destinationBuilding.code) return;
+    if (!destinationRoom.trim()) {
+      setPendingIndoorRoomPopup(false);
+      return;
+    }
+
+    setPendingIndoorRoomPopup(false);
+    setIndoorDirectionsTargetNodeId(undefined);
+    setIndoorDirectionsModalVisible(true);
+  }, [
+    currentBuilding,
+    destinationBuilding,
+    destinationRoom,
+    pendingIndoorRoomPopup,
+  ]);
+
   return (
     <View style={styles.container}>
       <AppHeader
@@ -1277,7 +1314,7 @@ export default function MapScreen() {
           routeMode,
           modeDurations,
           originRoom,
-          destinationRoom,
+          destinationRoom: destinationRoomDisplayLabel ?? destinationRoom,
           focusedRoom,
           roomSuggestions,
           hasIndoorRoute,
@@ -1290,7 +1327,10 @@ export default function MapScreen() {
           setRouteStarted: routeActions.setRouteStarted,
           showRouteInstructions: routeActions.showInstructions,
           setOriginRoom,
-          setDestinationRoom,
+          setDestinationRoom: (room) => {
+            setDestinationRoomDisplayLabel(null);
+            setDestinationRoom(room);
+          },
           setActiveFloorPlan,
           setFloorPlanModalVisible,
           openFloorPlanModal,
@@ -1784,6 +1824,10 @@ export default function MapScreen() {
         visible={indoorDirectionsModalVisible}
         onClose={() => {
           setIndoorDirectionsModalVisible(false);
+          if (indoorDirectionsTargetNodeId) {
+            setDestinationRoom("");
+            setDestinationRoomDisplayLabel(null);
+          }
           setIndoorDirectionsTargetNodeId(undefined);
         }}
         route={indoorRoute ?? null}
