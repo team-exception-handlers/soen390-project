@@ -17,6 +17,12 @@ appId: host.exp.Exponent
       id: "header-title"
     timeout: 45000
 - tapOn: FROM
+- assertVisible:
+    id: icon
+    index: 10
+- tapOn:
+    id: icon
+    index: 10
 - tapOn: H
 - assertVisible: Start Here
 - tapOn: Start Here
@@ -33,17 +39,15 @@ appId: host.exp.Exponent
     index: 1
 - assertVisible: CC-101
 - tapOn: CC-101
-- tapOn: Go
+- tapOn:
+    id: icon
+    index: 10
+- tapOn:
+    id: route-steps-close-button
 - tapOn: Exit H Building
 - tapOn:
-    point: 89%,27%
+    id: indoor-directions-close
 - assertVisible: Enter CC Building
 - tapOn: Enter CC Building
-- assertVisible: X
 - tapOn:
-    point: 89%,27%
-
-
-
-
-
+    id: indoor-directions-close
