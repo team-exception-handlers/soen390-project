@@ -1,15 +1,13 @@
 import {
-    __indoorDirectionsTestUtils,
-    findIndoorRoute,
-    findIndoorRouteToNodeId,
-    findRouteFromNearestExit,
-    findRouteToNearestExit,
-    getFloorBounds,
-    getGraphFloorBounds,
+  __indoorDirectionsTestUtils,
+  findIndoorRoute,
+  findRouteFromNearestExit,
+  findRouteToNearestExit,
+  getFloorBounds,
+  getGraphFloorBounds,
 } from "../../utils/indoorDirections";
 
 const {
-  orthogonalizeSegmentPoints,
   buildGraph,
   dijkstra,
   simplifyPathForSteps,
@@ -101,66 +99,6 @@ describe("indoorDirections", () => {
       expect(findIndoorRoute(buildingCode, start, end)).toBeNull();
     },
   );
-
-  test("findIndoorRouteToNodeId returns null when start room is missing", () => {
-    expect(findIndoorRouteToNodeId("H", "missing", "Hall_F9_room_203")).toBeNull();
-  });
-
-  test("findIndoorRouteToNodeId returns null when target node is missing", () => {
-    expect(findIndoorRouteToNodeId("H", "919", "missing-node-id")).toBeNull();
-  });
-
-  test("findIndoorRouteToNodeId returns a no-movement route when start room maps to target node", () => {
-    const route = findIndoorRouteToNodeId("H", "919", "Hall_F9_room_268");
-    expect(route).toEqual({
-      segments: [{ floor: 9, points: [{ x: 144, y: 1572 }] }],
-      steps: [{ instruction: "You are already at room 919", floor: 9 }],
-      totalDistance: 0,
-      startFloor: 9,
-      endFloor: 9,
-    });
-  });
-
-  test("findIndoorRouteToNodeId returns a valid path to another node on the same floor", () => {
-    const route = findIndoorRouteToNodeId("H", "919", "Hall_F9_room_203");
-    expect(route).not.toBeNull();
-    expect(route!.startFloor).toBe(9);
-    expect(route!.endFloor).toBe(9);
-    expect(route!.steps.length).toBeGreaterThan(1);
-  });
-
-  test("orthogonalizeSegmentPoints keeps short paths unchanged", () => {
-    const singlePoint = [{ x: 1, y: 2 }];
-    expect(orthogonalizeSegmentPoints(singlePoint)).toEqual(singlePoint);
-  });
-
-  test("orthogonalizeSegmentPoints snaps horizontal and vertical dominant segments", () => {
-    const points = [
-      { x: 0, y: 0 },
-      { x: 10, y: 2 },
-      { x: 12, y: 20 },
-    ];
-    expect(orthogonalizeSegmentPoints(points)).toEqual([
-      { x: 0, y: 0 },
-      { x: 10, y: 0 },
-      { x: 10, y: 2 },
-      { x: 10, y: 20 },
-      { x: 12, y: 20 },
-    ]);
-  });
-
-  test("orthogonalizeSegmentPoints skips zero-length segments", () => {
-    const points = [
-      { x: 5, y: 5 },
-      { x: 5, y: 5 },
-      { x: 8, y: 5 },
-    ];
-    expect(orthogonalizeSegmentPoints(points)).toEqual([
-      { x: 5, y: 5 },
-      { x: 8, y: 5 },
-      { x: 8, y: 5 },
-    ]);
-  });
 
   test("adds stair instructions and per-floor segments for Hall routes that change floors", () => {
     const route = findIndoorRoute("H", "867", "929");

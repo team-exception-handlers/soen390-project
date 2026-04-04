@@ -139,7 +139,6 @@ export function createMapScreenStyles({
       borderColor: "rgba(255,255,255,0.15)",
       color: "white",
       paddingHorizontal: 6,
-      paddingVertical: 0,
       fontSize: 12,
     },
     roomInputContainer: {
