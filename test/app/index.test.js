@@ -292,15 +292,14 @@ describe("app/(tabs)/index", () => {
       undefined, // 26: nextClassLoading
       undefined, // 27: nextClassMessage
       undefined, // 28: hasCalendarToken
-      undefined, // 29: directionsPanelBottom
-      undefined, // 30: mapViewportRegion
-      undefined, // 31: focusedBounds
-      undefined, // 32: mapFocusRequestKey
-      undefined, // 33: showPOIPanel
-      undefined, // 34: poiResults
-      undefined, // 35: destinationPOI
-      undefined, // 36: washroomPickerBuilding
-      undefined, // 37: routingOriginPoint
+      undefined, // 29: mapViewportRegion
+      undefined, // 30: focusedBounds
+      undefined, // 31: mapFocusRequestKey
+      undefined, // 32: showPOIPanel
+      undefined, // 33: poiResults
+      undefined, // 34: destinationPOI
+      undefined, // 35: washroomPickerBuilding
+      undefined, // 36: routingOriginPoint
     ]);
 
     const MapScreen = require("../../app/(tabs)/index").default;

@@ -18,7 +18,6 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  type LayoutChangeEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -229,7 +228,6 @@ export default function MapScreen() {
   const [nextClassLoading, setNextClassLoading] = useState(false);
   const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
   const [hasCalendarToken, setHasCalendarToken] = useState(false);
-  const [, setDirectionsPanelBottom] = useState(0);
   const [mapViewportRegion, setMapViewportRegion] = useState(() =>
     getCampusRegion("SGW", SGW_POLYGONS.features),
   );
@@ -324,13 +322,6 @@ export default function MapScreen() {
         tabBarHeight: TAB_BAR_HEIGHT,
       }),
     [insets.bottom, insets.top, isWebPlatform],
-  );
-  const handleDirectionsPanelLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      const { y, height } = event.nativeEvent.layout;
-      setDirectionsPanelBottom(y + height);
-    },
-    [],
   );
 
   const focusMapRegion = useCallback(
@@ -1318,7 +1309,6 @@ export default function MapScreen() {
             else setDestinationRoom(room);
             setFocusedRoom(null);
           },
-          onLayout: handleDirectionsPanelLayout,
         }}
         helpers={{
           getRoomDetails,
