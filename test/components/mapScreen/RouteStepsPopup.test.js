@@ -1,47 +1,93 @@
 jest.mock("lucide-react-native", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
+  const icon = (name) => {
+    const Icon = (props) => React.createElement(name, { ...props, style: props.style });
+    Icon.propTypes = { style: stylePropType };
+    return Icon;
+  };
   return {
-    ChevronDown: (props) => React.createElement("ChevronDown", props),
-    ChevronUp: (props) => React.createElement("ChevronUp", props),
-    X: (props) => React.createElement("XIcon", props),
+    ChevronDown: icon("ChevronDown"),
+    ChevronUp: icon("ChevronUp"),
+    X: icon("XIcon"),
   };
 });
 
 jest.mock("../../../components/ShuttleDirections", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
   const ShuttleDirectionsMock = (props) =>
-    React.createElement("ShuttleDirections", props);
+    React.createElement("ShuttleDirections", { ...props, style: props.style });
   ShuttleDirectionsMock.displayName = "ShuttleDirectionsMock";
+  ShuttleDirectionsMock.propTypes = { style: stylePropType };
   return ShuttleDirectionsMock;
 });
 
 jest.mock("../../../components/TransitLegTimeline", () => {
   const React = require("react");
+  const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
   const TransitLegTimelineMock = (props) =>
-    React.createElement("TransitLegTimeline", props);
+    React.createElement("TransitLegTimeline", { ...props, style: props.style });
   TransitLegTimelineMock.displayName = "TransitLegTimelineMock";
+  TransitLegTimelineMock.propTypes = { style: stylePropType };
   return TransitLegTimelineMock;
 });
 
 jest.mock("react-native", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
 
-  const Pressable = ({ children, ...rest }) =>
-    React.createElement("Pressable", rest, children);
-  Pressable.propTypes = { children: PropTypes.node };
+  const Pressable = ({ children, style, ...rest }) =>
+    React.createElement("Pressable", { ...rest, style }, children);
+  Pressable.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
-  const ScrollView = ({ children, ...rest }) =>
-    React.createElement("ScrollView", rest, children);
-  ScrollView.propTypes = { children: PropTypes.node };
+  const ScrollView = ({ children, style, ...rest }) =>
+    React.createElement("ScrollView", { ...rest, style }, children);
+  ScrollView.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
-  const Text = ({ children, ...rest }) =>
-    React.createElement("Text", rest, children);
-  Text.propTypes = { children: PropTypes.node };
+  const Text = ({ children, style, ...rest }) =>
+    React.createElement("Text", { ...rest, style }, children);
+  Text.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
-  const View = ({ children, ...rest }) =>
-    React.createElement("View", rest, children);
-  View.propTypes = { children: PropTypes.node };
+  const View = ({ children, style, ...rest }) =>
+    React.createElement("View", { ...rest, style }, children);
+  View.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
   return {
     Pressable,

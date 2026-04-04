@@ -91,7 +91,7 @@ function IntermediateStopsList({
         <View style={{ marginLeft: 60, marginTop: -8, marginBottom: 8 }}>
             {stops.map((stop, stopIdx) => (
                 <View
-                    key={`${stop.name}-${stop.arrival}`}
+                    key={`stop-${stopIdx}-${stop.name}-${stop.arrival}`}
                     style={{
                         flexDirection: "row",
                         paddingVertical: 6,

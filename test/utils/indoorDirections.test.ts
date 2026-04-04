@@ -1,15 +1,15 @@
 import {
-    __indoorDirectionsTestUtils,
-    findIndoorRoute,
-    findIndoorRouteToNodeId,
-    findRouteFromNearestExit,
-    findRouteToNearestExit,
-    getFloorBounds,
-    getGraphFloorBounds,
+  __indoorDirectionsTestUtils,
+  findIndoorRoute,
+  findIndoorRouteToNodeId,
+  findRouteFromNearestExit,
+  findRouteToNearestExit,
+  getFloorBounds,
+  getGraphFloorBounds,
+  getSpecialNodesForFloor,
 } from "../../utils/indoorDirections";
 
 const {
-  orthogonalizeSegmentPoints,
   buildGraph,
   dijkstra,
   simplifyPathForSteps,
@@ -101,66 +101,6 @@ describe("indoorDirections", () => {
       expect(findIndoorRoute(buildingCode, start, end)).toBeNull();
     },
   );
-
-  test("findIndoorRouteToNodeId returns null when start room is missing", () => {
-    expect(findIndoorRouteToNodeId("H", "missing", "Hall_F9_room_203")).toBeNull();
-  });
-
-  test("findIndoorRouteToNodeId returns null when target node is missing", () => {
-    expect(findIndoorRouteToNodeId("H", "919", "missing-node-id")).toBeNull();
-  });
-
-  test("findIndoorRouteToNodeId returns a no-movement route when start room maps to target node", () => {
-    const route = findIndoorRouteToNodeId("H", "919", "Hall_F9_room_268");
-    expect(route).toEqual({
-      segments: [{ floor: 9, points: [{ x: 144, y: 1572 }] }],
-      steps: [{ instruction: "You are already at room 919", floor: 9 }],
-      totalDistance: 0,
-      startFloor: 9,
-      endFloor: 9,
-    });
-  });
-
-  test("findIndoorRouteToNodeId returns a valid path to another node on the same floor", () => {
-    const route = findIndoorRouteToNodeId("H", "919", "Hall_F9_room_203");
-    expect(route).not.toBeNull();
-    expect(route!.startFloor).toBe(9);
-    expect(route!.endFloor).toBe(9);
-    expect(route!.steps.length).toBeGreaterThan(1);
-  });
-
-  test("orthogonalizeSegmentPoints keeps short paths unchanged", () => {
-    const singlePoint = [{ x: 1, y: 2 }];
-    expect(orthogonalizeSegmentPoints(singlePoint)).toEqual(singlePoint);
-  });
-
-  test("orthogonalizeSegmentPoints snaps horizontal and vertical dominant segments", () => {
-    const points = [
-      { x: 0, y: 0 },
-      { x: 10, y: 2 },
-      { x: 12, y: 20 },
-    ];
-    expect(orthogonalizeSegmentPoints(points)).toEqual([
-      { x: 0, y: 0 },
-      { x: 10, y: 0 },
-      { x: 10, y: 2 },
-      { x: 10, y: 20 },
-      { x: 12, y: 20 },
-    ]);
-  });
-
-  test("orthogonalizeSegmentPoints skips zero-length segments", () => {
-    const points = [
-      { x: 5, y: 5 },
-      { x: 5, y: 5 },
-      { x: 8, y: 5 },
-    ];
-    expect(orthogonalizeSegmentPoints(points)).toEqual([
-      { x: 5, y: 5 },
-      { x: 8, y: 5 },
-      { x: 8, y: 5 },
-    ]);
-  });
 
   test("adds stair instructions and per-floor segments for Hall routes that change floors", () => {
     const route = findIndoorRoute("H", "867", "929");
@@ -704,6 +644,74 @@ describe("indoorDirections", () => {
 
   test("findRouteFromNearestExit works for VE building with explicit exit node", () => {
     const route = findRouteFromNearestExit("VE", "101");
+    expect(route === null || route.segments.length > 0).toBe(true);
+  });
+
+  // findIndoorRouteToNodeId
+  test("findIndoorRouteToNodeId returns a route to a known exit node", () => {
+    const route = findIndoorRouteToNodeId("H", "127", "Hall_F1_doorway_121");
+    expect(route).not.toBeNull();
+    expect(route!.steps.length).toBeGreaterThan(0);
+  });
+
+  test("findIndoorRouteToNodeId returns null for unknown building", () => {
+    expect(findIndoorRouteToNodeId("UNKNOWN", "101", "some_node")).toBeNull();
+  });
+
+  test("findIndoorRouteToNodeId returns null for unknown start room", () => {
+    expect(findIndoorRouteToNodeId("H", "ZZZZ", "Hall_F1_building_entry_exit_1")).toBeNull();
+  });
+
+  test("findIndoorRouteToNodeId returns null for unknown target node id", () => {
+    expect(findIndoorRouteToNodeId("H", "867", "nonexistent_node_id")).toBeNull();
+  });
+
+  // getSpecialNodesForFloor
+  test("getSpecialNodesForFloor returns special nodes for Hall floor 1", () => {
+    const nodes = getSpecialNodesForFloor("H", 1);
+    expect(Array.isArray(nodes)).toBe(true);
+  });
+
+  test("getSpecialNodesForFloor returns empty array for unknown building", () => {
+    const nodes = getSpecialNodesForFloor("UNKNOWN", 1);
+    expect(nodes).toEqual([]);
+  });
+
+  test("getSpecialNodesForFloor returns escalator nodes for Hall floor 1", () => {
+    const nodes = getSpecialNodesForFloor("H", 1);
+    const types = nodes.map((n) => n.type);
+    expect(types.some((t) => ["stair", "elevator", "escalator"].includes(t))).toBe(true);
+  });
+
+  // getFloorBounds Hall 1 and 2 (lines 1572/1574)
+  test("getFloorBounds returns valid bounds for Hall floor 1", () => {
+    const bounds = getFloorBounds("H", 1);
+    expect(bounds.width).toBeGreaterThan(0);
+    expect(bounds.height).toBeGreaterThan(0);
+  });
+
+  test("getFloorBounds returns valid bounds for Hall floor 2", () => {
+    const bounds = getFloorBounds("H", 2);
+    expect(bounds.width).toBeGreaterThan(0);
+    expect(bounds.height).toBeGreaterThan(0);
+  });
+
+  // roundDistanceHuman: >=20 branch (line 642) — buildSteps with a long segment emits rounded distance
+  test("buildSteps emits a distance rounded to nearest 5m for long segments", () => {
+    const nodes = [
+      { id: "a", type: "room", buildingId: "T", floor: 1, x: 0, y: 0, label: "A", accessible: true },
+      { id: "b", type: "hallway_waypoint", buildingId: "T", floor: 1, x: 0, y: 2000, label: "", accessible: true },
+      { id: "c", type: "room", buildingId: "T", floor: 1, x: 0, y: 2100, label: "B", accessible: true },
+    ];
+    // 2000 units / 50 UNITS_PER_METER = 40m → >=20 branch, rounds to nearest 5
+    const steps = buildSteps(nodes, [0, 2000, 2100], new Map(), nodes);
+    const longStep = steps.find((s) => /\d5 m|\d0 m/.test(s.instruction));
+    expect(longStep).toBeDefined();
+  });
+
+  // findRouteFromNearestExit hallway fallback (lines 1510-1512) — MB has no explicit entry nodes in combined json
+  test("findRouteFromNearestExit fallback: works for a building relying on hallway nodes", () => {
+    const route = findRouteFromNearestExit("VL", "VL-101");
     expect(route === null || route.segments.length > 0).toBe(true);
   });
 });

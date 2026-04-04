@@ -13,14 +13,6 @@ const {
     mockItineraryWithBus,
     mockItineraryWithDuration,
     mockItineraryWithHoursMinutes,
-    mockItineraryWithTram,
-    mockItineraryWithRail,
-    mockItineraryWithTransfers,
-    mockItineraryWithNullGeometry,
-    mockItineraryWithFerry,
-    mockItineraryAllWalk,
-    mockItineraryNoRoute,
-    mockItineraryWithFork,
 } = require("../mocks/transitousMocks");
 
 const createMockFetch = (response) => {

@@ -92,9 +92,9 @@ function TransitItineraryCard({
               {transfersText}
             </Text>
             <View style={styles.itineraryLegsRow}>
-              {itinerary.legs.map((leg) => (
-                <Text
-                  key={`${leg.mode}-${leg.startTime}-${leg.endTime}`}
+              {itinerary.legs.map((leg, legIdx) => (
+                              <Text
+                                key={`leg-${legIdx}-${leg.mode}-${leg.startTime}-${leg.endTime}`} 
                   style={[styles.legPill, getLegColor(leg.mode, styles)]}
                 >
                   {leg.mode === "WALK" ? "Walk" : leg.route || leg.mode}
@@ -194,6 +194,177 @@ type RouteStepsPopupProps = Readonly<{
   popupMaxHeight?: number;
 }>;
 
+/** Shared props for sub-sections of the RouteStepsPopup. */
+type RouteSectionProps = Pick<RouteStepsPopupProps, "state" | "actions" | "helpers" | "styles">;
+
+function JourneyDetailsHeader() {
+  return (
+    <Text
+      style={{
+        fontSize: 17,
+        fontWeight: "700",
+        marginBottom: 20,
+        color: "#1C1C1E",
+      }}
+    >
+      Journey Details
+    </Text>
+  );
+}
+
+function ShuttleSection({ state, actions, helpers, styles }: RouteSectionProps) {
+  const {
+    routeStarted,
+    transitItineraries,
+    actualOriginPoint,
+    destinationBuilding,
+    routeInstructions,
+    selectedShuttleDeparture,
+  } = state;
+  const { setSelectedShuttleDeparture } = actions;
+  const { formatTime } = helpers;
+
+  if (!routeStarted) {
+    return (
+      <ShuttleDirections
+        origin={actualOriginPoint}
+        destination={destinationBuilding}
+        routeStarted={routeStarted}
+        routeInstructions={routeInstructions}
+        onDepartureSelect={(time) => {
+          if (setSelectedShuttleDeparture && selectedShuttleDeparture !== time) {
+            setSelectedShuttleDeparture(time);
+          }
+        }}
+      />
+    );
+  }
+
+  const itinerary = transitItineraries[0];
+  if (!itinerary) {
+    return (
+      <>
+        <JourneyDetailsHeader />
+        <Text
+          style={{
+            fontSize: 15,
+            color: "#666",
+            marginTop: 10,
+            textAlign: "center",
+          }}
+        >
+          No shuttles at this time.
+        </Text>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <JourneyDetailsHeader />
+      <TransitLegTimeline
+        itinerary={itinerary}
+        styles={styles}
+        formatTime={formatTime}
+        alwaysShowIntermediateStops
+        stopKeyPrefix="shuttle-journey"
+      />
+    </>
+  );
+}
+
+function TransitSection({ state, actions, helpers, styles }: RouteSectionProps) {
+  const {
+    transitItineraries,
+    routeStarted,
+    selectedItineraryIndex,
+    expandedItineraries,
+    expandedIntermediateStops,
+  } = state;
+  const {
+    setSelectedItineraryIndex,
+    setRouteDurationMinutes,
+    setRouteDistanceMeters,
+    setRouteInstructions,
+    setExpandedItineraries,
+    setExpandedIntermediateStops,
+  } = actions;
+  const { formatTime } = helpers;
+
+  if (routeStarted) {
+    const itinerary = transitItineraries[selectedItineraryIndex];
+    return (
+      <>
+        <JourneyDetailsHeader />
+        {itinerary && (
+          <TransitLegTimeline
+            itinerary={itinerary}
+            styles={styles}
+            formatTime={formatTime}
+            alwaysShowIntermediateStops
+            stopKeyPrefix={`journey-${selectedItineraryIndex}`}
+          />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {transitItineraries.map((itinerary, index) => (
+        <TransitItineraryCard
+          key={`itinerary-${index}-${itinerary.departureTime}-${itinerary.arrivalTime}`}
+          itinerary={itinerary}
+          index={index}
+          isExpanded={expandedItineraries.includes(index)}
+          isSelected={index === selectedItineraryIndex}
+          setSelectedItineraryIndex={setSelectedItineraryIndex}
+          setRouteDurationMinutes={setRouteDurationMinutes}
+          setRouteDistanceMeters={setRouteDistanceMeters}
+          setRouteInstructions={setRouteInstructions}
+          setExpandedItineraries={setExpandedItineraries}
+          formatTime={formatTime}
+          styles={styles}
+          expandedIntermediateStops={expandedIntermediateStops}
+          setExpandedIntermediateStops={setExpandedIntermediateStops}
+        />
+      ))}
+    </>
+  );
+}
+
+
+function DefaultInstructionsSection({
+  state,
+  styles,
+}: Readonly<{
+  state: RouteStepsPopupState;
+  styles: MapScreenStyles;
+}>) {
+  const { routeInstructions } = state;
+
+  if (routeInstructions.length === 0) {
+    return (
+      <Text style={styles.routeStepText}>
+        Route loaded. No step-by-step directions available.
+      </Text>
+    );
+  }
+
+  return (
+    <>
+      {routeInstructions.map((instruction, index) => (
+        <Text
+          key={`instruction-${index}-${instruction.text}`}
+          style={styles.routeStepText}
+        >
+          {`${index + 1}. ${instruction.text}`}
+        </Text>
+      ))}
+    </>
+  );
+}
+
 export default function RouteStepsPopup({
   state,
   actions,
@@ -201,169 +372,43 @@ export default function RouteStepsPopup({
   styles,
   popupMaxHeight: popupMaxHeightProp,
 }: RouteStepsPopupProps) {
-  const {
-    routeSheetPanResponder,
-    routeMode,
-    actualOriginPoint,
-    destinationBuilding,
-    transitItineraries,
-    routeStarted,
-    selectedItineraryIndex,
-    expandedItineraries,
-    expandedIntermediateStops,
-    routeInstructions,
-    selectedShuttleDeparture,
-  } = state;
-  const {
-    hideInstructions,
-    setSelectedItineraryIndex,
-    setRouteDurationMinutes,
-    setRouteDistanceMeters,
-    setRouteInstructions,
-    setExpandedItineraries,
-    setExpandedIntermediateStops,
-    setSelectedShuttleDeparture,
-    popupMaxHeight: popupMaxHeightFromActions,
-  } = actions;
-  const { formatTime } = helpers;
+  const { routeSheetPanResponder, routeMode, transitItineraries } = state;
+  const { hideInstructions, popupMaxHeight: popupMaxHeightFromActions } = actions;
+
   const popupMaxHeight = popupMaxHeightFromActions ?? popupMaxHeightProp;
+  const hasTransitItineraries = routeMode === "transit" && transitItineraries.length > 0;
 
-  const hasTransitItineraries =
-    routeMode === "transit" && transitItineraries.length > 0;
-  const showTransitJourneyDetails = hasTransitItineraries && routeStarted;
-
-  let content = null;
-
-  if (routeMode === "shuttle") {
-    if (routeStarted) {
-      content = (
-        <>
-          <Text
-            style={{
-              fontSize: 17,
-              fontWeight: "700",
-              marginBottom: 20,
-              color: "#1C1C1E",
-            }}
-          >
-            Journey Details
-          </Text>
-          {transitItineraries[0] ? (
-            <TransitLegTimeline
-              itinerary={transitItineraries[0]}
-              styles={styles}
-              formatTime={formatTime}
-              alwaysShowIntermediateStops
-              stopKeyPrefix="shuttle-journey"
-            />
-          ) : (
-            <Text
-              style={{
-                fontSize: 15,
-                color: "#666",
-                marginTop: 10,
-                textAlign: "center",
-              }}
-            >
-              No shuttles at this time.
-            </Text>
-          )}
-        </>
-      );
-    } else {
-      content = (
-        <ShuttleDirections
-          origin={actualOriginPoint}
-          destination={destinationBuilding}
-          routeStarted={routeStarted}
-          routeInstructions={routeInstructions}
-          onDepartureSelect={(time) => {
-            if (
-              setSelectedShuttleDeparture &&
-              selectedShuttleDeparture !== time
-            ) {
-              setSelectedShuttleDeparture(time);
-            }
-          }}
+  const renderContent = () => {
+    if (routeMode === "shuttle") {
+      return (
+        <ShuttleSection
+          state={state}
+          actions={actions}
+          helpers={helpers}
+          styles={styles}
         />
       );
     }
-  } else if (hasTransitItineraries) {
-    if (showTransitJourneyDetails) {
-      content = (
-        <>
-          <Text
-            style={{
-              fontSize: 17,
-              fontWeight: "700",
-              marginBottom: 20,
-              color: "#1C1C1E",
-            }}
-          >
-            Journey Details
-          </Text>
 
-          {transitItineraries[selectedItineraryIndex] && (
-            <TransitLegTimeline
-              itinerary={transitItineraries[selectedItineraryIndex]}
-              styles={styles}
-              formatTime={formatTime}
-              alwaysShowIntermediateStops
-              stopKeyPrefix={`journey-${selectedItineraryIndex}`}
-            />
-          )}
-        </>
-      );
-    } else {
-      content = (
-        <>
-          {transitItineraries.map((itinerary, index) => {
-            const isExpanded = expandedItineraries.includes(index);
-            const isSelected = index === selectedItineraryIndex;
-
-            return (
-              <TransitItineraryCard
-                key={`${itinerary.departureTime}-${itinerary.arrivalTime}-${itinerary.transfers}-${itinerary.distanceMeters}`}
-                itinerary={itinerary}
-                index={index}
-                isExpanded={isExpanded}
-                isSelected={isSelected}
-                setSelectedItineraryIndex={setSelectedItineraryIndex}
-                setRouteDurationMinutes={setRouteDurationMinutes}
-                setRouteDistanceMeters={setRouteDistanceMeters}
-                setRouteInstructions={setRouteInstructions}
-                setExpandedItineraries={setExpandedItineraries}
-                formatTime={formatTime}
-                styles={styles}
-                expandedIntermediateStops={expandedIntermediateStops}
-                setExpandedIntermediateStops={setExpandedIntermediateStops}
-              />
-            );
-          })}
-        </>
+    if (hasTransitItineraries) {
+      return (
+        <TransitSection
+          state={state}
+          actions={actions}
+          helpers={helpers}
+          styles={styles}
+        />
       );
     }
-  } else {
-    content = routeInstructions.length > 0
-      ? routeInstructions.map((instruction, index) => (
-        <Text
-          key={`${instruction.text}-${instruction.distanceMeters}`}
-          style={styles.routeStepText}
-        >
-          {`${index + 1}. ${instruction.text}`}
-        </Text>
-      )) : (
-        <Text style={styles.routeStepText}>
-          Route loaded. No step-by-step directions available.
-        </Text>
-      );
-  }
+
+    return <DefaultInstructionsSection state={state} styles={styles} />;
+  };
 
   return (
     <View
       style={[
         styles.routeStepsPopup,
-        ...(popupMaxHeight === undefined ? [] : [{ maxHeight: popupMaxHeight }]),
+        popupMaxHeight !== undefined && { maxHeight: popupMaxHeight },
       ]}
       testID="route-steps-popup"
     >
@@ -387,7 +432,7 @@ export default function RouteStepsPopup({
         contentContainerStyle={styles.routeStepsListContent}
         showsVerticalScrollIndicator={false}
       >
-        {content}
+        {renderContent()}
       </ScrollView>
     </View>
   );

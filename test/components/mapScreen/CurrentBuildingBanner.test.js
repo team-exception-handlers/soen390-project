@@ -1,14 +1,26 @@
 jest.mock("react-native", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
 
-  const Text = ({ children, ...rest }) =>
-    React.createElement("Text", rest, children);
-  Text.propTypes = { children: PropTypes.node };
+  const Text = ({ children, style, ...rest }) =>
+    React.createElement("Text", { ...rest, style }, children);
+  Text.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
-  const View = ({ children, ...rest }) =>
-    React.createElement("View", rest, children);
-  View.propTypes = { children: PropTypes.node };
+  const View = ({ children, style, ...rest }) =>
+    React.createElement("View", { ...rest, style }, children);
+  View.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
   return {
     Text,

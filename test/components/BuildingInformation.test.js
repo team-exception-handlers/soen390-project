@@ -12,10 +12,19 @@ jest.mock("@react-navigation/bottom-tabs", () => ({
 jest.mock("react-native", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+    PropTypes.number,
+  ]);
 
-  const AnimatedView = ({ children, ...rest }) =>
-    React.createElement("AnimatedView", rest, children);
-  AnimatedView.propTypes = { children: PropTypes.node };
+  const AnimatedView = ({ children, style, ...rest }) =>
+    React.createElement("AnimatedView", { ...rest, style }, children);
+  AnimatedView.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
   const Animated = {
     Value: function (v) {
@@ -25,23 +34,35 @@ jest.mock("react-native", () => {
     View: AnimatedView,
   };
 
-  const Pressable = ({ children, ...rest }) =>
-    React.createElement("Pressable", rest, children);
-  Pressable.propTypes = { children: PropTypes.node };
-  const ScrollView = ({ children, ...rest }) =>
-    React.createElement("ScrollView", rest, children);
-  ScrollView.propTypes = { children: PropTypes.node };
-  const Text = ({ children, ...rest }) =>
-    React.createElement("Text", rest, children);
-  Text.propTypes = { children: PropTypes.node };
-  const View = ({ children, ...rest }) =>
-    React.createElement("View", rest, children);
-  View.propTypes = { children: PropTypes.node };
+  const Pressable = ({ children, style, ...rest }) =>
+    React.createElement("Pressable", { ...rest, style }, children);
+  Pressable.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
+  const ScrollView = ({ children, style, ...rest }) =>
+    React.createElement("ScrollView", { ...rest, style }, children);
+  ScrollView.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
+  const Text = ({ children, style, ...rest }) =>
+    React.createElement("Text", { ...rest, style }, children);
+  Text.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
+  const View = ({ children, style, ...rest }) =>
+    React.createElement("View", { ...rest, style }, children);
+  View.propTypes = {
+    children: PropTypes.node,
+    style: stylePropType,
+  };
 
   return {
     Animated,
     Dimensions: { get: () => ({ height: 800 }) },
-    Image: (props) => React.createElement("Image", props, null),
+    Image: ({ style, ...props }) => React.createElement("Image", { ...props, style }, null),
     Pressable,
     ScrollView,
     StyleSheet: { create: (s) => s },

@@ -59,7 +59,6 @@ type StateEntry = {
 let stateEntries: StateEntry[] = [];
 let stateCursor = 0;
 let stateOverrides: unknown[] = [];
-let refEntries: Array<{ current: unknown }> = [];
 let effectEntries: Array<() => void | (() => void)> = [];
 
 const flushPromises = async () =>
@@ -68,7 +67,7 @@ const flushPromises = async () =>
 function initializeReactHookMocks() {
   stateEntries = [];
   stateCursor = 0;
-  refEntries = [];
+  stateCursor = 0;
   effectEntries = [];
 
   mockUseState.mockImplementation((initialValue: unknown) => {
@@ -88,11 +87,9 @@ function initializeReactHookMocks() {
     return [entry.value, entry.setter];
   });
 
-  mockUseRef.mockImplementation((initialValue: unknown) => {
-    const ref = { current: initialValue };
-    refEntries.push(ref);
-    return ref;
-  });
+  mockUseRef.mockImplementation((initialValue: unknown) => ({
+    current: initialValue,
+  }));
 
   mockUseEffect.mockImplementation((effect: () => void | (() => void)) => {
     effectEntries.push(effect);

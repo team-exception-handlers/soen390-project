@@ -65,7 +65,6 @@ function RoomInputGroup({
         value={room}
         onChangeText={setRoom}
         keyboardType="default"
-        underlineColorAndroid="transparent"
         onFocus={onFocus}
         onBlur={onBlur}
       />
@@ -265,13 +264,11 @@ export type DirectionsPanelActions = Readonly<{
   showRouteInstructions: () => void;
   setOriginRoom: Dispatch<SetStateAction<string>>;
   setDestinationRoom: Dispatch<SetStateAction<string>>;
-  setActiveFloorPlan: (asset: FloorPlanAsset) => void;
-  setFloorPlanModalVisible: (visible: boolean) => void;
   openFloorPlanModal: (floorKey: string) => void;
   setFocusedRoom?: Dispatch<SetStateAction<"from" | "to" | null>>;
   onRoomSuggestionPressIn?: () => void;
   onRoomSuggestionSelect?: (room: string, field: "from" | "to") => void;
-  onLayout?: (event: LayoutChangeEvent) => void;
+
 }>;
 
 export type DirectionsPanelHelpers = Readonly<{
@@ -331,13 +328,11 @@ export default function DirectionsPanel({
     showRouteInstructions,
     setOriginRoom,
     setDestinationRoom,
-    setActiveFloorPlan,
-    setFloorPlanModalVisible,
     openFloorPlanModal,
     setFocusedRoom,
     onRoomSuggestionPressIn,
     onRoomSuggestionSelect,
-    onLayout,
+
   } = actions;
   const { getRoomDetails, getFloorPlanAsset, formatDuration } = helpers;
 
@@ -356,11 +351,14 @@ export default function DirectionsPanel({
     destinationRoom.trim().length > 0 &&
     hasEntryRoute !== false;
 
+  const destinationLabel = destinationBuilding
+    ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
+    : destinationPOIName || "Where to?";
+
   return (
     <View
       style={styles.directionsPanel}
       testID="directions-panel"
-      onLayout={onLayout}
     >
       <View style={styles.directionFieldRow}>
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -439,11 +437,7 @@ export default function DirectionsPanel({
                   : "direction-to-value-empty"
               }
             >
-              {destinationBuilding
-                ? `${destinationBuilding.code} - ${destinationBuilding.shortName}`
-                : destinationPOIName
-                  ? destinationPOIName
-                  : "Where to?"}
+              {destinationLabel}
             </Text>
           </Pressable>
           <RoomInputGroup
