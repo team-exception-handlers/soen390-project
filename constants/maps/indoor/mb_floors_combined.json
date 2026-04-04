@@ -122,7 +122,7 @@
       "y": 763,
       "label": "MB-1.410",
       "accessible": true,
-      "category":"female_washroom"
+      "category": "female_washroom"
     },
     {
       "id": "MB_F1_room_1.132",
@@ -785,7 +785,7 @@
       "y": 744,
       "label": "MB-S2.410",
       "accessible": true,
-      "category":"female_washroom"
+      "category": "female_washroom"
     },
     {
       "id": "mb-2-440",
