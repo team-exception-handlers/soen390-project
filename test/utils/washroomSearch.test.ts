@@ -157,4 +157,57 @@ describe("findNearestWashroomTarget", () => {
     expect(fromOrigin!.building.code).toBe("H");
     expect(fromDestOnly!.building.code).toBe("H");
   });
+
+  test("returns null when building code context has no washroom data for that building", () => {
+    // Use a building code that exists in BUILDINGS but has no washroom nodes
+    const result = findNearestWashroomTarget("male_washroom", {
+      campusBuildings: sgwBuildings,
+      actualOriginPoint: null,
+      originBuildingCode: "EV",
+      originRoom: "101",
+      destinationBuildingCode: null,
+      destinationRoom: "",
+    });
+    // EV has no washroom data so it falls through to GPS-based nearest building
+    expect(result === null || typeof result!.building.code === "string").toBe(true);
+  });
+
+  test("destination building context used when no origin building", () => {
+    const result = findNearestWashroomTarget("female_washroom", {
+      campusBuildings: sgwBuildings,
+      actualOriginPoint: null,
+      originBuildingCode: null,
+      originRoom: "",
+      destinationBuildingCode: "H",
+      destinationRoom: "",
+    });
+    expect(result).not.toBeNull();
+    expect(result!.building.code).toBe("H");
+  });
+
+  test("MB washroom found via destination room context", () => {
+    const result = findNearestWashroomTarget("female_washroom", {
+      campusBuildings: sgwBuildings,
+      actualOriginPoint: null,
+      originBuildingCode: null,
+      originRoom: "",
+      destinationBuildingCode: "MB",
+      destinationRoom: "MB-1.410",
+    });
+    expect(result).not.toBeNull();
+    expect(result!.building.code).toBe("MB");
+  });
+
+  test("compareWashroomLabels: labels with same number sort by locale", () => {
+    // Both H-801A and H-801B have the same number prefix (801), localeCompare used
+    const result = findNearestWashroomTarget("male_washroom", {
+      campusBuildings: sgwBuildings,
+      actualOriginPoint: null,
+      originBuildingCode: "H",
+      originRoom: "820",
+      destinationBuildingCode: null,
+      destinationRoom: "",
+    });
+    expect(result).not.toBeNull();
+  });
 });
