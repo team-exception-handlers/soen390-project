@@ -145,7 +145,7 @@ describe("indoorDirections", () => {
     ["MB", -2, { width: 1029, height: 1027 }],
     ["VE", 1, { width: 615, height: 556 }],
     ["VE", 2, { width: 1436, height: 646 }],
-    ["VL", 1, { width: 1044, height: 1036 }],
+    ["VL", 1, { width: 1188, height: 1036 }],
     ["VL", 2, { width: 1023, height: 1041 }],
     ["CC", 1, { width: 8240, height: 2066 }],
     ["Hall", 8, { width: 1922, height: 2106 }],
