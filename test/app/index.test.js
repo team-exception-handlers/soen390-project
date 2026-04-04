@@ -291,12 +291,11 @@ describe("app/(tabs)/index", () => {
       undefined, // 30: mapViewportRegion
       undefined, // 31: focusedBounds
       undefined, // 32: mapFocusRequestKey
-      undefined, // 33: webMapReady
-      undefined, // 34: showPOIPanel
-      undefined, // 35: poiResults
-      undefined, // 36: destinationPOI
-      undefined, // 37: washroomPickerBuilding
-      undefined, // 38: routingOriginPoint
+      undefined, // 33: showPOIPanel
+      undefined, // 34: poiResults
+      undefined, // 35: destinationPOI
+      undefined, // 36: washroomPickerBuilding
+      undefined, // 37: routingOriginPoint
     ]);
 
     const MapScreen = require("../../app/(tabs)/index").default;

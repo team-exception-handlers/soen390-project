@@ -17,7 +17,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  useWindowDimensions,
   View,
   type LayoutChangeEvent,
 } from "react-native";
@@ -116,7 +115,6 @@ const DEFAULT_DESTINATION_BUILDING_CODE = "EV";
 const ROUTE_RECALC_MIN_DISTANCE_METERS = 25;
 
 export default function MapScreen() {
-  const { height: windowHeight } = useWindowDimensions();
   const [floorPlanModalOptions, setFloorPlanModalOptions] = useState<
     { key: string; label: string }[]
   >([]);
@@ -173,7 +171,7 @@ export default function MapScreen() {
   const [nextClassLoading, setNextClassLoading] = useState(false);
   const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
   const [hasCalendarToken, setHasCalendarToken] = useState(false);
-  const [directionsPanelBottom, setDirectionsPanelBottom] = useState(0);
+  const [, setDirectionsPanelBottom] = useState(0);
   const [mapViewportRegion, setMapViewportRegion] = useState(() =>
     getCampusRegion("SGW", SGW_POLYGONS.features),
   );
@@ -232,14 +230,8 @@ export default function MapScreen() {
     }),
   ).current;
 
-  const webViewRef = useRef<any>(null);
-  const [webMapReady, setWebMapReady] = useState(false);
-  const locationSubscription = useRef<any>(null);
-  const campusRef = useRef<Campus>(campus);
-  const originModeRef = useRef<"auto" | "manual">("auto");
-  const hasInitializedCampusFromLocationRef = useRef(false);
   const [showPOIPanel, setShowPOIPanel] = useState(false);
-  const [poiResults, setPOIResults] = useState<POIResult[]>([]);
+  const [, setPOIResults] = useState<POIResult[]>([]);
   const [destinationPOI, setDestinationPOI] = useState<POIResult | null>(null);
   const [washroomPickerBuilding, setWashroomPickerBuilding] = useState<
     string | null
@@ -250,34 +242,6 @@ export default function MapScreen() {
   const isWebPlatform = Platform.OS === "web";
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 56;
-
-  const webFrameTargetOrigin =
-    isWebPlatform && typeof globalThis.window !== "undefined"
-      ? globalThis.window.location.origin
-      : null;
-  const serializedWebFrameTargetOrigin = JSON.stringify(
-    webFrameTargetOrigin ?? "*",
-  );
-  const showE2EHooks =
-    Platform.OS !== "web" && process.env.EXPO_PUBLIC_ENABLE_E2E_HOOKS === "1";
-  const userLat = isWebPlatform ? userLocation?.coords.latitude || null : null;
-  const userLng = isWebPlatform ? userLocation?.coords.longitude || null : null;
-  const currentBuildingForHTML = isWebPlatform ? currentBuilding : null;
-
-  const postToWebIframe = useCallback(
-    (message: unknown) => {
-      if (!isWebPlatform || !webFrameTargetOrigin) return;
-      webViewRef.current?.contentWindow?.postMessage(
-        message,
-        webFrameTargetOrigin,
-      );
-    },
-    [isWebPlatform, webFrameTargetOrigin],
-  );
-
-  useEffect(() => {
-    campusRef.current = campus;
-  }, [campus]);
 
   useEffect(() => {
     getToken().then((token) => setHasCalendarToken(token !== null));
@@ -303,21 +267,6 @@ export default function MapScreen() {
       }),
     [insets.bottom, insets.top, isWebPlatform],
   );
-  const routeStepsPopupMaxHeight = useMemo(() => {
-    const preferredMaxHeight = isWebPlatform ? 360 : 300;
-    if (!directionsPanelBottom) return preferredMaxHeight;
-
-    const popupBottomOffset = insets.bottom + TAB_BAR_HEIGHT + 10;
-    const gapBelowDirectionsPanel = 12;
-    const availableHeight =
-      windowHeight -
-      directionsPanelBottom -
-      popupBottomOffset -
-      gapBelowDirectionsPanel;
-
-    return Math.max(140, Math.min(preferredMaxHeight, availableHeight));
-  }, [directionsPanelBottom, insets.bottom, isWebPlatform, windowHeight]);
-
   const handleDirectionsPanelLayout = useCallback(
     (event: LayoutChangeEvent) => {
       const { y, height } = event.nativeEvent.layout;
@@ -732,32 +681,6 @@ export default function MapScreen() {
     ],
   );
 
-  const animateMapToRegion = useCallback(
-    (region: any, targetCampus: Campus) => {
-      setMapViewportRegion(region);
-
-      if (!isWebPlatform) {
-        mapRef.current?.animateToRegion?.(region, 450);
-      }
-
-      if (Platform.OS === "web") {
-        const minLat = region.latitude - region.latitudeDelta / 2;
-        const maxLat = region.latitude + region.latitudeDelta / 2;
-        const minLng = region.longitude - region.longitudeDelta / 2;
-        const maxLng = region.longitude + region.longitudeDelta / 2;
-        postToWebIframe({
-          type: "focusBounds",
-          bounds: [[minLat, minLng], [maxLat, maxLng]],
-          campus: targetCampus,
-          padding: [20, 20],
-        });
-      }
-
-      setCampus(targetCampus);
-    },
-    [isWebPlatform, postToWebIframe],
-  );
-
   const handleNextClassDirections = useCallback(async () => {
     setNextClassLoading(true);
     setNextClassMessage(null);
@@ -839,63 +762,6 @@ export default function MapScreen() {
       return haystack.includes(query);
     }).slice(0, 8);
   }, [searchText]);
-
-  const washroomSearchResults = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-    const isWashroomQuery =
-      query.includes("washroom") || query.includes("bathroom");
-    if (!isWashroomQuery) return [];
-
-    const washroomParams = {
-      campusBuildings,
-      actualOriginPoint,
-      originBuildingCode: originBuilding?.code ?? null,
-      originRoom,
-      destinationBuildingCode: destinationBuilding?.code ?? null,
-      destinationRoom,
-    };
-
-    const maleWashroomTarget = findNearestWashroomTarget(
-      "male_washroom",
-      washroomParams,
-    );
-    const femaleWashroomTarget = findNearestWashroomTarget(
-      "female_washroom",
-      washroomParams,
-    );
-
-    return [
-      maleWashroomTarget
-        ? {
-          key: "nearest-male-washroom",
-          label: "Nearest male washroom",
-          building: maleWashroomTarget.building,
-          roomLabel: maleWashroomTarget.roomLabel,
-        }
-        : null,
-      femaleWashroomTarget
-        ? {
-          key: "nearest-female-washroom",
-          label: "Nearest female washroom",
-          building: femaleWashroomTarget.building,
-          roomLabel: femaleWashroomTarget.roomLabel,
-        }
-        : null,
-    ].filter((result): result is {
-      key: string;
-      label: string;
-      building: BuildingRecord;
-      roomLabel: string;
-    } => result !== null);
-  }, [
-    actualOriginPoint,
-    campusBuildings,
-    destinationBuilding?.code,
-    destinationRoom,
-    originBuilding?.code,
-    originRoom,
-    searchText,
-  ]);
 
   const handleSearchResultPress = useCallback((building: BuildingRecord) => {
     if (building.campus !== campus) {
