@@ -11,19 +11,11 @@ appId: host.exp.Exponent
     longitude: -73.5788
 - runFlow:
     file: _launch-expo-go.yaml
-
 - extendedWaitUntil:
     visible:
       id: "header-title"
     timeout: 45000
-
 - tapOn: TO
-- assertVisible:
-    id: icon
-    index: 10
-- tapOn:
-    id: icon
-    index: 10
 - tapOn: H
 - assertVisible: Go There
 - tapOn: Go There
@@ -33,7 +25,7 @@ appId: host.exp.Exponent
 - tapOn: "0023"
 - tapOn: View Floor Plan
 - tapOn:
-    point: 42%,52%
+    point: 42%,48%
 - tapOn: Get Directions
 - tapOn: Go
 - assertVisible:
@@ -42,32 +34,28 @@ appId: host.exp.Exponent
     id: indoor-directions-close
 - tapOn: "Room #"
 - tapOn:
-    id: icon
-    index: 8
+    point: 86%,75%
 - tapOn:
-    id: icon
-    index: 8
+    point: 86%,75%
 - tapOn:
-    id: icon
-    index: 8
+    point: 86%,75%
 - tapOn:
-    id: icon
-    index: 8
+    point: 86%,75%
 - tapOn:
-    id: label
-    index: 15
+    point: 86%,92%
+- tapOn: Show on-screen keyboard
 - tapOn:
-    id: label
-    index: 18
+    text: H
+    index: 1
+- tapOn: ?123
+- tapOn: "-"
+- tapOn: "8"
+- tapOn: "0"
+- tapOn: "1"
 - tapOn:
-    id: label
-    index: 7
-- assertVisible: H-801
-- tapOn: H-801
+    point: 36%,32%
 - tapOn:
-    point: 36%,38%
-- tapOn:
-    point: 32%,38%
+    point: 32%,39%
 - tapOn: Get Directions
 - tapOn: Go
 - assertVisible:
