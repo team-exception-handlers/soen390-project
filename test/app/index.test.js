@@ -17,22 +17,11 @@ jest.mock("react-native", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
 
-  const stylePropType = PropTypes.oneOfType([
-    PropTypes.object,
-    PropTypes.array,
-    PropTypes.func,
-    PropTypes.number,
-  ]);
-
   const host =
     (type) => {
-      const HostComponent = ({ children, style, ...rest }) =>
-        React.createElement(type, { ...rest, style }, children);
+      const HostComponent = ({ children, ...rest }) =>
+        React.createElement(type, rest, children);
       HostComponent.displayName = `${type}Host`;
-      HostComponent.propTypes = {
-        children: PropTypes.node,
-        style: stylePropType,
-      };
       return HostComponent;
     };
 
@@ -43,7 +32,11 @@ jest.mock("react-native", () => {
   };
   Pressable.propTypes = {
     children: PropTypes.node,
-    style: stylePropType,
+    style: PropTypes.oneOfType([
+      PropTypes.object,
+      PropTypes.array,
+      PropTypes.func,
+    ]),
   };
 
   return {
@@ -80,20 +73,8 @@ jest.mock("expo-location", () => ({
 
 jest.mock("lucide-react-native", () => {
   const React = require("react");
-  const PropTypes = require("prop-types");
-  const stylePropType = PropTypes.oneOfType([
-    PropTypes.object,
-    PropTypes.array,
-    PropTypes.func,
-    PropTypes.number,
-  ]);
-  const ChevronUp = (props) => React.createElement("ChevronUp", { ...props, style: props.style });
-  ChevronUp.propTypes = { style: stylePropType };
-  const XIcon = (props) => React.createElement("XIcon", { ...props, style: props.style });
-  XIcon.propTypes = { style: stylePropType };
   return {
-    ChevronUp,
-    X: XIcon,
+    ChevronUp: (props) => React.createElement("ChevronUp", props),
   };
 });
 
@@ -103,46 +84,17 @@ jest.mock("react-native-safe-area-context", () => ({
 
 jest.mock("react-native-svg", () => {
   const React = require("react");
-  const PropTypes = require("prop-types");
-  const stylePropType = PropTypes.oneOfType([
-    PropTypes.object,
-    PropTypes.array,
-    PropTypes.func,
-    PropTypes.number,
-  ]);
-  const SvgMock = ({ children, style, ...props }) => React.createElement("Svg", { ...props, style }, children);
-  SvgMock.propTypes = {
-    children: PropTypes.node,
-    style: stylePropType,
-  };
   return {
     __esModule: true,
-    default: SvgMock,
-    Circle: (() => {
-      const Circle = (props) => React.createElement("Circle", { ...props, style: props.style });
-      Circle.propTypes = { style: stylePropType };
-      return Circle;
-    })(),
+    default: ({ children, ...props }) => React.createElement("Svg", props, children),
+    Circle: (props) => React.createElement("Circle", props),
   };
 });
 
-// Add propTypes after the mock is returned if needed, but Circle is inside the object.
-// Better to define it inside or just modify the returned object.
-// Since it's a jest.mock return, I'll modify the mock implementation.
-
-
 jest.mock("../../components/AppHeader", () => {
   const React = require("react");
-  const PropTypes = require("prop-types");
-  const stylePropType = PropTypes.oneOfType([
-    PropTypes.object,
-    PropTypes.array,
-    PropTypes.func,
-    PropTypes.number,
-  ]);
-  const AppHeaderMock = (props) => React.createElement("AppHeader", { ...props, style: props.style });
+  const AppHeaderMock = (props) => React.createElement("AppHeader", props);
   AppHeaderMock.displayName = "AppHeaderMock";
-  AppHeaderMock.propTypes = { style: stylePropType };
   return AppHeaderMock;
 });
 
@@ -160,17 +112,9 @@ jest.mock("../../components/AppHeader", () => {
 ].forEach((path) => {
   jest.mock(path, () => {
     const React = require("react");
-    const PropTypes = require("prop-types");
-    const stylePropType = PropTypes.oneOfType([
-      PropTypes.object,
-      PropTypes.array,
-      PropTypes.func,
-      PropTypes.number,
-    ]);
     const MockComponent = (props) =>
-      React.createElement(path.split("/").pop(), { ...props, style: props.style });
+      React.createElement(path.split("/").pop(), props);
     MockComponent.displayName = `${path.split("/").pop()}Mock`;
-    MockComponent.propTypes = { style: stylePropType };
     return MockComponent;
   });
 });
@@ -314,31 +258,45 @@ describe("app/(tabs)/index", () => {
 
   test("wires campus change and search result selection", () => {
     const setters = mockUseStateSequence([
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      "SGW",
-      "hall",
-      undefined,
-      undefined,
-      "H",
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
+      undefined, // 0: floorPlanModalOptions
+      undefined, // 1: selectedFloorPlanKey
+      undefined, // 2: editingField
+      undefined, // 3: floorPlanModalVisible
+      undefined, // 4: activeFloorPlan
+      undefined, // 5: selectedFloorPlanNode
+      undefined, // 6: floorPlanDirectionsFromRoom
+      undefined, // 7: floorPlanDirectionsPromptVisible
+      undefined, // 8: indoorDirectionsTargetNodeId
+      undefined, // 9: pendingIndoorNode
+      undefined, // 10: pendingIndoorFloorKey
+      undefined, // 11: pendingIndoorRoomPopup
+      "SGW",     // 12: campus
+      "hall",    // 13: searchText
+      undefined, // 14: selectedBuilding
+      undefined, // 15: destinationBuildingCode
+      undefined, // 16: originBuildingCode
+      undefined, // 17: originRoom
+      undefined, // 18: destinationRoom
+      undefined, // 19: destinationRoomDisplayLabel
+      undefined, // 20: focusedRoom
+      undefined, // 21: isDirectionsMode
+      undefined, // 22: indoorRoute
+      undefined, // 23: indoorDirectionsModalVisible
+      undefined, // 24: routeMode
+      undefined, // 25: modeDurations
+      undefined, // 26: nextClassLoading
+      undefined, // 27: nextClassMessage
+      undefined, // 28: hasCalendarToken
+      undefined, // 29: directionsPanelBottom
+      undefined, // 30: mapViewportRegion
+      undefined, // 31: focusedBounds
+      undefined, // 32: mapFocusRequestKey
+      undefined, // 33: webMapReady
+      undefined, // 34: showPOIPanel
+      undefined, // 35: poiResults
+      undefined, // 36: destinationPOI
+      undefined, // 37: washroomPickerBuilding
+      undefined, // 38: routingOriginPoint
     ]);
 
     const MapScreen = require("../../app/(tabs)/index").default;
@@ -346,12 +304,12 @@ describe("app/(tabs)/index", () => {
 
     const header = findByType(tree, "AppHeader");
     header.props.onCampusChange("LOY");
-    expect(setters[5]).toHaveBeenCalledWith("LOY");
+    expect(setters[12]).toHaveBeenCalledWith("LOY");
 
     const hallResult = findByTestID(tree, "search-result-H");
     hallResult.props.onPress();
-    expect(setters[7]).toHaveBeenCalledWith("H");
-    expect(setters[6]).toHaveBeenCalledWith("");
+    expect(setters[14]).toHaveBeenCalledWith("H");
+    expect(setters[13]).toHaveBeenCalledWith("");
     expect(keyboardDismiss).toHaveBeenCalled();
   });
 });
