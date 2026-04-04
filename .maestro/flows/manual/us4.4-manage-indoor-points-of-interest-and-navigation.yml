@@ -17,21 +17,56 @@ appId: host.exp.Exponent
       id: "header-title"
     timeout: 45000
 
-- tapOn: Nearby
-- assertVisible: Coffee Shop
-- tapOn: Coffee Shop
-- assertVisible: Hive Café
-- tapOn: Close
+- tapOn: TO
+- assertVisible:
+    id: icon
+    index: 10
+- tapOn:
+    id: icon
+    index: 10
+- tapOn: H
+- assertVisible: Go There
+- tapOn: Go There
+- assertVisible: "Room #"
+- tapOn: "Room #"
+- assertVisible: "0023"
+- tapOn: "0023"
+- tapOn: View Floor Plan
+- tapOn:
+    point: 42%,52%
+- tapOn: Get Directions
+- tapOn: Go
+- assertVisible:
+    id: indoor-directions-close
+- tapOn:
+    id: indoor-directions-close
+- tapOn: "Room #"
+- tapOn:
+    id: icon
+    index: 8
+- tapOn:
+    id: icon
+    index: 8
+- tapOn:
+    id: icon
+    index: 8
+- tapOn:
+    id: icon
+    index: 8
+- tapOn:
+    id: label
+    index: 15
+- tapOn:
+    id: label
+    index: 18
+- tapOn:
+    id: label
+    index: 7
+- assertVisible: H-801
+- tapOn: H-801
+- tapOn:
+    point: 36%,38%
 
-- setLocation:
-    latitude: 45.495376
-    longitude: -73.579044
 
-- assertVisible: Nearby
-- tapOn: Nearby
-- assertVisible: Washroom
-- tapOn: Washroom
-- assertVisible: Henry F. Hall Building (Indoor)
-- tapOn: Henry F. Hall Building (Indoor)
-- assertVisible: Male washroom
-- tapOn: Male washroom
+
+
