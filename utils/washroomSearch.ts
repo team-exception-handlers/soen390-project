@@ -282,6 +282,8 @@ export function findNearestWashroomTarget(
       );
       if (roomLabel) return { building: buildingRecord, roomLabel };
     }
+
+    if (!buildingRecord) return null;
   }
 
   return findNearestWashroomByCampus(washrooms, params.campusBuildings, params.actualOriginPoint);
