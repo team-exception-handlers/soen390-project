@@ -32,8 +32,11 @@ appId: host.exp.Exponent
 - assertVisible: Go There
 - tapOn: Go There
 - tapOn: "Room #"
-- assertVisible: "0023"
-- tapOn: "0023"
+- tapOn: H
+- tapOn: Symbol keyboard
+- tapOn: Dash
+- tapOn: "8"
+- tapOn: H-801
 - tapOn:
     text: "Room #"
     index: 1
@@ -45,6 +48,7 @@ appId: host.exp.Exponent
 - tapOn:
     id: route-steps-close-button
 - tapOn: Exit H Building
+- tapOn: Floor 1
 - tapOn:
     id: indoor-directions-close
 - assertVisible: Enter CC Building
