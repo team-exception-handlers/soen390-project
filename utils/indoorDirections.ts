@@ -1545,6 +1545,7 @@ export function getGraphFloorBounds(
 
 export const __indoorDirectionsTestUtils = {
   getFloorQuery,
+  orthogonalizeSegmentPoints,
   buildGraph,
   dijkstra,
   formatFloorLabel,
