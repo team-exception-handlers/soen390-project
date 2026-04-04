@@ -126,6 +126,62 @@ function getFloorAsset(
   return FLOOR_PLAN_ASSETS[key] ?? null;
 }
 
+function resolveEffectiveRoute(
+  route: IndoorRoute | null,
+  options: {
+    buildingCode: string;
+    originRoom: string;
+    destinationRoom: string;
+    targetNodeId?: string;
+    noStairs: boolean;
+    noEscalators: boolean;
+    noElevators: boolean;
+  },
+): IndoorRoute | null {
+  const {
+    buildingCode,
+    originRoom,
+    destinationRoom,
+    targetNodeId,
+    noStairs,
+    noEscalators,
+    noElevators,
+  } = options;
+
+  if (!noStairs && !noEscalators && !noElevators) {
+    return route;
+  }
+
+  if (targetNodeId) {
+    return findIndoorRouteToNodeId(
+      buildingCode,
+      originRoom,
+      targetNodeId,
+      noStairs,
+      noEscalators,
+      noElevators,
+    );
+  }
+
+  return findIndoorRoute(
+    buildingCode,
+    originRoom,
+    destinationRoom,
+    noStairs,
+    noEscalators,
+    noElevators,
+  );
+}
+
+function formatIndoorDestinationLabel(
+  destinationRoom: string,
+  targetNodeId?: string,
+): string {
+  if (!destinationRoom) return "Destination";
+  if (targetNodeId) return destinationRoom;
+  return `Room ${destinationRoom}`;
+}
+
 type Props = Readonly<{
   visible: boolean;
   onClose: () => void;
@@ -161,25 +217,15 @@ export default function IndoorDirectionsModal({
   const noEscalators = !escalatorsEnabled;
   const noElevators = !elevatorsEnabled;
 
-  const effectiveRoute = (noStairs || noEscalators || noElevators)
-    ? (targetNodeId
-        ? findIndoorRouteToNodeId(
-            buildingCode,
-            originRoom,
-            targetNodeId,
-            noStairs,
-            noEscalators,
-            noElevators,
-          )
-        : findIndoorRoute(
-            buildingCode,
-            originRoom,
-            destinationRoom,
-            noStairs,
-            noEscalators,
-            noElevators,
-          ))
-    : route;
+  const effectiveRoute = resolveEffectiveRoute(route, {
+    buildingCode,
+    originRoom,
+    destinationRoom,
+    targetNodeId,
+    noStairs,
+    noEscalators,
+    noElevators,
+  });
   const isS2Route = computeIsS2Route(
     buildingCode,
     effectiveRoute,
@@ -320,6 +366,11 @@ export default function IndoorDirectionsModal({
     );
   }
 
+  const routeToLabel = formatIndoorDestinationLabel(
+    destinationRoom,
+    targetNodeId,
+  );
+
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
       <View style={styles.overlay}>
@@ -356,9 +407,7 @@ export default function IndoorDirectionsModal({
             </Text>
             <Text style={styles.routeArrow}>→</Text>
             <Text style={styles.routeTo} numberOfLines={1}>
-              {destinationRoom
-                ? (targetNodeId ? destinationRoom : `Room ${destinationRoom}`)
-                : "Destination"}
+              {routeToLabel}
             </Text>
           </View>
 

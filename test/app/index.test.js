@@ -16,12 +16,21 @@ jest.mock("react", () => {
 jest.mock("react-native", () => {
   const React = require("react");
   const PropTypes = require("prop-types");
+  const stylePropType = PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+    PropTypes.func,
+  ]);
 
   const host =
     (type) => {
       const HostComponent = ({ children, ...rest }) =>
         React.createElement(type, rest, children);
       HostComponent.displayName = `${type}Host`;
+      HostComponent.propTypes = {
+        children: PropTypes.node,
+        style: stylePropType,
+      };
       return HostComponent;
     };
 
@@ -32,11 +41,7 @@ jest.mock("react-native", () => {
   };
   Pressable.propTypes = {
     children: PropTypes.node,
-    style: PropTypes.oneOfType([
-      PropTypes.object,
-      PropTypes.array,
-      PropTypes.func,
-    ]),
+    style: stylePropType,
   };
 
   return {
