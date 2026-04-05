@@ -448,6 +448,49 @@ class MinHeap {
  * When excludeVerticalTransit is true (same-floor), avoids elevator/stair nodes; if
  * no path exists without them, call again with false to allow a path through them.
  */
+const shouldSkipDijkstraNeighbor = (
+  neighbor: string,
+  visited: Set<string>,
+  hasRestrictions: boolean,
+  nodes: Map<string, IndoorNode>,
+  restrictToFloor: number | null,
+  restrictToBuildingId: string | null,
+  excludeVerticalTransit: boolean,
+) => {
+  if (visited.has(neighbor)) return true;
+
+  if (
+    hasRestrictions &&
+    !isNeighborAllowedUnderRestrictions(
+      nodes,
+      neighbor,
+      restrictToFloor,
+      restrictToBuildingId,
+      excludeVerticalTransit,
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+const relaxDijkstraNeighbor = (
+  current: string,
+  neighbor: string,
+  weight: number,
+  dist: Map<string, number>,
+  prev: Map<string, string | null>,
+  heap: { push: (id: string, priority: number) => void },
+) => {
+  const newDist = (dist.get(current) ?? 0) + weight;
+
+  if (newDist < (dist.get(neighbor) ?? Infinity)) {
+    dist.set(neighbor, newDist);
+    prev.set(neighbor, current);
+    heap.push(neighbor, newDist);
+  }
+};
 function dijkstra(
   nodes: Map<string, IndoorNode>,
   adjacency: Map<string, { neighbor: string; weight: number }[]>,
@@ -481,26 +524,22 @@ function dijkstra(
     if (current === endId) break;
 
     for (const { neighbor, weight } of adjacency.get(current) ?? []) {
-      if (visited.has(neighbor)) continue;
 
       if (
-        hasRestrictions &&
-        !isNeighborAllowedUnderRestrictions(
-          nodes,
+        shouldSkipDijkstraNeighbor(
           neighbor,
+          visited,
+          hasRestrictions,
+          nodes,
           restrictToFloor,
           restrictToBuildingId,
           excludeVerticalTransit,
         )
-      )
+      ) {
         continue;
-
-      const newDist = (dist.get(current) ?? 0) + weight;
-      if (newDist < (dist.get(neighbor) ?? Infinity)) {
-        dist.set(neighbor, newDist);
-        prev.set(neighbor, current);
-        heap.push(neighbor, newDist);
       }
+      
+      relaxDijkstraNeighbor(current, neighbor, weight, dist, prev, heap);
     }
   }
 
