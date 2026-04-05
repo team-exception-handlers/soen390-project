@@ -6,6 +6,8 @@ import { ChevronUp, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
+  type ImageSourcePropType,
+  type ImageStyle,
   Keyboard,
   Linking,
   Modal,
@@ -13,6 +15,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  type StyleProp,
   StyleSheet,
   Text,
   TextInput,
@@ -98,6 +101,42 @@ type FloorPlanSvgComponent = React.ComponentType<{
   width?: string | number;
   height?: string | number;
 }>;
+type ModeDurationKey = "walking" | "driving" | "transit" | "shuttle";
+type ModeDurations = Record<ModeDurationKey, number | null>;
+
+const createEmptyModeDurations = (): ModeDurations => ({
+  walking: null,
+  driving: null,
+  transit: null,
+  shuttle: null,
+});
+
+const setSingleModeDuration = (
+  setModeDurations: React.Dispatch<React.SetStateAction<ModeDurations>>,
+  mode: ModeDurationKey,
+  duration: number | null,
+) => {
+  setModeDurations((previous) => ({
+    ...previous,
+    [mode]: duration,
+  }));
+};
+
+const loadModeDuration = async (
+  mode: ModeDurationKey,
+  loadDuration: () => Promise<number | null>,
+  setModeDurations: React.Dispatch<React.SetStateAction<ModeDurations>>,
+  isCancelled: () => boolean,
+) => {
+  try {
+    const duration = await loadDuration();
+    if (isCancelled()) return;
+    setSingleModeDuration(setModeDurations, mode, duration);
+  } catch {
+    if (isCancelled()) return;
+    setSingleModeDuration(setModeDurations, mode, null);
+  }
+};
 
 const parseFloorPlanKey = (key: string): { building: string; floor: number } | null => {
   const match = /^([A-Z]+)-(-?\d+)$/.exec(key);
@@ -128,12 +167,12 @@ const getSpecialFloorNodeLabel = (
 
 const renderFloorPlanAssetPreview = (
   activeFloorPlan: unknown,
-  imageStyle: unknown,
+  imageStyle: StyleProp<ImageStyle>,
 ): React.ReactNode => {
   if (Platform.OS === "web" || typeof activeFloorPlan === "number") {
     return (
       <Image
-        source={activeFloorPlan}
+        source={activeFloorPlan as ImageSourcePropType}
         style={imageStyle}
         resizeMode="contain"
       />
@@ -217,13 +256,9 @@ export default function MapScreen() {
   const [entryIndoorRoute, setEntryIndoorRoute] = useState<IndoorRoute | null | undefined>(undefined);
   const [indoorModalPhase, setIndoorModalPhase] = useState<"same" | "exit" | "entry">("same");
   const [routeMode, setRouteMode] = useState<RouteMode>("walking");
-  const [modeDurations, setModeDurations] = useState<
-    Record<string, number | null>
-  >({
-    walking: null,
-    driving: null,
-    transit: null,
-  });
+  const [modeDurations, setModeDurations] = useState<ModeDurations>(
+    createEmptyModeDurations,
+  );
   const [nextClassLoading, setNextClassLoading] = useState(false);
   const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
   const [hasCalendarToken, setHasCalendarToken] = useState(false);
@@ -237,6 +272,7 @@ export default function MapScreen() {
 
   const mapRef = useRef<any>(null);
   const searchInputRef = useRef<TextInput>(null);
+  const modeDurationsKeyRef = useRef<string | null>(null);
 
   const {
     state: routeState,
@@ -567,64 +603,104 @@ export default function MapScreen() {
     }
     return destinationBuilding;
   }, [destinationPOI, destinationBuilding]);
+  const modeDurationsKey = useMemo(() => {
+    if (!resolvedDestination || !routingOriginPoint) return null;
+    return [
+      roundCoord(routingOriginPoint.latitude),
+      roundCoord(routingOriginPoint.longitude),
+      roundCoord(resolvedDestination.latitude),
+      roundCoord(resolvedDestination.longitude),
+      isSameCampus ? "same" : "cross",
+    ].join(":");
+  }, [isSameCampus, resolvedDestination, routingOriginPoint]);
 
   useEffect(() => {
     if (!resolvedDestination || !routingOriginPoint) {
-      setModeDurations({ walking: null, driving: null, transit: null });
+      modeDurationsKeyRef.current = null;
+      setModeDurations(createEmptyModeDurations());
       return;
     }
 
     let cancelled = false;
+    const paramsChanged = modeDurationsKeyRef.current !== modeDurationsKey;
+    modeDurationsKeyRef.current = modeDurationsKey;
+    if (paramsChanged) {
+      setModeDurations(createEmptyModeDurations());
+    }
 
-    const loadDurations = async () => {
-      const walkOrBikeProfile = isSameCampus ? "walking" : "cycling";
-      const [walkOrBike, drive] = await Promise.allSettled([
-        fetchOsrmRoute(routingOriginPoint, resolvedDestination, walkOrBikeProfile),
-        fetchOsrmRoute(routingOriginPoint, resolvedDestination, "driving"),
-      ]);
+    const isCancelled = () => cancelled;
+    const walkOrBikeProfile = isSameCampus ? "walking" : "cycling";
 
-      if (cancelled) return;
+    void loadModeDuration(
+      "walking",
+      async () => {
+        const route = await fetchOsrmRoute(
+          routingOriginPoint,
+          resolvedDestination,
+          walkOrBikeProfile,
+        );
+        return Math.round(route.durationSeconds / 60);
+      },
+      setModeDurations,
+      isCancelled,
+    );
 
+    void loadModeDuration(
+      "driving",
+      async () => {
+        const route = await fetchOsrmRoute(
+          routingOriginPoint,
+          resolvedDestination,
+          "driving",
+        );
+        return Math.round(route.durationSeconds / 60);
+      },
+      setModeDurations,
+      isCancelled,
+    );
+
+    if (isSameCampus) {
       setModeDurations((previous) => ({
         ...previous,
-        walking:
-          walkOrBike.status === "fulfilled"
-            ? Math.round(walkOrBike.value.durationSeconds / 60)
-            : null,
-        driving:
-          drive.status === "fulfilled"
-            ? Math.round(drive.value.durationSeconds / 60)
-            : null,
+        transit: null,
+        shuttle: null,
       }));
-
-      if (!isSameCampus) {
-        try {
+    } else {
+      void loadModeDuration(
+        "transit",
+        async () => {
           const itineraries = await fetchTransitItineraries(
             routingOriginPoint,
             resolvedDestination,
           );
-          if (!cancelled) {
-            setModeDurations((previous) => ({
-              ...previous,
-              transit: itineraries[0]
-                ? Math.round(itineraries[0].durationSeconds / 60)
-                : null,
-            }));
-          }
-        } catch {
-          if (!cancelled) {
-            setModeDurations((previous) => ({ ...previous, transit: null }));
-          }
-        }
-      }
-    };
+          const firstItinerary = itineraries[0];
+          return firstItinerary
+            ? Math.round(firstItinerary.durationSeconds / 60)
+            : null;
+        },
+        setModeDurations,
+        isCancelled,
+      );
 
-    loadDurations();
+      void loadModeDuration(
+        "shuttle",
+        async () => {
+          const route = await calculateShuttleRouteHelper(
+            routingOriginPoint,
+            resolvedDestination,
+            null,
+          );
+          return route?.routeDurationMinutes ?? null;
+        },
+        setModeDurations,
+        isCancelled,
+      );
+    }
 
     return () => {
       cancelled = true;
     };
-  }, [isSameCampus, resolvedDestination, routingOriginPoint]);
+  }, [isSameCampus, modeDurationsKey, resolvedDestination, routingOriginPoint]);
 
   const exitDirectionsMode = useCallback(() => {
     setIsDirectionsMode(false);
@@ -1278,6 +1354,7 @@ export default function MapScreen() {
           isSameCampus,
           routeMode,
           modeDurations,
+          activeRouteDurationMinutes: routeState.routeDurationMinutes,
           originRoom,
           destinationRoom: destinationRoomDisplayLabel ?? destinationRoom,
           focusedRoom,
@@ -1296,8 +1373,6 @@ export default function MapScreen() {
             setDestinationRoomDisplayLabel(null);
             setDestinationRoom(room);
           },
-          setActiveFloorPlan,
-          setFloorPlanModalVisible,
           openFloorPlanModal,
           setFocusedRoom,
           onRoomSuggestionPressIn: () => {

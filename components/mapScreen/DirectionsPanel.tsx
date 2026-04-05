@@ -19,6 +19,7 @@ import { RoomRecord } from "../../types/rooms";
 
 type EditingField = "from" | "to" | undefined;
 type GetFloorPlanAsset = (key: string) => unknown;
+type TransportDurationMode = "walking" | "driving" | "transit" | "shuttle";
 
 type RoomInputGroupProps = Readonly<{
   building: BuildingRecord | null;
@@ -93,6 +94,7 @@ type TransportModeSelectorProps = Readonly<{
   routeMode: RouteMode;
   setRouteMode: (routeMode: RouteMode) => void;
   modeDurations: Record<string, number | null>;
+  activeRouteDurationMinutes: number | null;
   setRouteStarted: (started: boolean) => void;
   showRouteInstructions: () => void;
   clearDirections: () => void;
@@ -100,12 +102,96 @@ type TransportModeSelectorProps = Readonly<{
   formatDuration: (minutes: number) => string;
 }>;
 
+type ModePillProps = Readonly<{
+  testID: string;
+  isActive: boolean;
+  text: string;
+  styles: MapScreenStyles;
+  onPress?: () => void;
+}>;
+
+const isWalkingModeSelected = (routeMode: RouteMode) =>
+  routeMode === "walking" || routeMode === "cycling";
+
+const isTransportModeActive = (
+  mode: TransportDurationMode,
+  routeMode: RouteMode,
+) => {
+  if (mode === "walking") return isWalkingModeSelected(routeMode);
+  return routeMode === mode;
+};
+
+const getPreviewDuration = (
+  mode: TransportDurationMode,
+  modeDurations: Record<string, number | null>,
+) => {
+  if (mode === "shuttle") return null;
+  return modeDurations[mode] ?? null;
+};
+
+const getDisplayedDuration = (
+  mode: TransportDurationMode,
+  routeMode: RouteMode,
+  modeDurations: Record<string, number | null>,
+  activeRouteDurationMinutes: number | null,
+) => {
+  if (
+    isTransportModeActive(mode, routeMode) &&
+    activeRouteDurationMinutes !== null
+  ) {
+    return activeRouteDurationMinutes;
+  }
+
+  return getPreviewDuration(mode, modeDurations);
+};
+
+const formatTransportModeLabel = (
+  label: string,
+  duration: number | null,
+  formatDuration: (minutes: number) => string,
+  separator = " ",
+  omitPlaceholder = false,
+) => {
+  if (duration === null) {
+    if (omitPlaceholder) return label;
+    return `${label}${separator}—`;
+  }
+
+  return `${label}${separator}${formatDuration(duration)}`;
+};
+
+function ModePill({
+  testID,
+  isActive,
+  text,
+  styles,
+  onPress,
+}: ModePillProps) {
+  return (
+    <Pressable
+      testID={testID}
+      style={[styles.modePill, isActive && styles.modePillActive]}
+      onPress={onPress}
+    >
+      <Text
+        style={[
+          styles.modePillText,
+          isActive && styles.modePillTextActive,
+        ]}
+      >
+        {text}
+      </Text>
+    </Pressable>
+  );
+}
+
 function TransportModeSelector({
   isDirectionsMode,
   isSameCampus,
   routeMode,
   setRouteMode,
   modeDurations,
+  activeRouteDurationMinutes,
   setRouteStarted,
   showRouteInstructions,
   clearDirections,
@@ -114,21 +200,42 @@ function TransportModeSelector({
 }: TransportModeSelectorProps) {
   if (!isDirectionsMode) return null;
 
+  const bikeModeSelected = isWalkingModeSelected(routeMode);
+  const walkingDuration = getDisplayedDuration(
+    "walking",
+    routeMode,
+    modeDurations,
+    activeRouteDurationMinutes,
+  );
+  const drivingDuration = getDisplayedDuration(
+    "driving",
+    routeMode,
+    modeDurations,
+    activeRouteDurationMinutes,
+  );
+  const transitDuration = getDisplayedDuration(
+    "transit",
+    routeMode,
+    modeDurations,
+    activeRouteDurationMinutes,
+  );
+  const shuttleDuration = getDisplayedDuration(
+    "shuttle",
+    routeMode,
+    modeDurations,
+    activeRouteDurationMinutes,
+  );
+
   if (isSameCampus) {
     return (
       <View style={styles.modeSelectorGrid}>
         <View style={styles.modeSelectorRow}>
-          <Pressable
+          <ModePill
             testID="route-mode-walking"
-            style={[styles.modePill, styles.modePillActive]}
-          >
-            <Text style={[styles.modePillText, styles.modePillTextActive]}>
-              Walk{" "}
-              {modeDurations.walking === null
-                ? "—"
-                : formatDuration(modeDurations.walking)}
-            </Text>
-          </Pressable>
+            isActive
+            text={formatTransportModeLabel("Walk", walkingDuration, formatDuration)}
+            styles={styles}
+          />
           <Text style={styles.sameCampusHint}>Same campus</Text>
         </View>
       </View>
@@ -139,46 +246,30 @@ function TransportModeSelector({
     <View style={styles.modeSelectorGrid}>
       <View style={styles.modeSelectorRow}>
         <View style={styles.modePillGroup}>
-          <Pressable
+          <ModePill
             testID="route-mode-walking"
-            style={[
-              styles.modePill,
-              routeMode === "walking" && styles.modePillActive,
-            ]}
+            isActive={bikeModeSelected}
+            text={formatTransportModeLabel(
+              "Bike",
+              walkingDuration,
+              formatDuration,
+              " - ",
+            )}
+            styles={styles}
             onPress={() => setRouteMode("walking")}
-          >
-            <Text
-              style={[
-                styles.modePillText,
-                routeMode === "walking" && styles.modePillTextActive,
-              ]}
-            >
-              Bike -{" "}
-              {modeDurations.walking === null
-                ? "—"
-                : formatDuration(modeDurations.walking)}
-            </Text>
-          </Pressable>
-          <Pressable
+          />
+          <ModePill
             testID="route-mode-driving"
-            style={[
-              styles.modePill,
-              routeMode === "driving" && styles.modePillActive,
-            ]}
+            isActive={routeMode === "driving"}
+            text={formatTransportModeLabel(
+              "Car",
+              drivingDuration,
+              formatDuration,
+              " - ",
+            )}
+            styles={styles}
             onPress={() => setRouteMode("driving")}
-          >
-            <Text
-              style={[
-                styles.modePillText,
-                routeMode === "driving" && styles.modePillTextActive,
-              ]}
-            >
-              Car -{" "}
-              {modeDurations.driving === null
-                ? "—"
-                : formatDuration(modeDurations.driving)}
-            </Text>
-          </Pressable>
+          />
         </View>
         <Pressable
           testID="direction-start-button"
@@ -194,43 +285,31 @@ function TransportModeSelector({
 
       <View style={styles.modeSelectorRow}>
         <View style={styles.modePillGroup}>
-          <Pressable
+          <ModePill
             testID="route-mode-transit"
-            style={[
-              styles.modePill,
-              routeMode === "transit" && styles.modePillActive,
-            ]}
+            isActive={routeMode === "transit"}
+            text={formatTransportModeLabel(
+              "Public Transit",
+              transitDuration,
+              formatDuration,
+              " - ",
+            )}
+            styles={styles}
             onPress={() => setRouteMode("transit")}
-          >
-            <Text
-              style={[
-                styles.modePillText,
-                routeMode === "transit" && styles.modePillTextActive,
-              ]}
-            >
-              Public Transit -{" "}
-              {modeDurations.transit === null
-                ? "—"
-                : formatDuration(modeDurations.transit)}
-            </Text>
-          </Pressable>
-          <Pressable
+          />
+          <ModePill
             testID="route-mode-shuttle"
-            style={[
-              styles.modePill,
-              routeMode === "shuttle" && styles.modePillActive,
-            ]}
+            isActive={routeMode === "shuttle"}
+            text={formatTransportModeLabel(
+              "Shuttle",
+              shuttleDuration,
+              formatDuration,
+              " - ",
+              true,
+            )}
+            styles={styles}
             onPress={() => setRouteMode("shuttle")}
-          >
-            <Text
-              style={[
-                styles.modePillText,
-                routeMode === "shuttle" && styles.modePillTextActive,
-              ]}
-            >
-              Shuttle
-            </Text>
-          </Pressable>
+          />
         </View>
       </View>
     </View>
@@ -247,6 +326,7 @@ export type DirectionsPanelState = Readonly<{
   isSameCampus: boolean;
   routeMode: RouteMode;
   modeDurations: Record<string, number | null>;
+  activeRouteDurationMinutes?: number | null;
   originRoom: string;
   destinationRoom: string;
   focusedRoom?: "from" | "to" | null;
@@ -312,6 +392,7 @@ export default function DirectionsPanel({
     isSameCampus,
     routeMode,
     modeDurations,
+    activeRouteDurationMinutes = null,
     originRoom,
     destinationRoom,
     focusedRoom = null,
@@ -546,6 +627,7 @@ export default function DirectionsPanel({
         routeMode={routeMode}
         setRouteMode={setRouteMode}
         modeDurations={modeDurations}
+        activeRouteDurationMinutes={activeRouteDurationMinutes}
         setRouteStarted={setRouteStarted}
         showRouteInstructions={showRouteInstructions}
         clearDirections={clearDirections}
