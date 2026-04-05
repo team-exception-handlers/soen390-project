@@ -52,7 +52,7 @@ const CATEGORY_ICONS: Record<POICategory, LucideIcon> = {
 
 type Props = Readonly<{
   userLocation: Coordinates | null;
-  onResultsChange: (results: POIResult[]) => void;
+  onResultsChange?: (results: POIResult[]) => void;
   onClose: () => void;
   onSelectPOI?: (poi: POIResult) => void;
 }>;
@@ -102,12 +102,12 @@ export default function POISearchPanel({
         const sorted = sortPOIsByDistance(filtered);
 
         setResults(sorted);
-        onResultsChange(sorted);
+        onResultsChange?.(sorted);
         setNoResults(sorted.length === 0);
       } catch {
         setError("Failed to fetch nearby places. Please try again.");
         setResults([]);
-        onResultsChange([]);
+        onResultsChange?.([]);
       } finally {
         setLoading(false);
       }

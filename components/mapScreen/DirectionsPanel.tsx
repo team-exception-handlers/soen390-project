@@ -15,10 +15,10 @@ import type { BuildingRecord } from "../../constants/buildings";
 import type { MapScreenStyles } from "../../styles/mapScreen.styles";
 import type { RouteMode } from "../../types/map";
 import { RoomRecord } from "../../types/rooms";
-import type { FloorPlanAsset } from "./mapScreen.helpers";
+
 
 type EditingField = "from" | "to" | undefined;
-type GetFloorPlanAsset = (key: string) => FloorPlanAsset;
+type GetFloorPlanAsset = (key: string) => unknown;
 
 type RoomInputGroupProps = Readonly<{
   building: BuildingRecord | null;
