@@ -114,6 +114,50 @@ function roomLabelMatches(
 const VERTICAL_NODE_TYPES = new Set(["stair_landing", "escalator_landing", "elevator_door"]);
 const ENTRY_EXIT_NODE_TYPES = new Set(["building_entry_exit", "entry", "exit"]);
 const INTER_FLOOR_WEIGHT = 500;
+const SYNTHETIC_EDGE_FIXES: Array<{
+  source: string;
+  target: string;
+  type: IndoorEdge["type"];
+}> = [
+  // Repair disconnected Hall 118-suite corridor branch on floor 1.
+  {
+    source: "Hall_F1_hallway_waypoint_113",
+    target: "Hall_F1_hallway_waypoint_105",
+    type: "hallway",
+  },
+  // Repair orphan MB floor-1 rooms that are present in the room picker but missing door links.
+  {
+    source: "MB_F1_room_1.315",
+    target: "MB_F1_doorway_51",
+    type: "room_to_door",
+  },
+  {
+    source: "MB_F1_room_46",
+    target: "MB_F1_doorway_35",
+    type: "room_to_door",
+  },
+  // Repair remaining orphan room nodes so the indoor graph stays internally consistent.
+  {
+    source: "Hall_F1_room_158",
+    target: "Hall_F1_doorway_142",
+    type: "room_to_door",
+  },
+  {
+    source: "MB_F1_room_47",
+    target: "MB_F1_doorway_35",
+    type: "room_to_door",
+  },
+  {
+    source: "VE_F2_room_78",
+    target: "VE_F2_doorway_69",
+    type: "room_to_door",
+  },
+  {
+    source: "VL_F2_room_47",
+    target: "VL_F2_doorway_44",
+    type: "room_to_door",
+  },
+];
 
 /** Graph edge weights are in same scale as floor plan units; convert to meters for display. */
 const UNITS_PER_METER = 50;
@@ -198,6 +242,35 @@ function addBidirectionalEdge(
 ): void {
   adjacency.get(source)!.push({ neighbor: target, weight });
   adjacency.get(target)!.push({ neighbor: source, weight });
+}
+
+function hasEdge(
+  adjacency: Map<string, { neighbor: string; weight: number }[]>,
+  source: string,
+  target: string,
+): boolean {
+  return adjacency.get(source)?.some((edge) => edge.neighbor === target) ?? false;
+}
+
+function applySyntheticEdgeFixes(
+  nodes: Map<string, IndoorNode>,
+  adjacency: Map<string, { neighbor: string; weight: number }[]>,
+): void {
+  for (const fix of SYNTHETIC_EDGE_FIXES) {
+    const sourceNode = nodes.get(fix.source);
+    const targetNode = nodes.get(fix.target);
+    if (sourceNode == null || targetNode == null) continue;
+    if (hasEdge(adjacency, fix.source, fix.target)) continue;
+
+    const weight = Math.max(
+      1,
+      Math.round(
+        Math.hypot(sourceNode.x - targetNode.x, sourceNode.y - targetNode.y),
+      ),
+    );
+
+    addBidirectionalEdge(adjacency, fix.source, fix.target, weight);
+  }
 }
 
 function resolveDirectionalEscalator(
@@ -390,6 +463,8 @@ function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false,
       adjacency.get(b.id)!.push({ neighbor: a.id, weight: INTER_FLOOR_WEIGHT });
     }
   });
+
+  applySyntheticEdgeFixes(nodes, adjacency);
 
   return { nodes, adjacency };
 }

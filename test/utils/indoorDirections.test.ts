@@ -8,6 +8,7 @@ import {
   getGraphFloorBounds,
   getSpecialNodesForFloor,
 } from "../../utils/indoorDirections";
+import { getRoomsForBuilding } from "../../utils/roomUtils";
 
 const {
   buildGraph,
@@ -99,6 +100,37 @@ describe("indoorDirections", () => {
     "returns null when either endpoint room is missing for %s",
     (buildingCode, start, end) => {
       expect(findIndoorRoute(buildingCode, start, end)).toBeNull();
+    },
+  );
+
+  test.each([
+    ["H", "118-13", "115"],
+    ["H", "118-14", "118-2"],
+    ["MB", "1.309", "1.310"],
+    ["MB", "1.315", "1.338"],
+  ])(
+    "returns a route for previously disconnected room %s -> %s in %s",
+    (buildingCode, start, end) => {
+      const route = findIndoorRoute(buildingCode, start, end);
+      expect(route).not.toBeNull();
+      expect(route!.segments.length).toBeGreaterThan(0);
+    },
+  );
+
+  test.each([
+    ["H", "110"],
+    ["MB", "1.210"],
+    ["VE", "101"],
+    ["VL", "101-4"],
+    ["CC", "124"],
+  ])(
+    "keeps every labeled indoor room reachable in %s",
+    (buildingCode, anchorRoom) => {
+      const unreachableRooms = getRoomsForBuilding(buildingCode).filter(
+        (roomLabel) => findIndoorRoute(buildingCode, anchorRoom, roomLabel) == null,
+      );
+
+      expect(unreachableRooms).toEqual([]);
     },
   );
 
