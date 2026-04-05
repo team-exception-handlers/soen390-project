@@ -268,7 +268,24 @@ function connectVerticalNodesBySuffix(
     list.push(node);
     bySuffix.set(key, list);
   });
-
+  const shouldSkipInterFloorConnection = (
+    a: IndoorNode,
+    noStairs: boolean,
+    noEscalators: boolean,
+    noElevators: boolean,
+  ) => {
+    if (noStairs && a.type === "stair_landing") return true;
+    if (noEscalators && a.type === "escalator_landing") return true;
+    if (noElevators && a.type === "elevator_door") return true;
+    if (
+      a.type === "escalator_landing" &&
+      (a.direction === "up" || a.direction === "down")
+    ) {
+      return true;
+    }
+  
+    return false;
+  };
   bySuffix.forEach((connectedNodes) => {
     if (connectedNodes.length < 2) return;
     connectedNodes.sort((a, b) => a.floor - b.floor);
@@ -277,10 +294,16 @@ function connectVerticalNodesBySuffix(
       const a = connectedNodes[i];
       const b = connectedNodes[i + 1];
 
-      if (noStairs && a.type === "stair_landing") continue;
-      if (noEscalators && a.type === "escalator_landing") continue;
-      if (noElevators && a.type === "elevator_door") continue;
-      if (a.type === "escalator_landing" && (a.direction === "up" || a.direction === "down")) continue;
+      if (
+        shouldSkipInterFloorConnection(
+          a,
+          noStairs,
+          noEscalators,
+          noElevators,
+        )
+      ) {
+        continue;
+      }
 
       addBidirectionalEdge(adjacency, a.id, b.id, INTER_FLOOR_WEIGHT);
     }
