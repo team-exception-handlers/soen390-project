@@ -224,6 +224,7 @@ export default function MapScreen() {
     walking: null,
     driving: null,
     transit: null,
+    shuttle: null,
   });
   const [nextClassLoading, setNextClassLoading] = useState(false);
   const [nextClassMessage, setNextClassMessage] = useState<string | null>(null);
@@ -238,6 +239,7 @@ export default function MapScreen() {
 
   const mapRef = useRef<any>(null);
   const searchInputRef = useRef<TextInput>(null);
+  const modeDurationsKeyRef = useRef<string | null>(null);
 
   const {
     state: routeState,
@@ -568,55 +570,104 @@ export default function MapScreen() {
     }
     return destinationBuilding;
   }, [destinationPOI, destinationBuilding]);
+  const modeDurationsKey = useMemo(() => {
+    if (!resolvedDestination || !routingOriginPoint) return null;
+    return [
+      roundCoord(routingOriginPoint.latitude),
+      roundCoord(routingOriginPoint.longitude),
+      roundCoord(resolvedDestination.latitude),
+      roundCoord(resolvedDestination.longitude),
+      isSameCampus ? "same" : "cross",
+    ].join(":");
+  }, [isSameCampus, resolvedDestination, routingOriginPoint]);
 
   useEffect(() => {
     if (!resolvedDestination || !routingOriginPoint) {
-      setModeDurations({ walking: null, driving: null, transit: null });
+      modeDurationsKeyRef.current = null;
+      setModeDurations({
+        walking: null,
+        driving: null,
+        transit: null,
+        shuttle: null,
+      });
       return;
     }
 
     let cancelled = false;
+    const paramsChanged = modeDurationsKeyRef.current !== modeDurationsKey;
+    modeDurationsKeyRef.current = modeDurationsKey;
+    if (paramsChanged) {
+      setModeDurations({
+        walking: null,
+        driving: null,
+        transit: null,
+        shuttle: null,
+      });
+    }
 
     const loadDurations = async () => {
       const walkOrBikeProfile = isSameCampus ? "walking" : "cycling";
-      const [walkOrBike, drive] = await Promise.allSettled([
-        fetchOsrmRoute(routingOriginPoint, resolvedDestination, walkOrBikeProfile),
-        fetchOsrmRoute(routingOriginPoint, resolvedDestination, "driving"),
-      ]);
 
-      if (cancelled) return;
+      fetchOsrmRoute(routingOriginPoint, resolvedDestination, walkOrBikeProfile)
+        .then((route) => {
+          if (cancelled) return;
+          setModeDurations((previous) => ({
+            ...previous,
+            walking: Math.round(route.durationSeconds / 60),
+          }));
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setModeDurations((previous) => ({ ...previous, walking: null }));
+        });
 
-      setModeDurations((previous) => ({
-        ...previous,
-        walking:
-          walkOrBike.status === "fulfilled"
-            ? Math.round(walkOrBike.value.durationSeconds / 60)
-            : null,
-        driving:
-          drive.status === "fulfilled"
-            ? Math.round(drive.value.durationSeconds / 60)
-            : null,
-      }));
+      fetchOsrmRoute(routingOriginPoint, resolvedDestination, "driving")
+        .then((route) => {
+          if (cancelled) return;
+          setModeDurations((previous) => ({
+            ...previous,
+            driving: Math.round(route.durationSeconds / 60),
+          }));
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setModeDurations((previous) => ({ ...previous, driving: null }));
+        });
 
       if (!isSameCampus) {
-        try {
-          const itineraries = await fetchTransitItineraries(
-            routingOriginPoint,
-            resolvedDestination,
-          );
-          if (!cancelled) {
+        fetchTransitItineraries(routingOriginPoint, resolvedDestination)
+          .then((itineraries) => {
+            if (cancelled) return;
             setModeDurations((previous) => ({
               ...previous,
               transit: itineraries[0]
                 ? Math.round(itineraries[0].durationSeconds / 60)
                 : null,
             }));
-          }
-        } catch {
-          if (!cancelled) {
+          })
+          .catch(() => {
+            if (cancelled) return;
             setModeDurations((previous) => ({ ...previous, transit: null }));
-          }
-        }
+          });
+
+        calculateShuttleRouteHelper(routingOriginPoint, resolvedDestination, null)
+          .then((route) => {
+            if (cancelled) return;
+            setModeDurations((previous) => ({
+              ...previous,
+              shuttle: route?.routeDurationMinutes ?? null,
+            }));
+          })
+          .catch(() => {
+            if (cancelled) return;
+            setModeDurations((previous) => ({ ...previous, shuttle: null }));
+          });
+      } else {
+        setModeDurations((previous) => ({
+          ...previous,
+          transit: null,
+          shuttle: null,
+        }));
       }
     };
 
@@ -625,7 +676,7 @@ export default function MapScreen() {
     return () => {
       cancelled = true;
     };
-  }, [isSameCampus, resolvedDestination, routingOriginPoint]);
+  }, [isSameCampus, modeDurationsKey, resolvedDestination, routingOriginPoint]);
 
   const exitDirectionsMode = useCallback(() => {
     setIsDirectionsMode(false);
@@ -1279,6 +1330,7 @@ export default function MapScreen() {
           isSameCampus,
           routeMode,
           modeDurations,
+          activeRouteDurationMinutes: routeState.routeDurationMinutes,
           originRoom,
           destinationRoom: destinationRoomDisplayLabel ?? destinationRoom,
           focusedRoom,

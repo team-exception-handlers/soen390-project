@@ -94,6 +94,7 @@ type TransportModeSelectorProps = Readonly<{
   routeMode: RouteMode;
   setRouteMode: (routeMode: RouteMode) => void;
   modeDurations: Record<string, number | null>;
+  activeRouteDurationMinutes: number | null;
   setRouteStarted: (started: boolean) => void;
   showRouteInstructions: () => void;
   clearDirections: () => void;
@@ -107,6 +108,7 @@ function TransportModeSelector({
   routeMode,
   setRouteMode,
   modeDurations,
+  activeRouteDurationMinutes,
   setRouteStarted,
   showRouteInstructions,
   clearDirections,
@@ -114,6 +116,26 @@ function TransportModeSelector({
   formatDuration,
 }: TransportModeSelectorProps) {
   if (!isDirectionsMode) return null;
+
+  const bikeModeSelected = routeMode === "walking" || routeMode === "cycling";
+  const getDisplayedDuration = (
+    mode: "walking" | "driving" | "transit" | "shuttle",
+  ) => {
+    const previewDuration =
+      mode === "shuttle" ? null : modeDurations[mode] ?? null;
+    const isSelectedMode =
+      mode === "walking" ? bikeModeSelected : routeMode === mode;
+
+    if (isSelectedMode && activeRouteDurationMinutes !== null) {
+      return activeRouteDurationMinutes;
+    }
+
+    return previewDuration;
+  };
+  const walkingDuration = getDisplayedDuration("walking");
+  const drivingDuration = getDisplayedDuration("driving");
+  const transitDuration = getDisplayedDuration("transit");
+  const shuttleDuration = getDisplayedDuration("shuttle");
 
   if (isSameCampus) {
     return (
@@ -125,8 +147,8 @@ function TransportModeSelector({
           >
             <Text style={[styles.modePillText, styles.modePillTextActive]}>
               Walk{" "}
-              {modeDurations.walking !== null
-                ? formatDuration(modeDurations.walking)
+              {walkingDuration !== null
+                ? formatDuration(walkingDuration)
                 : "—"}
             </Text>
           </Pressable>
@@ -144,19 +166,19 @@ function TransportModeSelector({
             testID="route-mode-walking"
             style={[
               styles.modePill,
-              routeMode === "walking" && styles.modePillActive,
+              bikeModeSelected && styles.modePillActive,
             ]}
             onPress={() => setRouteMode("walking")}
           >
             <Text
               style={[
                 styles.modePillText,
-                routeMode === "walking" && styles.modePillTextActive,
+                bikeModeSelected && styles.modePillTextActive,
               ]}
             >
               Bike -{" "}
-              {modeDurations.walking !== null
-                ? formatDuration(modeDurations.walking)
+              {walkingDuration !== null
+                ? formatDuration(walkingDuration)
                 : "—"}
             </Text>
           </Pressable>
@@ -175,8 +197,8 @@ function TransportModeSelector({
               ]}
             >
               Car -{" "}
-              {modeDurations.driving !== null
-                ? formatDuration(modeDurations.driving)
+              {drivingDuration !== null
+                ? formatDuration(drivingDuration)
                 : "—"}
             </Text>
           </Pressable>
@@ -210,8 +232,8 @@ function TransportModeSelector({
               ]}
             >
               Public Transit -{" "}
-              {modeDurations.transit !== null
-                ? formatDuration(modeDurations.transit)
+              {transitDuration !== null
+                ? formatDuration(transitDuration)
                 : "—"}
             </Text>
           </Pressable>
@@ -229,7 +251,9 @@ function TransportModeSelector({
                 routeMode === "shuttle" && styles.modePillTextActive,
               ]}
             >
-              Shuttle
+              {shuttleDuration !== null
+                ? `Shuttle - ${formatDuration(shuttleDuration)}`
+                : "Shuttle"}
             </Text>
           </Pressable>
         </View>
@@ -248,6 +272,7 @@ export type DirectionsPanelState = Readonly<{
   isSameCampus: boolean;
   routeMode: RouteMode;
   modeDurations: Record<string, number | null>;
+  activeRouteDurationMinutes?: number | null;
   originRoom: string;
   destinationRoom: string;
   focusedRoom?: "from" | "to" | null;
@@ -313,6 +338,7 @@ export default function DirectionsPanel({
     isSameCampus,
     routeMode,
     modeDurations,
+    activeRouteDurationMinutes = null,
     originRoom,
     destinationRoom,
     focusedRoom = null,
@@ -547,6 +573,7 @@ export default function DirectionsPanel({
         routeMode={routeMode}
         setRouteMode={setRouteMode}
         modeDurations={modeDurations}
+        activeRouteDurationMinutes={activeRouteDurationMinutes}
         setRouteStarted={setRouteStarted}
         showRouteInstructions={showRouteInstructions}
         clearDirections={clearDirections}

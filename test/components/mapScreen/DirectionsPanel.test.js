@@ -124,6 +124,14 @@ function findText(node, text) {
   return findAll(node, (candidate) => candidate?.props?.children === text)[0] ?? null;
 }
 
+function extractText(node) {
+  if (typeof node === "string") return node;
+  if (typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(extractText).join("");
+  if (!node?.props?.children) return "";
+  return extractText(node.props.children);
+}
+
 function createStyles() {
   const store = {};
   return new Proxy(store, {
@@ -159,6 +167,7 @@ function createProps(overrides = {}) {
     isSameCampus: false,
     routeMode: "walking",
     modeDurations: { walking: 12, driving: 7, transit: 18 },
+    activeRouteDurationMinutes: null,
     originRoom: "801",
     destinationRoom: "102",
     focusedRoom: null,
@@ -358,6 +367,37 @@ describe("components/mapScreen/DirectionsPanel", () => {
           modeDurations: { walking: null, driving: null, transit: null },
         }),
       ),
+    );
+  });
+
+  test("falls back to the loaded route duration for the active mode", () => {
+    const drivingProps = createProps({
+      isDirectionsMode: true,
+      isSameCampus: false,
+      routeMode: "driving",
+      modeDurations: { walking: null, driving: null, transit: null },
+      activeRouteDurationMinutes: 9,
+    });
+    const drivingEl = renderTree(DirectionsPanel(drivingProps));
+
+    expect(extractText(findByTestID(drivingEl, "route-mode-driving"))).toContain(
+      "Car - 9 min",
+    );
+
+    const cyclingProps = createProps({
+      isDirectionsMode: true,
+      isSameCampus: false,
+      routeMode: "cycling",
+      modeDurations: { walking: null, driving: null, transit: null },
+      activeRouteDurationMinutes: 11,
+    });
+    const cyclingEl = renderTree(DirectionsPanel(cyclingProps));
+
+    expect(extractText(findByTestID(cyclingEl, "route-mode-walking"))).toContain(
+      "Bike - 11 min",
+    );
+    expect(findByTestID(cyclingEl, "route-mode-walking").props.style).toContain(
+      cyclingProps.styles.modePillActive,
     );
   });
 
