@@ -101,7 +101,7 @@ type FloorPlanSvgComponent = React.ComponentType<{
 }>;
 
 const parseFloorPlanKey = (key: string): { building: string; floor: number } | null => {
-  const match = key.match(/^([A-Z]+)-(-?\d+)$/);
+  const match = /^([A-Z]+)-(-?\d+)$/.exec(key);
   if (!match) return null;
   const building = match[1];
   const floor = Number.parseInt(match[2], 10);
@@ -287,7 +287,7 @@ export default function MapScreen() {
   ).current;
 
   const [showPOIPanel, setShowPOIPanel] = useState(false);
-  const [, setPOIResults] = useState<POIResult[]>([]);
+  const [poiResults, setPOIResults] = useState<POIResult[]>([]);
   const [destinationPOI, setDestinationPOI] = useState<POIResult | null>(null);
   const [washroomPickerBuilding, setWashroomPickerBuilding] = useState<
     string | null

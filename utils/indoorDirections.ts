@@ -261,7 +261,7 @@ function connectVerticalNodesBySuffix(
 
   nodes.forEach((node) => {
     if (!VERTICAL_NODE_TYPES.has(node.type)) return;
-    const match = node.id.match(/_(stair_landing|escalator_landing|elevator_door)_(\d+)$/);
+    const match = /_(stair_landing|escalator_landing|elevator_door)_(\d+)$/.exec(node.id);
     if (!match) return;
     const key = `${match[1]}_${match[2]}`;
     const list = bySuffix.get(key) ?? [];
@@ -339,7 +339,7 @@ function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false,
   const bySuffix = new Map<string, IndoorNode[]>();
   nodes.forEach((node) => {
     if (VERTICAL_NODE_TYPES.has(node.type)) {
-      const match = node.id.match(/_(stair_landing|escalator_landing|elevator_door)_(\d+)$/);
+      const match = /_(stair_landing|escalator_landing|elevator_door)_(\d+)$/.exec(node.id);
       if (match) {
         const key = `${match[1]}_${match[2]}`;
         const list = bySuffix.get(key) ?? [];
@@ -681,8 +681,8 @@ function getArrivalRelationFromDisplayedApproach(
     return getArrivalSide(prev, dest);
   }
 
-  const forward = heading.x !== 0 ? Math.abs(dx) : Math.abs(dy);
-  const lateral = heading.x !== 0 ? Math.abs(dy) : Math.abs(dx);
+  const forward = heading.x === 0 ? Math.abs(dy) : Math.abs(dx);
+  const lateral = heading.x === 0 ? Math.abs(dx) : Math.abs(dy);
   const STRAIGHT_AHEAD_RATIO = 0.25;
   const STRAIGHT_AHEAD_MIN_FORWARD = 40;
 
@@ -878,14 +878,14 @@ function foldOrEmitContinueForDestination(
 ): boolean {
   if (!(node.type === "room" && node.id !== state.start.id)) return false;
 
-  const lastStep = state.steps[state.steps.length - 1];
+  const lastStep = state.steps.at(-1);
   const canFoldIntoTurn =
     segDist >= minWalkEmit &&
     segDist <= shortFinalApproach &&
     lastStep?.instruction.startsWith("Turn ") &&
     !lastStep.instruction.includes(" and continue for about ");
 
-  if (canFoldIntoTurn) {
+  if (canFoldIntoTurn && lastStep) {
     state.steps[state.steps.length - 1] = {
       ...lastStep,
       instruction: lastStep.instruction.replace(
@@ -900,7 +900,7 @@ function foldOrEmitContinueForDestination(
     });
   }
 
-  const lastArrivalContextStep = state.steps[state.steps.length - 1];
+  const lastArrivalContextStep = state.steps.at(-1);
   const arrivalRelation = usesFinalApproachArrivalInstruction(
     lastArrivalContextStep?.instruction,
   )
@@ -925,7 +925,7 @@ function emitOrMergeContinueStraight(
   node: IndoorNode,
   segDist: number,
 ): void {
-  const lastStep = state.steps[state.steps.length - 1];
+  const lastStep = state.steps.at(-1);
   const lastIsStraight =
     lastStep?.instruction.startsWith("Continue straight for about ") ||
     lastStep?.instruction.startsWith("Continue for about ");
@@ -1020,12 +1020,12 @@ function emitTurnWaypoint({
       state.landmarkBuildingId,
     );
 
-  const landmark = rawLandmark !== state.lastLandmarkUsed ? rawLandmark : null;
+  const landmark = rawLandmark === state.lastLandmarkUsed ? null : rawLandmark;
   const atPhrase = landmark ? ` at room ${landmark}` : "";
   state.lastLandmarkUsed = rawLandmark ?? state.lastLandmarkUsed;
 
   const continueInstruction = `Turn ${turn}${atPhrase}${continueStr}.`;
-  const lastStep = state.steps[state.steps.length - 1];
+  const lastStep = state.steps.at(-1);
   if (lastStep?.instruction === continueInstruction) return;
 
   state.steps.push({
@@ -1114,7 +1114,7 @@ function buildSteps(
   const endpointIds = new Set<string>();
   if (allPathNodes.length > 0) endpointIds.add(allPathNodes[0].id);
   if (allPathNodes.length > 1) {
-    endpointIds.add(allPathNodes[allPathNodes.length - 1].id);
+    endpointIds.add(allPathNodes.at(-1)!.id);
   }
 
   const steps: IndoorRouteStep[] = [];
@@ -1209,8 +1209,7 @@ function findBestIndoorPath(
     true, // prefer route that avoids elevator/stairs
   );
 
-  if (!result) {
-    result = dijkstra(
+  result ??= dijkstra(
       nodes,
       adjacency,
       startNode.id,
@@ -1219,7 +1218,6 @@ function findBestIndoorPath(
       null,
       false,
     );
-  }
 
   return result;
 }

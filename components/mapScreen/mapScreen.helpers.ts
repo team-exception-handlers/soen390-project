@@ -5,7 +5,7 @@ import type { PolygonFeature, MapRegion } from "../../utils/mapRegions";
 import { findUserBuilding } from "../../utils/locationUtils";
 import type { LatLng, MapBounds } from "../../types/map";
 
-export type FloorPlanAsset = unknown | null;
+export type FloorPlanAsset = unknown;
 export type PinVisibilityMode = "all" | "campus-summary";
 export type DetectedBuilding = {
   code: string | null;

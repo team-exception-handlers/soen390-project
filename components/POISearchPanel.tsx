@@ -50,12 +50,12 @@ const CATEGORY_ICONS: Record<POICategory, LucideIcon> = {
   grocery: ShoppingCart,
 };
 
-type Props = {
+type Props = Readonly<{
   userLocation: Coordinates | null;
   onResultsChange: (results: POIResult[]) => void;
   onClose: () => void;
   onSelectPOI?: (poi: POIResult) => void;
-};
+}>;
 
 export default function POISearchPanel({
   userLocation,

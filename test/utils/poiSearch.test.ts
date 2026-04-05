@@ -1,17 +1,17 @@
 import {
-    ALL_POI_CATEGORIES,
-    fetchNearbyPOIs,
-    filterPOIsByDistance,
-    formatDistance,
-    getCategoryLabel,
-    getIndoorWashroomPOIs,
-    sortPOIsByDistance,
-    type POIResult,
+  ALL_POI_CATEGORIES,
+  fetchNearbyPOIs,
+  filterPOIsByDistance,
+  formatDistance,
+  getCategoryLabel,
+  getIndoorWashroomPOIs,
+  sortPOIsByDistance,
+  type POIResult,
 } from "../../utils/poiSearch";
 
 // Mock global fetch
 const mockFetch = jest.fn();
-global.fetch = mockFetch;
+globalThis.fetch = mockFetch;
 
 jest.useFakeTimers();
 
@@ -47,7 +47,7 @@ describe("poiSearch", () => {
             {
               id: 101,
               lat: 45.499,
-              lon: -73.580,
+              lon: -73.58,
               tags: { name: "Cafe B" },
             },
           ],
@@ -177,23 +177,23 @@ describe("poiSearch", () => {
         makePOI({ id: "1", distance: 0.3 }),
         makePOI({ id: "2", distance: 0.8 }),
         makePOI({ id: "3", distance: 1.5 }),
-        makePOI({ id: "4", distance: 2.0 }),
+        makePOI({ id: "4", distance: 2 }),
       ];
 
-      const filtered = filterPOIsByDistance(pois, 1.0);
+      const filtered = filterPOIsByDistance(pois, 1);
       expect(filtered).toHaveLength(2);
       expect(filtered.map((p) => p.id)).toEqual(["1", "2"]);
     });
 
     it("includes POIs exactly at the boundary", () => {
-      const pois = [makePOI({ id: "1", distance: 1.0 })];
-      const filtered = filterPOIsByDistance(pois, 1.0);
+      const pois = [makePOI({ id: "1", distance: 1 })];
+      const filtered = filterPOIsByDistance(pois, 1);
       expect(filtered).toHaveLength(1);
     });
 
     it("returns empty array when no POIs within range", () => {
-      const pois = [makePOI({ id: "1", distance: 5.0 })];
-      const filtered = filterPOIsByDistance(pois, 1.0);
+      const pois = [makePOI({ id: "1", distance: 5 })];
+      const filtered = filterPOIsByDistance(pois, 1);
       expect(filtered).toEqual([]);
     });
   });
@@ -230,7 +230,7 @@ describe("poiSearch", () => {
     });
 
     it("formats distances >= 1km with one decimal", () => {
-      expect(formatDistance(1.0)).toBe("1.0 km");
+      expect(formatDistance(1)).toBe("1.0 km");
       expect(formatDistance(2.5)).toBe("2.5 km");
       expect(formatDistance(10.123)).toBe("10.1 km");
     });

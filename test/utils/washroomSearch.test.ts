@@ -169,7 +169,7 @@ describe("findNearestWashroomTarget", () => {
       destinationRoom: "",
     });
     // EV has no washroom data so it falls through to GPS-based nearest building
-    expect(result === null || typeof result!.building.code === "string").toBe(true);
+    expect(result === null || typeof result.building.code === "string").toBe(true);
   });
 
   test("destination building context used when no origin building", () => {
