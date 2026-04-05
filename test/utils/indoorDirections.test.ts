@@ -109,7 +109,7 @@ describe("indoorDirections", () => {
     expect(route?.endFloor).toBe(9);
     const floors = route!.segments.map((s) => s.floor);
     expect(floors[0]).toBe(8);
-    expect(floors[floors.length - 1]).toBe(9);
+    expect(floors.at(-1)).toBe(9);
     const instructions = route!.steps.map((step) => step.instruction);
     expect(instructions.some((s) => s.includes("to floor 9"))).toBe(true);
   });
@@ -239,7 +239,7 @@ describe("indoorDirections", () => {
     expect(route).not.toBeNull();
     const floors = route!.segments.map((s) => s.floor);
     expect(floors[0]).toBe(1);
-    expect(floors[floors.length - 1]).toBe(2);
+    expect(floors.at(-1)).toBe(2);
   });
 
   test("cross-floor route has at least one floor-change instruction", () => {

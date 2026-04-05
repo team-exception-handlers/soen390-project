@@ -72,7 +72,7 @@ export default function WebCampusMap({
   const [webMapReady, setWebMapReady] = useState(false);
 
   const webFrameTargetOrigin =
-    Platform.OS === "web" && typeof globalThis.window !== "undefined"
+    Platform.OS === "web" && globalThis.window !== undefined
       ? globalThis.window.location.origin
       : null;
   const serializedWebFrameTargetOrigin = JSON.stringify(

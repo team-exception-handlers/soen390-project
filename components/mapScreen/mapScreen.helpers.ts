@@ -5,7 +5,7 @@ import type { PolygonFeature, MapRegion } from "../../utils/mapRegions";
 import { findUserBuilding } from "../../utils/locationUtils";
 import type { LatLng, MapBounds } from "../../types/map";
 
-export type FloorPlanAsset = unknown | null;
+
 export type PinVisibilityMode = "all" | "campus-summary";
 export type DetectedBuilding = {
   code: string | null;
@@ -84,8 +84,8 @@ export const detectBuildingFromLocation = (
   return { code: null, campus: null };
 };
 
-export const getFloorPlanAsset = (key: string): FloorPlanAsset => {
-  const assets: Record<string, () => FloorPlanAsset> = {
+export const getFloorPlanAsset = (key: string): unknown => {
+  const assets: Record<string, () => unknown> = {
     "H-1": () => require("../../assets/floor_plans/png/H1.png"),
     "H-2": () => require("../../assets/floor_plans/png/H2.png"),
     "H-8": () => require("../../assets/floor_plans/png/hall8.png"),

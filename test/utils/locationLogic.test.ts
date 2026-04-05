@@ -4,7 +4,7 @@ describe('locationLogic', () => {
     test('detects Loyola as nearest stop when closer', () => {
         const nearLoyola = {
             latitude: 45.459,
-            longitude: -73.640,
+            longitude: -73.64,
         };
         const result = getNearestStop(nearLoyola);
         expect(result.stop).toBe('LOY');

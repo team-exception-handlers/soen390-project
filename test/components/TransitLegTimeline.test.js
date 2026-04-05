@@ -49,7 +49,7 @@ function expand(node) {
 
         // Host component
         if (typeof type === "string") {
-            const newProps = { ...(props || {}) };
+            const newProps = { ...props };
             if (newProps.children !== undefined) {
                 newProps.children = expand(newProps.children);
             }

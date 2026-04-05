@@ -200,11 +200,11 @@ describe("components/mapScreen/WebCampusMap", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    originalWindow = global.window;
+    originalWindow = globalThis.window;
   });
 
   afterEach(() => {
-    global.window = originalWindow;
+    globalThis.window = originalWindow;
     jest.resetModules();
   });
 
@@ -212,7 +212,7 @@ describe("components/mapScreen/WebCampusMap", () => {
     const postMessage = jest.fn();
     const contentWindow = { postMessage };
     const messageHandlers = [];
-    global.window = {
+    globalThis.window = {
       location: { origin: "https://campus.example" },
       addEventListener: jest.fn((event, handler) => {
         if (event === "message") messageHandlers.push(handler);
@@ -266,7 +266,7 @@ describe("components/mapScreen/WebCampusMap", () => {
   });
 
   test("renders the native webview and handles bridge callbacks", () => {
-    global.window = undefined;
+    globalThis.window = undefined;
     const injectJavaScript = jest.fn();
     const { WebCampusMap, buildWebMapHtml, stateSetter } = loadWebCampusMap({
       os: "ios",
@@ -320,7 +320,7 @@ describe("components/mapScreen/WebCampusMap", () => {
   });
 
   test("returns null on native when react-native-webview is unavailable", () => {
-    global.window = undefined;
+    globalThis.window = undefined;
     const { WebCampusMap } = loadWebCampusMap({
       os: "android",
       withWebView: false,

@@ -261,14 +261,31 @@ function connectVerticalNodesBySuffix(
 
   nodes.forEach((node) => {
     if (!VERTICAL_NODE_TYPES.has(node.type)) return;
-    const match = node.id.match(/_(stair_landing|escalator_landing|elevator_door)_(\d+)$/);
+    const match = /_(stair_landing|escalator_landing|elevator_door)_(\d+)$/.exec(node.id);
     if (!match) return;
     const key = `${match[1]}_${match[2]}`;
     const list = bySuffix.get(key) ?? [];
     list.push(node);
     bySuffix.set(key, list);
   });
-
+  const shouldSkipInterFloorConnection = (
+    a: IndoorNode,
+    noStairs: boolean,
+    noEscalators: boolean,
+    noElevators: boolean,
+  ) => {
+    if (noStairs && a.type === "stair_landing") return true;
+    if (noEscalators && a.type === "escalator_landing") return true;
+    if (noElevators && a.type === "elevator_door") return true;
+    if (
+      a.type === "escalator_landing" &&
+      (a.direction === "up" || a.direction === "down")
+    ) {
+      return true;
+    }
+  
+    return false;
+  };
   bySuffix.forEach((connectedNodes) => {
     if (connectedNodes.length < 2) return;
     connectedNodes.sort((a, b) => a.floor - b.floor);
@@ -277,10 +294,16 @@ function connectVerticalNodesBySuffix(
       const a = connectedNodes[i];
       const b = connectedNodes[i + 1];
 
-      if (noStairs && a.type === "stair_landing") continue;
-      if (noEscalators && a.type === "escalator_landing") continue;
-      if (noElevators && a.type === "elevator_door") continue;
-      if (a.type === "escalator_landing" && (a.direction === "up" || a.direction === "down")) continue;
+      if (
+        shouldSkipInterFloorConnection(
+          a,
+          noStairs,
+          noEscalators,
+          noElevators,
+        )
+      ) {
+        continue;
+      }
 
       addBidirectionalEdge(adjacency, a.id, b.id, INTER_FLOOR_WEIGHT);
     }
@@ -339,7 +362,7 @@ function buildGraph(floors: FloorData[], noStairs = false, noEscalators = false,
   const bySuffix = new Map<string, IndoorNode[]>();
   nodes.forEach((node) => {
     if (VERTICAL_NODE_TYPES.has(node.type)) {
-      const match = node.id.match(/_(stair_landing|escalator_landing|elevator_door)_(\d+)$/);
+      const match = /_(stair_landing|escalator_landing|elevator_door)_(\d+)$/.exec(node.id);
       if (match) {
         const key = `${match[1]}_${match[2]}`;
         const list = bySuffix.get(key) ?? [];
@@ -425,6 +448,49 @@ class MinHeap {
  * When excludeVerticalTransit is true (same-floor), avoids elevator/stair nodes; if
  * no path exists without them, call again with false to allow a path through them.
  */
+const shouldSkipDijkstraNeighbor = (
+  neighbor: string,
+  visited: Set<string>,
+  hasRestrictions: boolean,
+  nodes: Map<string, IndoorNode>,
+  restrictToFloor: number | null,
+  restrictToBuildingId: string | null,
+  excludeVerticalTransit: boolean,
+) => {
+  if (visited.has(neighbor)) return true;
+
+  if (
+    hasRestrictions &&
+    !isNeighborAllowedUnderRestrictions(
+      nodes,
+      neighbor,
+      restrictToFloor,
+      restrictToBuildingId,
+      excludeVerticalTransit,
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+const relaxDijkstraNeighbor = (
+  current: string,
+  neighbor: string,
+  weight: number,
+  dist: Map<string, number>,
+  prev: Map<string, string | null>,
+  heap: { push: (id: string, priority: number) => void },
+) => {
+  const newDist = (dist.get(current) ?? 0) + weight;
+
+  if (newDist < (dist.get(neighbor) ?? Infinity)) {
+    dist.set(neighbor, newDist);
+    prev.set(neighbor, current);
+    heap.push(neighbor, newDist);
+  }
+};
 function dijkstra(
   nodes: Map<string, IndoorNode>,
   adjacency: Map<string, { neighbor: string; weight: number }[]>,
@@ -458,26 +524,22 @@ function dijkstra(
     if (current === endId) break;
 
     for (const { neighbor, weight } of adjacency.get(current) ?? []) {
-      if (visited.has(neighbor)) continue;
 
       if (
-        hasRestrictions &&
-        !isNeighborAllowedUnderRestrictions(
-          nodes,
+        shouldSkipDijkstraNeighbor(
           neighbor,
+          visited,
+          hasRestrictions,
+          nodes,
           restrictToFloor,
           restrictToBuildingId,
           excludeVerticalTransit,
         )
-      )
+      ) {
         continue;
-
-      const newDist = (dist.get(current) ?? 0) + weight;
-      if (newDist < (dist.get(neighbor) ?? Infinity)) {
-        dist.set(neighbor, newDist);
-        prev.set(neighbor, current);
-        heap.push(neighbor, newDist);
       }
+      
+      relaxDijkstraNeighbor(current, neighbor, weight, dist, prev, heap);
     }
   }
 
@@ -681,8 +743,8 @@ function getArrivalRelationFromDisplayedApproach(
     return getArrivalSide(prev, dest);
   }
 
-  const forward = heading.x !== 0 ? Math.abs(dx) : Math.abs(dy);
-  const lateral = heading.x !== 0 ? Math.abs(dy) : Math.abs(dx);
+  const forward = heading.x === 0 ? Math.abs(dy) : Math.abs(dx);
+  const lateral = heading.x === 0 ? Math.abs(dx) : Math.abs(dy);
   const STRAIGHT_AHEAD_RATIO = 0.25;
   const STRAIGHT_AHEAD_MIN_FORWARD = 40;
 
@@ -878,14 +940,14 @@ function foldOrEmitContinueForDestination(
 ): boolean {
   if (!(node.type === "room" && node.id !== state.start.id)) return false;
 
-  const lastStep = state.steps[state.steps.length - 1];
+  const lastStep = state.steps.at(-1);
   const canFoldIntoTurn =
     segDist >= minWalkEmit &&
     segDist <= shortFinalApproach &&
     lastStep?.instruction.startsWith("Turn ") &&
     !lastStep.instruction.includes(" and continue for about ");
 
-  if (canFoldIntoTurn) {
+  if (canFoldIntoTurn && lastStep) {
     state.steps[state.steps.length - 1] = {
       ...lastStep,
       instruction: lastStep.instruction.replace(
@@ -900,7 +962,7 @@ function foldOrEmitContinueForDestination(
     });
   }
 
-  const lastArrivalContextStep = state.steps[state.steps.length - 1];
+  const lastArrivalContextStep = state.steps.at(-1);
   const arrivalRelation = usesFinalApproachArrivalInstruction(
     lastArrivalContextStep?.instruction,
   )
@@ -925,7 +987,7 @@ function emitOrMergeContinueStraight(
   node: IndoorNode,
   segDist: number,
 ): void {
-  const lastStep = state.steps[state.steps.length - 1];
+  const lastStep = state.steps.at(-1);
   const lastIsStraight =
     lastStep?.instruction.startsWith("Continue straight for about ") ||
     lastStep?.instruction.startsWith("Continue for about ");
@@ -1020,12 +1082,12 @@ function emitTurnWaypoint({
       state.landmarkBuildingId,
     );
 
-  const landmark = rawLandmark !== state.lastLandmarkUsed ? rawLandmark : null;
+  const landmark = rawLandmark === state.lastLandmarkUsed ? null : rawLandmark;
   const atPhrase = landmark ? ` at room ${landmark}` : "";
   state.lastLandmarkUsed = rawLandmark ?? state.lastLandmarkUsed;
 
   const continueInstruction = `Turn ${turn}${atPhrase}${continueStr}.`;
-  const lastStep = state.steps[state.steps.length - 1];
+  const lastStep = state.steps.at(-1);
   if (lastStep?.instruction === continueInstruction) return;
 
   state.steps.push({
@@ -1114,7 +1176,7 @@ function buildSteps(
   const endpointIds = new Set<string>();
   if (allPathNodes.length > 0) endpointIds.add(allPathNodes[0].id);
   if (allPathNodes.length > 1) {
-    endpointIds.add(allPathNodes[allPathNodes.length - 1].id);
+    endpointIds.add(allPathNodes.at(-1)!.id);
   }
 
   const steps: IndoorRouteStep[] = [];
@@ -1209,8 +1271,7 @@ function findBestIndoorPath(
     true, // prefer route that avoids elevator/stairs
   );
 
-  if (!result) {
-    result = dijkstra(
+  result ??= dijkstra(
       nodes,
       adjacency,
       startNode.id,
@@ -1219,7 +1280,6 @@ function findBestIndoorPath(
       null,
       false,
     );
-  }
 
   return result;
 }
@@ -1424,6 +1484,40 @@ export function findIndoorRouteToNodeId(
     endNode,
   );
 }
+const findStartNode = (
+  nodes: Map<string, IndoorNode>,
+  buildingCode: string,
+  startRoomLabel: string,
+): IndoorNode | undefined => {
+  for (const node of nodes.values()) {
+    if (node.type !== "room") continue;
+    if (!buildingIdMatches(buildingCode, node.buildingId)) continue;
+
+    if (roomLabelMatches(buildingCode, node.label, startRoomLabel)) {
+      return node;
+    }
+  }
+
+  return undefined;
+};
+
+const findExitNodes = (
+  nodes: Map<string, IndoorNode>,
+  buildingCode: string,
+): IndoorNode[] => {
+  const exitNodes: IndoorNode[] = [];
+
+  for (const node of nodes.values()) {
+    if (
+      ENTRY_EXIT_NODE_TYPES.has(node.type) &&
+      buildingIdMatches(buildingCode, node.buildingId)
+    ) {
+      exitNodes.push(node);
+    }
+  }
+
+  return exitNodes;
+};
 
 /** Route from a room to the nearest building exit. Returns null if no exit nodes exist or no path found. */
 export function findRouteToNearestExit(
@@ -1438,23 +1532,10 @@ export function findRouteToNearestExit(
 
   const { nodes, adjacency } = buildGraph(floors, noStairs, noEscalators, noElevators);
 
-  let startNode: IndoorNode | undefined;
-  for (const node of nodes.values()) {
-    if (node.type !== "room") continue;
-    if (!buildingIdMatches(buildingCode, node.buildingId)) continue;
-    if (roomLabelMatches(buildingCode, node.label, startRoomLabel)) {
-      startNode = node;
-      break;
-    }
-  }
+  const startNode = findStartNode(nodes, buildingCode, startRoomLabel);
   if (!startNode) return null;
 
-  const exitNodes: IndoorNode[] = [];
-  for (const node of nodes.values()) {
-    if (ENTRY_EXIT_NODE_TYPES.has(node.type) && buildingIdMatches(buildingCode, node.buildingId)) {
-      exitNodes.push(node);
-    }
-  }
+  const exitNodes = findExitNodes(nodes, buildingCode);
   if (exitNodes.length === 0) return null;
 
   let bestResult: { path: string[]; distance: number } | null = null;

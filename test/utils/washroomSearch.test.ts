@@ -169,7 +169,7 @@ describe("findNearestWashroomTarget", () => {
       destinationRoom: "",
     });
     // EV has no washroom data so it falls through to GPS-based nearest building
-    expect(result === null || typeof result!.building.code === "string").toBe(true);
+    expect(result === null || typeof result.building.code === "string").toBe(true);
   });
 
   test("destination building context used when no origin building", () => {
@@ -209,5 +209,17 @@ describe("findNearestWashroomTarget", () => {
       destinationRoom: "",
     });
     expect(result).not.toBeNull();
+  });
+
+  test("returns null if no washrooms match the provided category", () => {
+    const result = findNearestWashroomTarget("unknown_category" as any, {
+      campusBuildings: sgwBuildings,
+      actualOriginPoint: null,
+      originBuildingCode: null,
+      originRoom: "",
+      destinationBuildingCode: null,
+      destinationRoom: "",
+    });
+    expect(result).toBeNull();
   });
 });

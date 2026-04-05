@@ -10,16 +10,15 @@ import {
   Text,
   TextInput,
   View,
-  type LayoutChangeEvent,
 } from "react-native";
 import type { BuildingRecord } from "../../constants/buildings";
 import type { MapScreenStyles } from "../../styles/mapScreen.styles";
 import type { RouteMode } from "../../types/map";
 import { RoomRecord } from "../../types/rooms";
-import type { FloorPlanAsset } from "./mapScreen.helpers";
+
 
 type EditingField = "from" | "to" | undefined;
-type GetFloorPlanAsset = (key: string) => FloorPlanAsset;
+type GetFloorPlanAsset = (key: string) => unknown;
 
 type RoomInputGroupProps = Readonly<{
   building: BuildingRecord | null;
@@ -562,7 +561,7 @@ export default function DirectionsPanel({
           <Text style={styles.indoorRouteButtonText}>
             {hasExitRoute === false
               ? "No Indoor Path Available"
-              : `Exit ${originBuilding!.shortName}`}
+              : `Exit ${originBuilding?.shortName}`}
           </Text>
         </Pressable>
       )}
@@ -589,7 +588,7 @@ export default function DirectionsPanel({
         >
           <Navigation size={14} color="#FFFFFF" strokeWidth={2.5} />
           <Text style={styles.indoorRouteButtonText}>
-            {`Enter ${destinationBuilding!.shortName}`}
+            {`Enter ${destinationBuilding?.shortName}`}
           </Text>
         </Pressable>
       )}

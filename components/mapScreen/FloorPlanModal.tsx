@@ -3,17 +3,17 @@ import { X } from "lucide-react-native";
 import { Image, Modal, Platform, Pressable, View } from "react-native";
 import Svg from "react-native-svg";
 import type { MapScreenStyles } from "../../styles/mapScreen.styles";
-import type { FloorPlanAsset } from "./mapScreen.helpers";
+
 
 type FloorPlanModalProps = Readonly<{
   visible: boolean;
-  activeFloorPlan: FloorPlanAsset;
+  activeFloorPlan: unknown;
   onClose: () => void;
   styles: MapScreenStyles;
 }>;
 
 function renderFloorPlanContent(
-  activeFloorPlan: FloorPlanAsset,
+  activeFloorPlan: unknown,
   styles: MapScreenStyles,
 ) {
   if (activeFloorPlan == null) return null;
