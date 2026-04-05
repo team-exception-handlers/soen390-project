@@ -210,4 +210,16 @@ describe("findNearestWashroomTarget", () => {
     });
     expect(result).not.toBeNull();
   });
+
+  test("returns null if no washrooms match the provided category", () => {
+    const result = findNearestWashroomTarget("unknown_category" as any, {
+      campusBuildings: sgwBuildings,
+      actualOriginPoint: null,
+      originBuildingCode: null,
+      originRoom: "",
+      destinationBuildingCode: null,
+      destinationRoom: "",
+    });
+    expect(result).toBeNull();
+  });
 });
