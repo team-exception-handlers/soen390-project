@@ -1577,39 +1577,42 @@ export default function MapScreen() {
                 const bounds = getFloorBounds(parsedKey.building, parsedKey.floor);
                 const graphBounds = getGraphFloorBounds(parsedKey.building, parsedKey.floor);
 
-                const renderSpecialNodeCircles = () =>
-                  specialNodes.map((node) => {
-                    const x = (node.x * bounds.width) / graphBounds.width;
-                    const y = (node.y * bounds.height) / graphBounds.height;
-                    const nodeColor = SPECIAL_NODE_COLORS[node.type];
-                    if (!nodeColor) return null;
-                    const isSelected = selectedFloorPlanNode?.id === node.id;
-                    return (
-                      <React.Fragment key={node.id}>
-                        {isSelected && (
-                          <Circle
-                            cx={x}
-                            cy={y}
-                            r={18}
-                            fill="none"
-                            stroke={nodeColor.fill}
-                            strokeWidth={3}
-                            opacity={0.6}
-                          />
-                        )}
+                const renderSpecialNode = (node: (typeof specialNodes)[number]) => {
+                  const x = (node.x * bounds.width) / graphBounds.width;
+                  const y = (node.y * bounds.height) / graphBounds.height;
+                  const nodeColor = SPECIAL_NODE_COLORS[node.type];
+                  if (!nodeColor) return null;
+                
+                  const isSelected = selectedFloorPlanNode?.id === node.id;
+                
+                  return (
+                    <React.Fragment key={node.id}>
+                      {isSelected && (
                         <Circle
                           cx={x}
                           cy={y}
-                          r={12}
-                          fill={nodeColor.fill}
-                          stroke={isSelected ? "#1F1F24" : "white"}
-                          strokeWidth={isSelected ? 3 : 2}
-                          opacity={0.9}
-                          onPress={() => handleFloorPlanNodePress(node)}
+                          r={18}
+                          fill="none"
+                          stroke={nodeColor.fill}
+                          strokeWidth={3}
+                          opacity={0.6}
                         />
-                      </React.Fragment>
-                    );
-                  });
+                      )}
+                      <Circle
+                        cx={x}
+                        cy={y}
+                        r={12}
+                        fill={nodeColor.fill}
+                        stroke={isSelected ? "#1F1F24" : "white"}
+                        strokeWidth={isSelected ? 3 : 2}
+                        opacity={0.9}
+                        onPress={() => handleFloorPlanNodePress(node)}
+                      />
+                    </React.Fragment>
+                  );
+                };
+                
+                const renderSpecialNodeCircles = () => specialNodes.map(renderSpecialNode);
 
                 if (Platform.OS === "web") {
                   return (

@@ -268,7 +268,24 @@ function connectVerticalNodesBySuffix(
     list.push(node);
     bySuffix.set(key, list);
   });
-
+  const shouldSkipInterFloorConnection = (
+    a: IndoorNode,
+    noStairs: boolean,
+    noEscalators: boolean,
+    noElevators: boolean,
+  ) => {
+    if (noStairs && a.type === "stair_landing") return true;
+    if (noEscalators && a.type === "escalator_landing") return true;
+    if (noElevators && a.type === "elevator_door") return true;
+    if (
+      a.type === "escalator_landing" &&
+      (a.direction === "up" || a.direction === "down")
+    ) {
+      return true;
+    }
+  
+    return false;
+  };
   bySuffix.forEach((connectedNodes) => {
     if (connectedNodes.length < 2) return;
     connectedNodes.sort((a, b) => a.floor - b.floor);
@@ -277,10 +294,16 @@ function connectVerticalNodesBySuffix(
       const a = connectedNodes[i];
       const b = connectedNodes[i + 1];
 
-      if (noStairs && a.type === "stair_landing") continue;
-      if (noEscalators && a.type === "escalator_landing") continue;
-      if (noElevators && a.type === "elevator_door") continue;
-      if (a.type === "escalator_landing" && (a.direction === "up" || a.direction === "down")) continue;
+      if (
+        shouldSkipInterFloorConnection(
+          a,
+          noStairs,
+          noEscalators,
+          noElevators,
+        )
+      ) {
+        continue;
+      }
 
       addBidirectionalEdge(adjacency, a.id, b.id, INTER_FLOOR_WEIGHT);
     }
@@ -425,6 +448,49 @@ class MinHeap {
  * When excludeVerticalTransit is true (same-floor), avoids elevator/stair nodes; if
  * no path exists without them, call again with false to allow a path through them.
  */
+const shouldSkipDijkstraNeighbor = (
+  neighbor: string,
+  visited: Set<string>,
+  hasRestrictions: boolean,
+  nodes: Map<string, IndoorNode>,
+  restrictToFloor: number | null,
+  restrictToBuildingId: string | null,
+  excludeVerticalTransit: boolean,
+) => {
+  if (visited.has(neighbor)) return true;
+
+  if (
+    hasRestrictions &&
+    !isNeighborAllowedUnderRestrictions(
+      nodes,
+      neighbor,
+      restrictToFloor,
+      restrictToBuildingId,
+      excludeVerticalTransit,
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+const relaxDijkstraNeighbor = (
+  current: string,
+  neighbor: string,
+  weight: number,
+  dist: Map<string, number>,
+  prev: Map<string, string | null>,
+  heap: { push: (id: string, priority: number) => void },
+) => {
+  const newDist = (dist.get(current) ?? 0) + weight;
+
+  if (newDist < (dist.get(neighbor) ?? Infinity)) {
+    dist.set(neighbor, newDist);
+    prev.set(neighbor, current);
+    heap.push(neighbor, newDist);
+  }
+};
 function dijkstra(
   nodes: Map<string, IndoorNode>,
   adjacency: Map<string, { neighbor: string; weight: number }[]>,
@@ -458,26 +524,22 @@ function dijkstra(
     if (current === endId) break;
 
     for (const { neighbor, weight } of adjacency.get(current) ?? []) {
-      if (visited.has(neighbor)) continue;
 
       if (
-        hasRestrictions &&
-        !isNeighborAllowedUnderRestrictions(
-          nodes,
+        shouldSkipDijkstraNeighbor(
           neighbor,
+          visited,
+          hasRestrictions,
+          nodes,
           restrictToFloor,
           restrictToBuildingId,
           excludeVerticalTransit,
         )
-      )
+      ) {
         continue;
-
-      const newDist = (dist.get(current) ?? 0) + weight;
-      if (newDist < (dist.get(neighbor) ?? Infinity)) {
-        dist.set(neighbor, newDist);
-        prev.set(neighbor, current);
-        heap.push(neighbor, newDist);
       }
+      
+      relaxDijkstraNeighbor(current, neighbor, weight, dist, prev, heap);
     }
   }
 
@@ -1422,6 +1484,40 @@ export function findIndoorRouteToNodeId(
     endNode,
   );
 }
+const findStartNode = (
+  nodes: Map<string, IndoorNode>,
+  buildingCode: string,
+  startRoomLabel: string,
+): IndoorNode | undefined => {
+  for (const node of nodes.values()) {
+    if (node.type !== "room") continue;
+    if (!buildingIdMatches(buildingCode, node.buildingId)) continue;
+
+    if (roomLabelMatches(buildingCode, node.label, startRoomLabel)) {
+      return node;
+    }
+  }
+
+  return undefined;
+};
+
+const findExitNodes = (
+  nodes: Map<string, IndoorNode>,
+  buildingCode: string,
+): IndoorNode[] => {
+  const exitNodes: IndoorNode[] = [];
+
+  for (const node of nodes.values()) {
+    if (
+      ENTRY_EXIT_NODE_TYPES.has(node.type) &&
+      buildingIdMatches(buildingCode, node.buildingId)
+    ) {
+      exitNodes.push(node);
+    }
+  }
+
+  return exitNodes;
+};
 
 /** Route from a room to the nearest building exit. Returns null if no exit nodes exist or no path found. */
 export function findRouteToNearestExit(
@@ -1436,23 +1532,10 @@ export function findRouteToNearestExit(
 
   const { nodes, adjacency } = buildGraph(floors, noStairs, noEscalators, noElevators);
 
-  let startNode: IndoorNode | undefined;
-  for (const node of nodes.values()) {
-    if (node.type !== "room") continue;
-    if (!buildingIdMatches(buildingCode, node.buildingId)) continue;
-    if (roomLabelMatches(buildingCode, node.label, startRoomLabel)) {
-      startNode = node;
-      break;
-    }
-  }
+  const startNode = findStartNode(nodes, buildingCode, startRoomLabel);
   if (!startNode) return null;
 
-  const exitNodes: IndoorNode[] = [];
-  for (const node of nodes.values()) {
-    if (ENTRY_EXIT_NODE_TYPES.has(node.type) && buildingIdMatches(buildingCode, node.buildingId)) {
-      exitNodes.push(node);
-    }
-  }
+  const exitNodes = findExitNodes(nodes, buildingCode);
   if (exitNodes.length === 0) return null;
 
   let bestResult: { path: string[]; distance: number } | null = null;
