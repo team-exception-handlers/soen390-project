@@ -59,8 +59,8 @@ function normalizeIndoorBuildingCode(buildingId: string): string {
 }
 
 function compareWashroomLabels(a: string, b: string): number {
-  const aNum = Number((a.match(/\d+/) ?? [])[0] ?? Number.POSITIVE_INFINITY);
-  const bNum = Number((b.match(/\d+/) ?? [])[0] ?? Number.POSITIVE_INFINITY);
+  const aNum = Number((/\d+/.exec(a) ?? [])[0] ?? Number.POSITIVE_INFINITY);
+  const bNum = Number((/\d+/.exec(b) ?? [])[0] ?? Number.POSITIVE_INFINITY);
   if (aNum !== bNum) return aNum - bNum;
   return a.localeCompare(b);
 }

@@ -35,7 +35,7 @@ export const getShuttleInfo = (campus: Campus, currentTime: Date): ShuttleInfo =
 
     const isFriday = dayOfWeek === 5;
     const dayType = isFriday ? 'friday' : 'mondayToThursday';
-    const dayScheduleRecord = shuttleSchedule.schedule[dayType as keyof typeof shuttleSchedule.schedule];
+    const dayScheduleRecord = shuttleSchedule.schedule[dayType];
     const schedule = dayScheduleRecord[campus as keyof typeof dayScheduleRecord];
 
     if (!schedule) {

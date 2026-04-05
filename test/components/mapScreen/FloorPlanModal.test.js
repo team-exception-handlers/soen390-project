@@ -173,4 +173,19 @@ describe("components/mapScreen/FloorPlanModal", () => {
     expect(findByType(tree, "FloorPlanGraphic").props.width).toBe(1024);
     expect(findByType(tree, "FloorPlanGraphic").props.height).toBe(1024);
   });
+
+  test("renders nothing when activeFloorPlan is null", () => {
+    const FloorPlanModal = loadFloorPlanModal("ios");
+    const tree = renderTree(
+      FloorPlanModal({
+        visible: true,
+        activeFloorPlan: null,
+        onClose: jest.fn(),
+        styles: createStyles(),
+      }),
+    );
+
+    expect(findByType(tree, "Image")).toBeNull();
+    expect(findByType(tree, "Svg")).toBeNull();
+  });
 });

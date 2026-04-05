@@ -248,12 +248,12 @@ export default function IndoorDirectionsModal({
 
   // Get special nodes (bathrooms, stairs, elevators, escalators) for the current floor
   const specialNodes =
-    effectiveFloor !== null ? getSpecialNodesForFloor(buildingCode, effectiveFloor) : [];
+    effectiveFloor === null ? [] : getSpecialNodesForFloor(buildingCode, effectiveFloor);
 
   const floorAsset =
-    effectiveFloor !== null
-      ? getFloorAsset(buildingCode, effectiveFloor)
-      : null;
+    effectiveFloor === null
+      ? null
+      : getFloorAsset(buildingCode, effectiveFloor);
 
   const bounds = computeBounds(effectiveFloor, floorBounds);
 
@@ -317,20 +317,15 @@ export default function IndoorDirectionsModal({
       return { sx, sy };
     }) ?? [];
   const lastSegmentPoints =
-    segmentsOnActiveFloor.length > 0
-      ? segmentsOnActiveFloor[segmentsOnActiveFloor.length - 1].points.map(
-        ({ x, y }) => {
-          const { sx, sy } = scalePoint(x, y);
-          return { sx, sy };
-        },
-      )
-      : [];
+    segmentsOnActiveFloor.at(-1)?.points.map(
+      ({ x, y }) => {
+        const { sx, sy } = scalePoint(x, y);
+        return { sx, sy };
+      },
+    ) ?? [];
 
   const startPoint = firstSegmentPoints[0] ?? null;
-  const endPoint =
-    lastSegmentPoints.length > 0
-      ? lastSegmentPoints[lastSegmentPoints.length - 1]
-      : null;
+  const endPoint = lastSegmentPoints.at(-1) ?? null;
 
   let floorPlanContent = null;
   if (!floorAsset) {
@@ -411,7 +406,7 @@ export default function IndoorDirectionsModal({
             </Text>
           </View>
 
-          {!effectiveRoute ? (
+          {effectiveRoute === null ? (
             <View style={styles.noPathContainer}>
               <Text style={styles.noPathTitle}>No Indoor Path Available</Text>
               <Text style={styles.noPathBody}>

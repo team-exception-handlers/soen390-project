@@ -40,7 +40,6 @@ import {
   resolveBuildingByCode,
   roundCoord,
   shouldShowBuildingPin,
-  type FloorPlanAsset,
 } from "../../components/mapScreen/mapScreen.helpers";
 import { BUILDINGS, type BuildingRecord, type Campus } from "../../constants/buildings";
 import LOY_POLYGONS from "../../constants/maps/outdoor/LOY-polygons";
@@ -101,7 +100,7 @@ type FloorPlanSvgComponent = React.ComponentType<{
 }>;
 
 const parseFloorPlanKey = (key: string): { building: string; floor: number } | null => {
-  const match = key.match(/^([A-Z]+)-(-?\d+)$/);
+  const match = /^([A-Z]+)-(-?\d+)$/.exec(key);
   if (!match) return null;
   const building = match[1];
   const floor = Number.parseInt(match[2], 10);
@@ -128,7 +127,7 @@ const getSpecialFloorNodeLabel = (
 };
 
 const renderFloorPlanAssetPreview = (
-  activeFloorPlan: Exclude<FloorPlanAsset, null>,
+  activeFloorPlan: unknown,
   imageStyle: unknown,
 ): React.ReactNode => {
   if (Platform.OS === "web" || typeof activeFloorPlan === "number") {
@@ -187,7 +186,7 @@ export default function MapScreen() {
     undefined,
   );
   const [floorPlanModalVisible, setFloorPlanModalVisible] = useState(false);
-  const [activeFloorPlan, setActiveFloorPlan] = useState<FloorPlanAsset>(null);
+  const [activeFloorPlan, setActiveFloorPlan] = useState<unknown>(null);
   const [selectedFloorPlanNode, setSelectedFloorPlanNode] = useState<SpecialFloorNode | null>(null);
   const [floorPlanDirectionsFromRoom, setFloorPlanDirectionsFromRoom] = useState("");
   const [floorPlanDirectionsPromptVisible, setFloorPlanDirectionsPromptVisible] = useState(false);
@@ -287,7 +286,7 @@ export default function MapScreen() {
   ).current;
 
   const [showPOIPanel, setShowPOIPanel] = useState(false);
-  const [, setPOIResults] = useState<POIResult[]>([]);
+
   const [destinationPOI, setDestinationPOI] = useState<POIResult | null>(null);
   const [washroomPickerBuilding, setWashroomPickerBuilding] = useState<
     string | null
@@ -710,7 +709,7 @@ export default function MapScreen() {
       });
       setWashroomPickerBuilding(null);
       setShowPOIPanel(false);
-      setPOIResults([]);
+
       if (target) {
         const washroomDisplayLabel =
           category === "male_washroom" ? "Men's Washroom" : "Women's Washroom";
@@ -1179,11 +1178,11 @@ export default function MapScreen() {
       {showPOIPanel && (
         <POISearchPanel
           userLocation={actualOriginPoint}
-          onResultsChange={setPOIResults}
+
           onSelectPOI={handlePOIPress}
           onClose={() => {
             setShowPOIPanel(false);
-            setPOIResults([]);
+
           }}
         />
       )}
@@ -1395,7 +1394,6 @@ export default function MapScreen() {
         style={styles.poiButton}
         onPress={() => {
           setShowPOIPanel((prev) => !prev);
-          if (showPOIPanel) setPOIResults([]);
         }}
       >
         <Text style={styles.poiButtonText}>

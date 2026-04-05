@@ -6,7 +6,7 @@ import type { TransitItinerary, TransitLeg } from "../utils/transitousDirections
 
 type Styles = Record<string, any>;
 
-type Props = {
+type Props = Readonly<{
     itinerary: TransitItinerary;
     styles: Styles;
     formatTime: (iso: string) => string;
@@ -18,7 +18,7 @@ type Props = {
     onToggleStops?: (stopKey: string) => void;
     /** key prefix to make stopKeys unique across lists */
     stopKeyPrefix: string;
-};
+}>;
 
 type TransitLegItemProps = Readonly<{
     leg: TransitLeg;
@@ -50,11 +50,11 @@ function RoutePill({
     mode,
     route,
     styles,
-}: {
+}: Readonly<{
     mode: string;
     route?: string;
     styles: Styles;
-}) {
+}>) {
     const pillStyle = getRoutePillStyle(mode, styles);
 
     return (
@@ -81,12 +81,12 @@ function IntermediateStopsList({
     styles,
     formatTime,
     borderColor = "#007AFF",
-}: {
+}: Readonly<{
     stops: { name: string; arrival: string }[];
     styles: Styles;
     formatTime: (iso: string) => string;
     borderColor?: string;
-}) {
+}>) {
     return (
         <View style={{ marginLeft: 60, marginTop: -8, marginBottom: 8 }}>
             {stops.map((stop, stopIdx) => (
@@ -122,12 +122,12 @@ function TimelineRow({
     center,
     right,
     styles,
-}: {
+}: Readonly<{
     left: React.ReactNode;
     center: React.ReactNode;
     right: React.ReactNode;
     styles: Styles;
-}) {
+}>) {
     return (
         <View style={styles.timelineContainer}>
             <View style={styles.timelineLeft}>{left}</View>

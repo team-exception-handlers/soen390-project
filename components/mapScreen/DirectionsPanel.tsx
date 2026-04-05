@@ -10,16 +10,15 @@ import {
   Text,
   TextInput,
   View,
-  type LayoutChangeEvent,
 } from "react-native";
 import type { BuildingRecord } from "../../constants/buildings";
 import type { MapScreenStyles } from "../../styles/mapScreen.styles";
 import type { RouteMode } from "../../types/map";
 import { RoomRecord } from "../../types/rooms";
-import type { FloorPlanAsset } from "./mapScreen.helpers";
+
 
 type EditingField = "from" | "to" | undefined;
-type GetFloorPlanAsset = (key: string) => FloorPlanAsset;
+type GetFloorPlanAsset = (key: string) => unknown;
 
 type RoomInputGroupProps = Readonly<{
   building: BuildingRecord | null;
@@ -125,9 +124,9 @@ function TransportModeSelector({
           >
             <Text style={[styles.modePillText, styles.modePillTextActive]}>
               Walk{" "}
-              {modeDurations.walking !== null
-                ? formatDuration(modeDurations.walking)
-                : "—"}
+              {modeDurations.walking === null
+                ? "—"
+                : formatDuration(modeDurations.walking)}
             </Text>
           </Pressable>
           <Text style={styles.sameCampusHint}>Same campus</Text>
@@ -155,9 +154,9 @@ function TransportModeSelector({
               ]}
             >
               Bike -{" "}
-              {modeDurations.walking !== null
-                ? formatDuration(modeDurations.walking)
-                : "—"}
+              {modeDurations.walking === null
+                ? "—"
+                : formatDuration(modeDurations.walking)}
             </Text>
           </Pressable>
           <Pressable
@@ -175,9 +174,9 @@ function TransportModeSelector({
               ]}
             >
               Car -{" "}
-              {modeDurations.driving !== null
-                ? formatDuration(modeDurations.driving)
-                : "—"}
+              {modeDurations.driving === null
+                ? "—"
+                : formatDuration(modeDurations.driving)}
             </Text>
           </Pressable>
         </View>
@@ -210,9 +209,9 @@ function TransportModeSelector({
               ]}
             >
               Public Transit -{" "}
-              {modeDurations.transit !== null
-                ? formatDuration(modeDurations.transit)
-                : "—"}
+              {modeDurations.transit === null
+                ? "—"
+                : formatDuration(modeDurations.transit)}
             </Text>
           </Pressable>
           <Pressable
@@ -536,7 +535,7 @@ export default function DirectionsPanel({
           <Text style={styles.indoorRouteButtonText}>
             {hasExitRoute === false
               ? "No Indoor Path Available"
-              : `Exit ${originBuilding!.shortName}`}
+              : `Exit ${originBuilding?.shortName}`}
           </Text>
         </Pressable>
       )}
@@ -562,7 +561,7 @@ export default function DirectionsPanel({
         >
           <Navigation size={14} color="#FFFFFF" strokeWidth={2.5} />
           <Text style={styles.indoorRouteButtonText}>
-            {`Enter ${destinationBuilding!.shortName}`}
+            {`Enter ${destinationBuilding?.shortName}`}
           </Text>
         </Pressable>
       )}

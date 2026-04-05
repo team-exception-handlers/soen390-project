@@ -305,7 +305,7 @@ describe("POISearchPanel", () => {
   it("renders results list with POI items", () => {
     const results = [
       { id: "10", name: "Cafe Latte", category: "cafe", latitude: 45.498, longitude: -73.579, distance: 0.15, address: "123 Main St" },
-      { id: "11", name: "Bean There", category: "cafe", latitude: 45.499, longitude: -73.580, distance: 0.35 },
+      { id: "11", name: "Bean There", category: "cafe", latitude: 45.499, longitude: -73.58, distance: 0.35 },
     ];
     const { tree } = render({ results, loading: false });
 
