@@ -10,16 +10,16 @@ import vl2 from "../constants/maps/indoor/vl2.json";
 import { RoomRecord } from "../types/rooms";
 
 const ALL_FILES = [
-  cc1,
-  hall1,
-  hall2,
-  hallCombined,
-  mbFloorsCombined,
-  ve1,
-  ve2,
-  vl1,
-  vl2,
-];
+  { data: cc1 },
+  { data: hall1 },
+  { data: hall2 },
+  { data: hallCombined, excludedHallFloors: new Set([1, 2]) },
+  { data: mbFloorsCombined },
+  { data: ve1 },
+  { data: ve2 },
+  { data: vl1 },
+  { data: vl2 },
+] as const;
 
 /** App building code "H" (Henry F. Hall) maps to JSON buildingId "Hall". MB includes S2 (MB-S2). */
 function buildingIdMatches(
@@ -35,6 +35,19 @@ function buildingIdMatches(
 
 function roomLabelPrefixForSearch(buildingCode: string): string {
   return buildingCode === "H" ? "H" : buildingCode;
+}
+
+function shouldIncludeNodeForBuilding(
+  file: (typeof ALL_FILES)[number],
+  buildingCode: string,
+  node: any,
+): boolean {
+  if (!buildingIdMatches(buildingCode, node.buildingId)) return false;
+
+  return !(
+    buildingCode === "H" &&
+    file.excludedHallFloors?.has(node.floor)
+  );
 }
 
 /**
@@ -77,10 +90,10 @@ export const getRoomsForBuilding = (buildingCode: string): string[] => {
   const seen = new Set<string>();
 
   for (const file of ALL_FILES) {
-    for (const node of (file as any).nodes) {
+    for (const node of file.data.nodes as any[]) {
       if (
         node.type === "room" &&
-        buildingIdMatches(buildingCode, node.buildingId)
+        shouldIncludeNodeForBuilding(file, buildingCode, node)
       ) {
         const label = node.label as string | undefined;
         if (label && !seen.has(label)) {
@@ -99,10 +112,10 @@ export const getRoomDetails = (
   roomNumber: string,
 ): RoomRecord | undefined => {
   for (const file of ALL_FILES) {
-    const roomNode = file.nodes.find(
+    const roomNode = file.data.nodes.find(
       (node: any) =>
         node.type === "room" &&
-        buildingIdMatches(buildingCode, node.buildingId) &&
+        shouldIncludeNodeForBuilding(file, buildingCode, node) &&
         roomLabelMatches(buildingCode, node.label, roomNumber),
     );
 

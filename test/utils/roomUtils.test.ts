@@ -52,6 +52,13 @@ describe("getRoomsForBuilding", () => {
     );
   });
 
+  test("filters out Hall floor 1/2 duplicate labels from the combined dataset", () => {
+    const rooms = getRoomsForBuilding("H");
+    expect(rooms).toContain("110");
+    expect(rooms).not.toContain("H-110");
+    expect(rooms).not.toContain("H--118-2");
+  });
+
   test("includes MB-S2 nodes when app building code is MB", () => {
     const rooms = getRoomsForBuilding("MB");
     expect(rooms.length).toBeGreaterThan(0);
